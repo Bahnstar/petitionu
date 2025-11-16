@@ -5,6 +5,64 @@
 
 
 
+export type UUID = string;
+export type UUIDv7 = string;
+
+// Organization Schema
+export type OrganizationResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "name" | "description" | "domain";
+  id: UUIDv7;
+  name: string | null;
+  description: string | null;
+  domain: string | null;
+};
+
+
+
+// User Schema
+export type UserResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email";
+  id: UUID;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+};
+
+
+
+// Preference Schema
+export type PreferenceResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "name" | "value";
+  id: UUIDv7;
+  name: string | null;
+  value: string | null;
+};
+
+
+
+// Petition Schema
+export type PetitionResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "title" | "description" | "status";
+  id: UUIDv7;
+  title: string | null;
+  description: string | null;
+  status: string | null;
+};
+
+
+
+// Comment Schema
+export type CommentResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "text" | "sentiment";
+  id: UUIDv7;
+  text: string | null;
+  sentiment: string | null;
+};
 
 
 
@@ -14,7 +72,154 @@
 
 
 
+export type OrganizationFilterInput = {
+  and?: Array<OrganizationFilterInput>;
+  or?: Array<OrganizationFilterInput>;
+  not?: Array<OrganizationFilterInput>;
 
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  name?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  description?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  domain?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+
+};
+export type UserFilterInput = {
+  and?: Array<UserFilterInput>;
+  or?: Array<UserFilterInput>;
+  not?: Array<UserFilterInput>;
+
+  id?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  firstName?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  lastName?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  email?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+
+};
+export type PreferenceFilterInput = {
+  and?: Array<PreferenceFilterInput>;
+  or?: Array<PreferenceFilterInput>;
+  not?: Array<PreferenceFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  name?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  value?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+
+};
+export type PetitionFilterInput = {
+  and?: Array<PetitionFilterInput>;
+  or?: Array<PetitionFilterInput>;
+  not?: Array<PetitionFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  title?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  description?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  status?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+
+};
+export type CommentFilterInput = {
+  and?: Array<CommentFilterInput>;
+  or?: Array<CommentFilterInput>;
+  not?: Array<CommentFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  text?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  sentiment?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+
+};
 
 
 // Utility Types
@@ -452,5 +657,701 @@ async function executeValidationRpcRequest<T>(
 
 
 
+export type GetOrganizationsFields = UnifiedFieldSelection<OrganizationResourceSchema>[];
+
+
+type InferGetOrganizationsResult<
+  Fields extends GetOrganizationsFields | undefined,
+  Page extends GetOrganizationsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<OrganizationResourceSchema, Fields>>, {
+  results: Array<InferResult<OrganizationResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<OrganizationResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetOrganizationsConfig = {
+  fields: GetOrganizationsFields;
+  filter?: OrganizationFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetOrganizationsResult<Fields extends GetOrganizationsFields, Page extends GetOrganizationsConfig["page"] = undefined> = | { success: true; data: InferGetOrganizationsResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function getOrganizations<Fields extends GetOrganizationsFields, Config extends GetOrganizationsConfig = GetOrganizationsConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetOrganizationsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_organizations",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetOrganizationsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateGetOrganizationsResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateGetOrganizations(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateGetOrganizationsResult> {
+  const payload = {
+    action: "get_organizations"
+  };
+
+  return executeValidationRpcRequest<ValidateGetOrganizationsResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetUsersFields = UnifiedFieldSelection<UserResourceSchema>[];
+
+
+type InferGetUsersResult<
+  Fields extends GetUsersFields | undefined,
+  Page extends GetUsersConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<UserResourceSchema, Fields>>, {
+  results: Array<InferResult<UserResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<UserResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetUsersConfig = {
+  fields: GetUsersFields;
+  filter?: UserFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetUsersResult<Fields extends GetUsersFields, Page extends GetUsersConfig["page"] = undefined> = | { success: true; data: InferGetUsersResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function getUsers<Fields extends GetUsersFields, Config extends GetUsersConfig = GetUsersConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetUsersResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_users",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetUsersResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateGetUsersResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateGetUsers(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateGetUsersResult> {
+  const payload = {
+    action: "get_users"
+  };
+
+  return executeValidationRpcRequest<ValidateGetUsersResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetPreferencesFields = UnifiedFieldSelection<PreferenceResourceSchema>[];
+
+
+type InferGetPreferencesResult<
+  Fields extends GetPreferencesFields | undefined,
+  Page extends GetPreferencesConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<PreferenceResourceSchema, Fields>>, {
+  results: Array<InferResult<PreferenceResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<PreferenceResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetPreferencesConfig = {
+  fields: GetPreferencesFields;
+  filter?: PreferenceFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetPreferencesResult<Fields extends GetPreferencesFields, Page extends GetPreferencesConfig["page"] = undefined> = | { success: true; data: InferGetPreferencesResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function getPreferences<Fields extends GetPreferencesFields, Config extends GetPreferencesConfig = GetPreferencesConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetPreferencesResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_preferences",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetPreferencesResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateGetPreferencesResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateGetPreferences(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateGetPreferencesResult> {
+  const payload = {
+    action: "get_preferences"
+  };
+
+  return executeValidationRpcRequest<ValidateGetPreferencesResult>(
+    payload,
+    config
+  );
+}
+
+
+export type ListPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+
+type InferListPetitionsResult<
+  Fields extends ListPetitionsFields | undefined,
+  Page extends ListPetitionsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<PetitionResourceSchema, Fields>>, {
+  results: Array<InferResult<PetitionResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<PetitionResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type ListPetitionsConfig = {
+  fields: ListPetitionsFields;
+  filter?: PetitionFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type ListPetitionsResult<Fields extends ListPetitionsFields, Page extends ListPetitionsConfig["page"] = undefined> = | { success: true; data: InferListPetitionsResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function listPetitions<Fields extends ListPetitionsFields, Config extends ListPetitionsConfig = ListPetitionsConfig>(
+  config: Config & { fields: Fields }
+): Promise<ListPetitionsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "list_petitions",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<ListPetitionsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateListPetitionsResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateListPetitions(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateListPetitionsResult> {
+  const payload = {
+    action: "list_petitions"
+  };
+
+  return executeValidationRpcRequest<ValidateListPetitionsResult>(
+    payload,
+    config
+  );
+}
+
+
+export type CreatePetitionInput = {
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+};
+
+export type CreatePetitionValidationErrors = {
+  title?: string[];
+  description?: string[];
+  status?: string[];
+};
+
+export type CreatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+type InferCreatePetitionResult<
+  Fields extends CreatePetitionFields | undefined,
+> = InferResult<PetitionResourceSchema, Fields>;
+
+export type CreatePetitionResult<Fields extends CreatePetitionFields | undefined = undefined> = | { success: true; data: InferCreatePetitionResult<Fields>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function createPetition<Fields extends CreatePetitionFields | undefined = undefined>(
+  config: {
+  input: CreatePetitionInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreatePetitionResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_petition",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreatePetitionResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateCreatePetitionResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateCreatePetition(
+  config: {
+  input: CreatePetitionInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateCreatePetitionResult> {
+  const payload = {
+    action: "create_petition",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidateCreatePetitionResult>(
+    payload,
+    config
+  );
+}
+
+
+export type ListCommentsFields = UnifiedFieldSelection<CommentResourceSchema>[];
+
+
+type InferListCommentsResult<
+  Fields extends ListCommentsFields | undefined,
+  Page extends ListCommentsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<CommentResourceSchema, Fields>>, {
+  results: Array<InferResult<CommentResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<CommentResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type ListCommentsConfig = {
+  fields: ListCommentsFields;
+  filter?: CommentFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type ListCommentsResult<Fields extends ListCommentsFields, Page extends ListCommentsConfig["page"] = undefined> = | { success: true; data: InferListCommentsResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function listComments<Fields extends ListCommentsFields, Config extends ListCommentsConfig = ListCommentsConfig>(
+  config: Config & { fields: Fields }
+): Promise<ListCommentsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "list_comments",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<ListCommentsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateListCommentsResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateListComments(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateListCommentsResult> {
+  const payload = {
+    action: "list_comments"
+  };
+
+  return executeValidationRpcRequest<ValidateListCommentsResult>(
+    payload,
+    config
+  );
+}
+
+
+export type CreateCommentFields = UnifiedFieldSelection<CommentResourceSchema>[];
+
+type InferCreateCommentResult<
+  Fields extends CreateCommentFields | undefined,
+> = InferResult<CommentResourceSchema, Fields>;
+
+export type CreateCommentResult<Fields extends CreateCommentFields | undefined = undefined> = | { success: true; data: InferCreateCommentResult<Fields>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function createComment<Fields extends CreateCommentFields | undefined = undefined>(
+  config: {
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreateCommentResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_comment",
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreateCommentResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateCreateCommentResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateCreateComment(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateCreateCommentResult> {
+  const payload = {
+    action: "create_comment"
+  };
+
+  return executeValidationRpcRequest<ValidateCreateCommentResult>(
+    payload,
+    config
+  );
+}
 
 

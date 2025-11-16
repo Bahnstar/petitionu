@@ -4,7 +4,7 @@ defmodule Petitionu.Accounts.User do
     domain: Petitionu.Accounts,
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer],
-    extensions: [AshAuthentication]
+    extensions: [AshAuthentication, AshTypescript.Resource]
 
   authentication do
     add_ons do
@@ -57,6 +57,10 @@ defmodule Petitionu.Accounts.User do
   postgres do
     table "users"
     repo Petitionu.Repo
+  end
+
+  typescript do
+    type_name "User"
   end
 
   actions do
@@ -267,6 +271,16 @@ defmodule Petitionu.Accounts.User do
   attributes do
     uuid_primary_key :id
 
+    attribute :first_name, :string do
+      allow_nil? true
+      public? true
+    end
+
+    attribute :last_name, :string do
+      allow_nil? true
+      public? true
+    end
+
     attribute :email, :ci_string do
       allow_nil? false
       public? true
@@ -277,6 +291,11 @@ defmodule Petitionu.Accounts.User do
     end
 
     attribute :confirmed_at, :utc_datetime_usec
+  end
+
+  relationships do
+    belongs_to :organization, Petitionu.Accounts.Organization
+    has_many :user_petitions, Petitionu.Post.UserPetition
   end
 
   identities do

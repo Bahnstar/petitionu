@@ -1,0 +1,10 @@
+{
+  "tailwindStylesheet": "./css/app.css",
+  "semi": false,
+  "singleQuote": false,
+  "printWidth": 100,
+  "trailingComma": "all",
+  "tabWidth": 2,
+  "bracketSpacing": true,
+  "bracketSameLine": false
+}

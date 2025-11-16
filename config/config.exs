@@ -84,7 +84,7 @@ config :spark,
 config :petitionu,
   ecto_repos: [Petitionu.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Petitionu.Accounts]
+  ash_domains: [Petitionu.Accounts, Petitionu.Post]
 
 # Configures the endpoint
 config :petitionu, PetitionuWeb.Endpoint,

@@ -20,15 +20,16 @@
 //
 // Feel free to adjust this configuration however you need.
 {
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "*": ["../deps/*"]
+    "compilerOptions": {
+        "lib": ["ES2022", "DOM"],
+        "esModuleInterop": true,
+        "jsx": "react-jsx",
+        "baseUrl": ".",
+        "paths": {
+            "*": ["../deps/*"]
+        },
+        "allowJs": true,
+        "noEmit": true
     },
-    "allowJs": true,
-    "noEmit": true
-  },
-  "include": ["js/**/*"]
+    "include": ["js/**/*"]
 }
