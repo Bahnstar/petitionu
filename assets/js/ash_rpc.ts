@@ -46,11 +46,14 @@ export type PreferenceResourceSchema = {
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status";
+  __primitiveFields: "id" | "title" | "description" | "status" | "category" | "goal" | "trending";
   id: UUIDv7;
   title: string | null;
   description: string | null;
   status: string | null;
+  category: string | null;
+  goal: number | null;
+  trending: boolean | null;
 };
 
 
@@ -189,6 +192,27 @@ export type PetitionFilterInput = {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
+  };
+
+  category?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  goal?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+  trending?: {
+    eq?: boolean;
+    notEq?: boolean;
   };
 
 
@@ -1093,12 +1117,16 @@ export type CreatePetitionInput = {
   title?: string | null;
   description?: string | null;
   status?: string | null;
+  category?: string | null;
+  goal?: number | null;
 };
 
 export type CreatePetitionValidationErrors = {
   title?: string[];
   description?: string[];
   status?: string[];
+  category?: string[];
+  goal?: string[];
 };
 
 export type CreatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
