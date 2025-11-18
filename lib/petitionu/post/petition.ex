@@ -14,11 +14,11 @@ defmodule Petitionu.Post.Petition do
   end
 
   actions do
-    defaults [:read, :create]
+    defaults [:read, :update, :destroy]
 
-    create :create_2 do
+    create :create do
       primary? true
-      accept [:title, :description, :status]
+      accept [:title, :description, :status, :category, :goal]
     end
   end
 
@@ -37,6 +37,20 @@ defmodule Petitionu.Post.Petition do
       public? true
     end
 
+    attribute :category, :string do
+      public? true
+    end
+
+    attribute :goal, :integer do
+      public? true
+      default 1000
+    end
+
+    attribute :trending, :boolean do
+      public? true
+      default false
+    end
+
     attribute :created_at, :utc_datetime_usec
     attribute :updated_at, :utc_datetime_usec
   end
@@ -44,6 +58,14 @@ defmodule Petitionu.Post.Petition do
   relationships do
     belongs_to :user, Petitionu.Accounts.User
     has_many :comments, Petitionu.Post.Comment
-    has_many :user_petitions, Petitionu.Post.UserPetition
+    # has_many :user_petitions, Petitionu.Post.UserPetition
+  end
+
+  calculations do
+    calculate :signatures, :integer, expr(count(user_petitions, relationship: :signee))
+
+    calculate :days_left, :integer, expr(greatest(0, 30 - date_diff(now(), created_at, :day)))
+
+    calculate :author, :string, expr(user.name)
   end
 end

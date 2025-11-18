@@ -1,4 +1,5 @@
 import { GraduationCap, User } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export function Header() {
   return (
@@ -7,41 +8,49 @@ export function Header() {
         <div className="flex items-center justify-between h-16 lg:h-20">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 lg:w-10 lg:h-10 bg-primary rounded-full flex items-center justify-center">
-              {/*<PenLine className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />*/}
               <GraduationCap className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />
             </div>
             <span className="text-lg lg:text-xl font-semibold text-foreground">PetitionU</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="#petitions"
+            <Link
+              to="/ash-typescript"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Home
+            </Link>
+            <Link
+              to="/ash-typescript/dashboard"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Dashboard
+            </Link>
+            <Link
+              to={`/ash-typescript/petitions`}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Browse Petitions
-            </a>
-            <a
-              href="#about"
+            </Link>
+            <Link
+              to={`/ash-typescript/create`}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              How It Works
-            </a>
-            <a
-              href="#impact"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Our Impact
-            </a>
+              Start a Petition
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
             <button className="text-muted-foreground">
               <User className="w-5 h-5" />
             </button>
-            <button className="bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">
+            <Link
+              to="/ash-typescript/create"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md"
+            >
               <span className="hidden sm:inline">Start a Petition</span>
               <span className="sm:hidden">Create</span>
-            </button>
+            </Link>
           </div>
         </div>
       </div>

@@ -40,6 +40,7 @@ defmodule PetitionuWeb.Router do
     post "/rpc/run", AshTypescriptRpcController, :run
     post "/rpc/validate", AshTypescriptRpcController, :validate
     get "/ash-typescript", PageController, :index
+    get "/ash-typescript/*path", PageController, :index
   end
 
   scope "/api/json" do

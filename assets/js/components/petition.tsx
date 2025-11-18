@@ -88,14 +88,12 @@ Other peer institutions have successfully implemented extended library hours dur
   ],
 })
 
-export default function PetitionPage({ params }: { params: { id: string } }) {
-  const petition = getPetition(params.id)
+export default function PetitionIndexPage() {
+  const petition = getPetition("1")
   const progress = (petition.signatures / petition.goal) * 100
 
   return (
     <main className="min-h-screen">
-      <Header />
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumb */}
         <div className="text-sm text-muted-foreground mb-6">
