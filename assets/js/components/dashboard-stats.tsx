@@ -1,4 +1,4 @@
-// import { Card } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { FileText, Users, TrendingUp, Award } from "lucide-react"
 
 export function DashboardStats() {
@@ -36,8 +36,7 @@ export function DashboardStats() {
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
-        // was card
-        <div
+        <Card
           key={stat.label}
           className="p-6 hover:shadow-lg transition-all duration-300 border-border animate-in fade-in slide-in-from-bottom-4"
           style={{ animationDelay: `${index * 100}ms`, animationFillMode: "backwards" }}
@@ -52,7 +51,7 @@ export function DashboardStats() {
           <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
           <div className="text-sm text-muted-foreground mb-1">{stat.label}</div>
           <div className="text-xs text-muted-foreground">{stat.change}</div>
-        </div>
+        </Card>
       ))}
     </div>
   )

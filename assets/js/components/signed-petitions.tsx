@@ -1,4 +1,8 @@
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { Users, TrendingUp } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function SignedPetitions() {
   const petitions = [
@@ -32,11 +36,12 @@ export function SignedPetitions() {
   ]
 
   return (
-    // was card
-    <div className="p-6">
+    <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-foreground">Petitions You've Signed</h2>
-        <button>View All</button>
+        <Button variant="ghost" size="sm">
+          View All
+        </Button>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -47,14 +52,14 @@ export function SignedPetitions() {
             // <Link key={petition.id} href={`/petition/${petition.id}`} className="block group">
             <div className="p-4 rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 bg-card h-full">
               <div className="flex items-start gap-2 mb-3">
-                {/*<Badge variant="secondary" className="text-xs">*/}
-                {petition.category}
-                {/*</Badge>*/}
+                <Badge variant="secondary" className="text-xs">
+                  {petition.category}
+                </Badge>
                 {petition.trending && (
-                  // <Badge variant="default" className="text-xs bg-primary text-primary-foreground">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  // Trending
-                  // </Badge>
+                  <Badge variant="default" className="text-xs bg-primary text-primary-foreground">
+                    <TrendingUp className="w-3 h-3 mr-1" />
+                    Trending
+                  </Badge>
                 )}
               </div>
 
@@ -73,13 +78,13 @@ export function SignedPetitions() {
                   <span className="text-muted-foreground font-medium">{Math.round(progress)}%</span>
                 </div>
 
-                {/*<Progress value={progress} className="h-1.5" />*/}
+                <Progress value={progress} className="h-1.5" />
               </div>
             </div>
             // </Link>
           )
         })}
       </div>
-    </div>
+    </Card>
   )
 }

@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card"
 import { Clock, MessageCircle, UserPlus, FileText } from "lucide-react"
 
 export function RecentActivity() {
@@ -37,8 +38,7 @@ export function RecentActivity() {
   ]
 
   return (
-    // was card
-    <div className="p-6">
+    <Card className="p-6">
       <div className="flex items-center gap-2 mb-4">
         <Clock className="w-5 h-5 text-muted-foreground" />
         <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
@@ -62,6 +62,6 @@ export function RecentActivity() {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }

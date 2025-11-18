@@ -1,3 +1,5 @@
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Users } from "lucide-react"
 
 interface TrendingAtSchoolProps {
@@ -33,8 +35,7 @@ export function TrendingAtSchool({ school }: TrendingAtSchoolProps) {
   ]
 
   return (
-    // was card
-    <div className="p-6 sticky top-24">
+    <Card className="p-6 sticky top-24">
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp className="w-5 h-5 text-primary" />
         <h2 className="text-xl font-bold text-foreground">Trending at {school}</h2>
@@ -45,12 +46,12 @@ export function TrendingAtSchool({ school }: TrendingAtSchoolProps) {
           // <Link key={petition.id} href={`/petition/${petition.id}`} className="block group">
           <div className="p-3 rounded-lg hover:bg-accent transition-colors">
             <div className="flex items-start gap-3">
-              {/*<Badge
-                  variant="outline"
-                  className="shrink-0 w-6 h-6 flex items-center justify-center p-0 text-xs"
-                >*/}
-              {/*{index + 1}*/}
-              {/*</Badge>*/}
+              <Badge
+                variant="outline"
+                className="shrink-0 w-6 h-6 flex items-center justify-center p-0 text-xs"
+              >
+                {index + 1}
+              </Badge>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors mb-1 text-balance leading-snug">
                   {petition.title}
@@ -68,6 +69,6 @@ export function TrendingAtSchool({ school }: TrendingAtSchoolProps) {
           // </Link>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
