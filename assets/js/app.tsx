@@ -2,10 +2,10 @@ import React from "react"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { Header } from "./components/header"
 import { HomePage } from "./components/home-page"
-import { PetitionsPage } from "./components/petitions-page"
-import { CreatePetitionPage } from "./components/create-petition-page"
 import PetitionIndexPage from "./components/petition"
 import DashboardPage from "./components/dashboard-page"
+import BrowsePetitionsPage from "./components/browse-petitions-page"
+import CreatePetitionPage from "./components/create-petition-page"
 
 export const App = () => {
   const defaultPath = "/ash-typescript"
@@ -15,7 +15,7 @@ export const App = () => {
         <Header />
         <Routes>
           <Route path={defaultPath} element={<HomePage />} />
-          <Route path={`${defaultPath}/petitions`} element={<PetitionsPage />} />
+          <Route path={`${defaultPath}/petitions`} element={<BrowsePetitionsPage />} />
           <Route path={`${defaultPath}/petitions/:id`} element={<PetitionIndexPage />} />
           <Route path={`${defaultPath}/create`} element={<CreatePetitionPage />} />
           <Route path={`${defaultPath}/dashboard`} element={<DashboardPage />} />
