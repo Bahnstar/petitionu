@@ -4,8 +4,30 @@ import { UserPetitions } from "./user-petitions"
 import { SignedPetitions } from "./signed-petitions"
 import { TrendingAtSchool } from "./trending-at-school"
 import { RecentActivity } from "./recent-activity"
+import { useEffect, useState } from "react"
+import { buildCSRFHeaders, listPetitions } from "../ash_rpc"
 
 export default function Dashboard() {
+  console.log("blah goober")
+  const [petitions, setPetitions] = useState()
+  useEffect(() => {
+    const fetchPetitions = async () => {
+      const getPetitions = await listPetitions({
+        fields: ["id", "title", "description"],
+        headers: buildCSRFHeaders(),
+      })
+
+      if (!getPetitions.success) {
+        console.error("Failed to fetch petitions:", getPetitions)
+        return
+      }
+
+      console.log(getPetitions.data)
+      setPetitions(getPetitions.data)
+    }
+    fetchPetitions()
+  }, [])
+
   // Mock user data - would come from authentication in real app
   const user = {
     name: "Sarah Chen",

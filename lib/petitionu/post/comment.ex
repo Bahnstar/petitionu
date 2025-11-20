@@ -14,7 +14,28 @@ defmodule Petitionu.Post.Comment do
   end
 
   actions do
-    defaults [:read, :create]
+    defaults [:read, :destroy]
+
+    create :create do
+      primary? true
+      accept [:text, :parent_comment_id]
+
+      argument :petition_id, :uuid do
+        allow_nil? false
+      end
+
+      argument :user_id, :uuid do
+        allow_nil? false
+      end
+
+      change manage_relationship(:petition_id, :petition, type: :append_and_remove)
+      change manage_relationship(:user_id, :user, type: :append_and_remove)
+    end
+
+    update :update do
+      primary? true
+      accept [:text]
+    end
   end
 
   attributes do
@@ -28,8 +49,9 @@ defmodule Petitionu.Post.Comment do
       public? true
     end
 
-    attribute :created_at, :utc_datetime_usec
-    attribute :updated_at, :utc_datetime_usec
+    attribute :parent_comment_id, :uuid_v7, allow_nil?: true
+
+    timestamps()
   end
 
   relationships do

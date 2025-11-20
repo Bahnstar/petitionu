@@ -18,7 +18,11 @@ defmodule Petitionu.Post.Petition do
 
     create :create do
       primary? true
-      accept [:title, :description, :status, :category, :goal]
+      accept [:title, :description, :status, :goal, :deadline]
+    end
+
+    read :get_by_id do
+      get_by :id
     end
   end
 
@@ -33,11 +37,9 @@ defmodule Petitionu.Post.Petition do
       public? true
     end
 
-    attribute :status, :string do
-      public? true
-    end
-
-    attribute :category, :string do
+    attribute :status, :atom do
+      constraints one_of: [:open, :closed, :victory]
+      default :open
       public? true
     end
 
@@ -46,26 +48,65 @@ defmodule Petitionu.Post.Petition do
       default 1000
     end
 
-    attribute :trending, :boolean do
+    attribute :allow_comments, :boolean do
+      public? true
+      default true
+    end
+
+    attribute :is_anonymous, :boolean do
       public? true
       default false
     end
 
-    attribute :created_at, :utc_datetime_usec
-    attribute :updated_at, :utc_datetime_usec
+    attribute :deadline, :utc_datetime do
+      public? true
+      allow_nil? true
+    end
+
+    timestamps()
   end
 
   relationships do
-    belongs_to :user, Petitionu.Accounts.User
-    has_many :comments, Petitionu.Post.Comment
+    belongs_to :user, Petitionu.Accounts.User do
+      public? true
+      attribute_public? true
+    end
+
+    belongs_to :category, Petitionu.Post.Category do
+      public? true
+      attribute_public? true
+    end
+
+    has_many :comments, Petitionu.Post.Comment do
+      public? true
+    end
+
+    has_many :signatures, Petitionu.Post.Signature do
+      public? true
+    end
+
     # has_many :user_petitions, Petitionu.Post.UserPetition
   end
 
   calculations do
-    calculate :signatures, :integer, expr(count(user_petitions, relationship: :signee))
+    calculate :signatures_count, :integer, expr(count(signatures)) do
+      public? true
+    end
 
-    calculate :days_left, :integer, expr(greatest(0, 30 - date_diff(now(), created_at, :day)))
+    calculate :days_left,
+              :integer,
+              expr(
+                if is_nil(deadline) do
+                  fragment("30 - EXTRACT(DAY FROM (? - ?))::integer", now(), inserted_at)
+                else
+                  fragment("EXTRACT(DAY FROM (? - ?))::integer", deadline, now())
+                end
+              ) do
+      public? true
+    end
 
-    calculate :author, :string, expr(user.name)
+    calculate :author, :string, expr(user.first_name <> " " <> user.last_name) do
+      public? true
+    end
   end
 end

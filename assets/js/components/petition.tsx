@@ -1,6 +1,7 @@
-import { Header } from "./header"
-// import { Footer } from "./footer"
 import { User, Calendar, TrendingUp, Share2, Flag, CheckCircle2, Clock } from "lucide-react"
+import { useParams } from "react-router-dom"
+import { buildCSRFHeaders, getPetitionById, listPetitions, SuccessDataFunc } from "../ash_rpc"
+import { useEffect, useState } from "react"
 
 // Mock data - in a real app, this would fetch based on the id
 const getPetition = (id: string) => ({
@@ -89,8 +90,68 @@ Other peer institutions have successfully implemented extended library hours dur
 })
 
 export default function PetitionIndexPage() {
-  const petition = getPetition("1")
-  const progress = (petition.signatures / petition.goal) * 100
+  const [petition, setPetition] = useState<Partial<SuccessDataFunc<typeof getPetitionById>>>()
+  const { id } = useParams()
+  useEffect(() => {
+    const fetchPetition = async () => {
+      //   const result = await getPetitionById({
+      //     fields: [
+      //       "id",
+      //       "title",
+      //       "description",
+      //       "status",
+      //       "goal",
+      //       "daysLeft",
+      //       "signatureCount",
+      //       "author",
+      //       "allowComments",
+      //       "deadline",
+      //       "isAnonymous",
+      //       "signatureCount",
+      //     ],
+      //     fetchOptions: { id },
+      //   })
+      //   if (result.success) {
+      //     setPetition(result.data as SuccessDataFunc<typeof getPetitionById>)
+      //   }
+      // }
+      const result = await listPetitions({
+        fields: [
+          "id",
+          "title",
+          "description",
+          "status",
+          "goal",
+          "daysLeft",
+          "author",
+          "allowComments",
+          "deadline",
+          "isAnonymous",
+          "signaturesCount",
+          "userId",
+          "categoryId",
+          {
+            category: ["id", "name", "description", "color"],
+            comments: ["id", "sentiment", "text"],
+            signatures: ["id", "reason"],
+          },
+        ],
+        input: { id: id },
+        headers: buildCSRFHeaders(),
+      })
+      if (result.success) {
+        console.log(result.data)
+        setPetition(result.data[0])
+      }
+    }
+    fetchPetition()
+  }, [])
+
+  if (!petition) {
+    return <div>Loading...</div>
+  }
+
+  const progress = (petition.signaturesCount / petition.goal) * 100
 
   return (
     <main className="min-h-screen">
@@ -111,14 +172,14 @@ export default function PetitionIndexPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                  {petition.category}
+                  {petition.category.name ? petition.category.name : "General"}
                 </span>
-                {petition.trending && (
+                {/*{petition.trending && (
                   <div className="flex items-center gap-1 text-primary">
                     <TrendingUp className="w-4 h-4" />
                     <span className="text-xs font-medium">Trending</span>
                   </div>
-                )}
+                )}*/}
               </div>
 
               <h1 className="text-4xl font-bold text-foreground mb-4 text-balance leading-tight">
@@ -131,12 +192,12 @@ export default function PetitionIndexPage() {
                   <div>
                     <span className="font-medium text-foreground">{petition.author}</span>
                     <span className="mx-1">•</span>
-                    <span>{petition.authorRole}</span>
+                    {/*<span>{petition.authorRole}</span>*/}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  <span>Started {new Date(petition.createdAt).toLocaleDateString()}</span>
+                  <span>Started {new Date(petition.deadline).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
@@ -154,7 +215,7 @@ export default function PetitionIndexPage() {
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-4">Updates</h2>
               <div className="space-y-4">
-                {petition.updates.map((update, index) => (
+                {/*{petition.updates.map((update, index) => (
                   <div key={index} className="bg-card border border-border rounded-lg p-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -162,8 +223,8 @@ export default function PetitionIndexPage() {
                     </div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{update.title}</h3>
                     <p className="text-muted-foreground leading-relaxed">{update.content}</p>
-                  </div>
-                ))}
+                  </div>*/}
+                {/*))}*/}
               </div>
             </div>
 
@@ -171,31 +232,33 @@ export default function PetitionIndexPage() {
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-4">Recent Signatures</h2>
               <div className="bg-card border border-border rounded-lg divide-y divide-border">
-                {petition.recentSignatures.map((signature, index) => (
-                  <div key={index} className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-foreground">{signature.name}</p>
-                        {signature.comment && (
-                          <p className="text-sm text-muted-foreground mt-1 italic">
-                            "{signature.comment}"
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        <span>{signature.time}</span>
+                {petition.signatures
+                  .filter((_, index) => index < 5)
+                  .map((signature, index) => (
+                    <div key={index} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium text-foreground">{signature.userAgent}</p>
+                          {signature.reason && (
+                            <p className="text-sm text-muted-foreground mt-1 italic">
+                              "{signature.reason}"
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          {/*<span>{signature.time}</span>*/}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
             {/* Comments Section */}
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                Comments ({petition.comments.length})
+                {/*Comments ({petition.comments.length})*/}
               </h2>
 
               {/* Comment Form */}
@@ -225,17 +288,17 @@ export default function PetitionIndexPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-foreground">{comment.author}</span>
+                          {/*<span className="font-semibold text-foreground">{comment.author}</span>*/}
                           <span className="text-xs text-muted-foreground">•</span>
-                          <span className="text-xs text-muted-foreground">{comment.role}</span>
+                          {/*<span className="text-xs text-muted-foreground">{comment.role}</span>*/}
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="w-3 h-3" />
-                          <span>{comment.time}</span>
+                          {/*<span>{comment.time}</span>*/}
                         </div>
                       </div>
                     </div>
-                    <p className="text-foreground leading-relaxed mb-4">{comment.content}</p>
+                    <p className="text-foreground leading-relaxed mb-4">{comment.text}</p>
                     <div className="flex items-center gap-4">
                       <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
                         <svg
@@ -251,7 +314,7 @@ export default function PetitionIndexPage() {
                             d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
                           />
                         </svg>
-                        <span>{comment.likes}</span>
+                        {/*<span>{comment.likes}</span>*/}
                       </button>
                       <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                         Reply
@@ -271,7 +334,7 @@ export default function PetitionIndexPage() {
                 <div className="space-y-4 mb-6">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-3xl font-bold text-foreground">
-                      {petition.signatures.toLocaleString()}
+                      {/*{petition.signatures.toLocaleString()}*/}
                     </span>
                     <span className="text-muted-foreground">{petition.daysLeft} days left</span>
                   </div>

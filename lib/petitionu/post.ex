@@ -5,12 +5,22 @@ defmodule Petitionu.Post do
   typescript_rpc do
     resource Petitionu.Post.Petition do
       rpc_action :list_petitions, :read
+      rpc_action :get_petition_by_id, :get_by_id
       rpc_action :create_petition, :create
+    end
+
+    resource Petitionu.Post.Signature do
+      rpc_action :list_signatures, :read
+      rpc_action :create_signature, :create
     end
 
     resource Petitionu.Post.Comment do
       rpc_action :list_comments, :read
       rpc_action :create_comment, :create
+    end
+
+    resource Petitionu.Post.Category do
+      rpc_action :list_categories, :read
     end
 
     # resource Petitionu.Post.UserPetition do
@@ -21,7 +31,9 @@ defmodule Petitionu.Post do
 
   resources do
     resource Petitionu.Post.Petition
+    resource Petitionu.Post.Signature
     resource Petitionu.Post.Comment
+    resource Petitionu.Post.Category
     # resource Petitionu.Post.UserPetition
   end
 end

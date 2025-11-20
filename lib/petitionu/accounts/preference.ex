@@ -28,8 +28,7 @@ defmodule Petitionu.Accounts.Preference do
       public? true
     end
 
-    attribute :created_at, :utc_datetime_usec
-    attribute :updated_at, :utc_datetime_usec
+    timestamps()
   end
 
   relationships do

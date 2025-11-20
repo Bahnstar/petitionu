@@ -63,6 +63,10 @@ defmodule Petitionu.Accounts.User do
     type_name "User"
   end
 
+  code_interface do
+    define :get_by_email, args: [:email]
+  end
+
   actions do
     defaults [:read]
 
@@ -201,6 +205,11 @@ defmodule Petitionu.Accounts.User do
       get_by :email
     end
 
+    update :update do
+      primary? true
+      accept [:first_name, :last_name, :student_id, :graduation_year]
+    end
+
     update :reset_password_with_token do
       argument :reset_token, :string do
         allow_nil? false
@@ -290,12 +299,23 @@ defmodule Petitionu.Accounts.User do
       sensitive? true
     end
 
+    attribute :student_id, :string do
+      allow_nil? true
+    end
+
+    attribute :graduation_year, :integer do
+      allow_nil? true
+      public? true
+    end
+
     attribute :confirmed_at, :utc_datetime_usec
+
+    timestamps()
   end
 
   relationships do
     belongs_to :organization, Petitionu.Accounts.Organization
-    has_many :user_petitions, Petitionu.Post.UserPetition
+    has_many :signatures, Petitionu.Post.Signature
   end
 
   identities do

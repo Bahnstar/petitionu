@@ -1,16 +1,16 @@
-defmodule Petitionu.Accounts.Organization do
+defmodule Petitionu.Post.Category do
   use Ash.Resource,
-    domain: Petitionu.Accounts,
+    domain: Petitionu.Post,
     data_layer: AshPostgres.DataLayer,
     extensions: [AshTypescript.Resource]
 
   postgres do
-    table "organization"
+    table "category"
     repo Petitionu.Repo
   end
 
   typescript do
-    type_name "Organization"
+    type_name "Category"
   end
 
   actions do
@@ -18,12 +18,18 @@ defmodule Petitionu.Accounts.Organization do
 
     create :create do
       primary? true
-      accept [:name, :description, :domain, :logo_url, :allow_public_signatures]
+      accept [:name, :description, :color]
+
+      argument :organization_id, :uuid do
+        allow_nil? false
+      end
+
+      change manage_relationship(:organization_id, :organization, type: :append_and_remove)
     end
 
     update :update do
       primary? true
-      accept [:name, :description, :domain, :logo_url, :allow_public_signatures]
+      accept [:name, :description, :color]
     end
   end
 
@@ -36,26 +42,18 @@ defmodule Petitionu.Accounts.Organization do
 
     attribute :description, :string do
       public? true
-    end
-
-    attribute :domain, :string do
-      public? true
-    end
-
-    attribute :logo_url, :string do
-      public? true
       allow_nil? true
     end
 
-    attribute :allow_public_signatures, :boolean do
+    attribute :color, :string do
       public? true
-      default false
+      default "#00683d"
     end
 
     timestamps()
   end
 
   relationships do
-    has_many :users, Petitionu.Accounts.User
+    belongs_to :organization, Petitionu.Accounts.Organization
   end
 end

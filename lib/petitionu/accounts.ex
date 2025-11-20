@@ -17,6 +17,10 @@ defmodule Petitionu.Accounts do
     resource Petitionu.Accounts.Preference do
       rpc_action :get_preferences, :read
     end
+
+    resource Petitionu.Accounts.Notification do
+      rpc_action :get_notifications, :read
+    end
   end
 
   resources do
@@ -24,5 +28,6 @@ defmodule Petitionu.Accounts do
     resource Petitionu.Accounts.User
     resource Petitionu.Accounts.Organization
     resource Petitionu.Accounts.Preference
+    resource Petitionu.Accounts.Notification
   end
 end

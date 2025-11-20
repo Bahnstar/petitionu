@@ -7,15 +7,18 @@
 
 export type UUID = string;
 export type UUIDv7 = string;
+export type UtcDateTime = string;
 
 // Organization Schema
 export type OrganizationResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "domain";
+  __primitiveFields: "id" | "name" | "description" | "domain" | "logoUrl" | "allowPublicSignatures";
   id: UUIDv7;
   name: string | null;
   description: string | null;
   domain: string | null;
+  logoUrl: string | null;
+  allowPublicSignatures: boolean | null;
 };
 
 
@@ -23,11 +26,12 @@ export type OrganizationResourceSchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
   email: string;
+  graduationYear: number | null;
 };
 
 
@@ -43,17 +47,52 @@ export type PreferenceResourceSchema = {
 
 
 
+// Notification Schema
+export type NotificationResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "title" | "body" | "status";
+  id: UUIDv7;
+  title: string;
+  body: string | null;
+  status: "unread" | "read" | "archived";
+};
+
+
+
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "category" | "goal" | "trending";
+  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "userId" | "categoryId" | "signaturesCount" | "daysLeft" | "author";
   id: UUIDv7;
   title: string | null;
   description: string | null;
-  status: string | null;
-  category: string | null;
+  status: "open" | "closed" | "victory" | null;
   goal: number | null;
-  trending: boolean | null;
+  allowComments: boolean | null;
+  isAnonymous: boolean | null;
+  deadline: UtcDateTime | null;
+  userId: UUID | null;
+  categoryId: UUID | null;
+  signaturesCount: number | null;
+  daysLeft: number | null;
+  author: string | null;
+  user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
+  category: { __type: "Relationship"; __resource: CategoryResourceSchema | null; };
+  comments: { __type: "Relationship"; __array: true; __resource: CommentResourceSchema; };
+  signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
+};
+
+
+
+// Signature Schema
+export type SignatureResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified";
+  id: UUIDv7;
+  reason: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  isVerified: boolean | null;
 };
 
 
@@ -65,6 +104,18 @@ export type CommentResourceSchema = {
   id: UUIDv7;
   text: string | null;
   sentiment: string | null;
+};
+
+
+
+// Category Schema
+export type CategoryResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "name" | "description" | "color";
+  id: UUIDv7;
+  name: string | null;
+  description: string | null;
+  color: string | null;
 };
 
 
@@ -104,6 +155,17 @@ export type OrganizationFilterInput = {
     in?: Array<string>;
   };
 
+  logoUrl?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  allowPublicSignatures?: {
+    eq?: boolean;
+    notEq?: boolean;
+  };
+
 
 
 };
@@ -136,6 +198,16 @@ export type UserFilterInput = {
     in?: Array<string>;
   };
 
+  graduationYear?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
 
 
 };
@@ -165,6 +237,38 @@ export type PreferenceFilterInput = {
 
 
 };
+export type NotificationFilterInput = {
+  and?: Array<NotificationFilterInput>;
+  or?: Array<NotificationFilterInput>;
+  not?: Array<NotificationFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  title?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  body?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  status?: {
+    eq?: "unread" | "read" | "archived";
+    notEq?: "unread" | "read" | "archived";
+    in?: Array<"unread" | "read" | "archived">;
+  };
+
+
+
+};
 export type PetitionFilterInput = {
   and?: Array<PetitionFilterInput>;
   or?: Array<PetitionFilterInput>;
@@ -189,15 +293,9 @@ export type PetitionFilterInput = {
   };
 
   status?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-  };
-
-  category?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
+    eq?: "open" | "closed" | "victory";
+    notEq?: "open" | "closed" | "victory";
+    in?: Array<"open" | "closed" | "victory">;
   };
 
   goal?: {
@@ -210,7 +308,104 @@ export type PetitionFilterInput = {
     in?: Array<number>;
   };
 
-  trending?: {
+  allowComments?: {
+    eq?: boolean;
+    notEq?: boolean;
+  };
+
+  isAnonymous?: {
+    eq?: boolean;
+    notEq?: boolean;
+  };
+
+  deadline?: {
+    eq?: UtcDateTime;
+    notEq?: UtcDateTime;
+    greaterThan?: UtcDateTime;
+    greaterThanOrEqual?: UtcDateTime;
+    lessThan?: UtcDateTime;
+    lessThanOrEqual?: UtcDateTime;
+    in?: Array<UtcDateTime>;
+  };
+
+  userId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  categoryId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  signaturesCount?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+  daysLeft?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+  author?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+  user?: UserFilterInput;
+
+  category?: CategoryFilterInput;
+
+  comments?: CommentFilterInput;
+
+  signatures?: SignatureFilterInput;
+
+};
+export type SignatureFilterInput = {
+  and?: Array<SignatureFilterInput>;
+  or?: Array<SignatureFilterInput>;
+  not?: Array<SignatureFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  reason?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  ipAddress?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  userAgent?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  isVerified?: {
     eq?: boolean;
     notEq?: boolean;
   };
@@ -236,6 +431,38 @@ export type CommentFilterInput = {
   };
 
   sentiment?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
+
+};
+export type CategoryFilterInput = {
+  and?: Array<CategoryFilterInput>;
+  or?: Array<CategoryFilterInput>;
+  not?: Array<CategoryFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  name?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  description?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  color?: {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
@@ -1005,6 +1232,114 @@ export async function validateGetPreferences(
 }
 
 
+export type GetNotificationsFields = UnifiedFieldSelection<NotificationResourceSchema>[];
+
+
+type InferGetNotificationsResult<
+  Fields extends GetNotificationsFields | undefined,
+  Page extends GetNotificationsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<NotificationResourceSchema, Fields>>, {
+  results: Array<InferResult<NotificationResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<NotificationResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetNotificationsConfig = {
+  fields: GetNotificationsFields;
+  filter?: NotificationFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetNotificationsResult<Fields extends GetNotificationsFields, Page extends GetNotificationsConfig["page"] = undefined> = | { success: true; data: InferGetNotificationsResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function getNotifications<Fields extends GetNotificationsFields, Config extends GetNotificationsConfig = GetNotificationsConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetNotificationsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_notifications",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetNotificationsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateGetNotificationsResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateGetNotifications(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateGetNotificationsResult> {
+  const payload = {
+    action: "get_notifications"
+  };
+
+  return executeValidationRpcRequest<ValidateGetNotificationsResult>(
+    payload,
+    config
+  );
+}
+
+
 export type ListPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
 
 
@@ -1113,20 +1448,102 @@ export async function validateListPetitions(
 }
 
 
+export type GetPetitionByIdInput = {
+  id?: UUIDv7;
+};
+
+export type GetPetitionByIdValidationErrors = {
+  id?: string[];
+};
+
+export type GetPetitionByIdFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+type InferGetPetitionByIdResult<
+  Fields extends GetPetitionByIdFields,
+> = InferResult<PetitionResourceSchema, Fields> | null;
+
+export type GetPetitionByIdResult<Fields extends GetPetitionByIdFields> = | { success: true; data: InferGetPetitionByIdResult<Fields>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function getPetitionById<Fields extends GetPetitionByIdFields>(
+  config: {
+  input: GetPetitionByIdInput;
+  fields: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetPetitionByIdResult<Fields>> {
+  const payload = {
+    action: "get_petition_by_id",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<GetPetitionByIdResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateGetPetitionByIdResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateGetPetitionById(
+  config: {
+  input: GetPetitionByIdInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateGetPetitionByIdResult> {
+  const payload = {
+    action: "get_petition_by_id",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidateGetPetitionByIdResult>(
+    payload,
+    config
+  );
+}
+
+
 export type CreatePetitionInput = {
   title?: string | null;
   description?: string | null;
-  status?: string | null;
-  category?: string | null;
+  status?: "open" | "closed" | "victory" | null;
   goal?: number | null;
+  deadline?: UtcDateTime | null;
 };
 
 export type CreatePetitionValidationErrors = {
   title?: string[];
   description?: string[];
   status?: string[];
-  category?: string[];
   goal?: string[];
+  deadline?: string[];
 };
 
 export type CreatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
@@ -1198,6 +1615,207 @@ export async function validateCreatePetition(
   };
 
   return executeValidationRpcRequest<ValidateCreatePetitionResult>(
+    payload,
+    config
+  );
+}
+
+
+export type ListSignaturesFields = UnifiedFieldSelection<SignatureResourceSchema>[];
+
+
+type InferListSignaturesResult<
+  Fields extends ListSignaturesFields | undefined,
+  Page extends ListSignaturesConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<SignatureResourceSchema, Fields>>, {
+  results: Array<InferResult<SignatureResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<SignatureResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type ListSignaturesConfig = {
+  fields: ListSignaturesFields;
+  filter?: SignatureFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type ListSignaturesResult<Fields extends ListSignaturesFields, Page extends ListSignaturesConfig["page"] = undefined> = | { success: true; data: InferListSignaturesResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function listSignatures<Fields extends ListSignaturesFields, Config extends ListSignaturesConfig = ListSignaturesConfig>(
+  config: Config & { fields: Fields }
+): Promise<ListSignaturesResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "list_signatures",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<ListSignaturesResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateListSignaturesResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateListSignatures(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateListSignaturesResult> {
+  const payload = {
+    action: "list_signatures"
+  };
+
+  return executeValidationRpcRequest<ValidateListSignaturesResult>(
+    payload,
+    config
+  );
+}
+
+
+export type CreateSignatureInput = {
+  reason?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  isVerified?: boolean | null;
+  petitionId: UUID;
+  userId: UUID;
+};
+
+export type CreateSignatureValidationErrors = {
+  reason?: string[];
+  ipAddress?: string[];
+  userAgent?: string[];
+  isVerified?: string[];
+  petitionId?: string[];
+  userId?: string[];
+};
+
+export type CreateSignatureFields = UnifiedFieldSelection<SignatureResourceSchema>[];
+
+type InferCreateSignatureResult<
+  Fields extends CreateSignatureFields | undefined,
+> = InferResult<SignatureResourceSchema, Fields>;
+
+export type CreateSignatureResult<Fields extends CreateSignatureFields | undefined = undefined> = | { success: true; data: InferCreateSignatureResult<Fields>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function createSignature<Fields extends CreateSignatureFields | undefined = undefined>(
+  config: {
+  input: CreateSignatureInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreateSignatureResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_signature",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreateSignatureResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateCreateSignatureResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateCreateSignature(
+  config: {
+  input: CreateSignatureInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateCreateSignatureResult> {
+  const payload = {
+    action: "create_signature",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidateCreateSignatureResult>(
     payload,
     config
   );
@@ -1312,6 +1930,20 @@ export async function validateListComments(
 }
 
 
+export type CreateCommentInput = {
+  text?: string | null;
+  parentCommentId?: UUIDv7 | null;
+  petitionId: UUID;
+  userId: UUID;
+};
+
+export type CreateCommentValidationErrors = {
+  text?: string[];
+  parentCommentId?: string[];
+  petitionId?: string[];
+  userId?: string[];
+};
+
 export type CreateCommentFields = UnifiedFieldSelection<CommentResourceSchema>[];
 
 type InferCreateCommentResult<
@@ -1333,6 +1965,7 @@ export type CreateCommentResult<Fields extends CreateCommentFields | undefined =
 
 export async function createComment<Fields extends CreateCommentFields | undefined = undefined>(
   config: {
+  input: CreateCommentInput;
   fields?: Fields;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
@@ -1341,6 +1974,7 @@ export async function createComment<Fields extends CreateCommentFields | undefin
 ): Promise<CreateCommentResult<Fields extends undefined ? [] : Fields>> {
   const payload = {
     action: "create_comment",
+    input: config.input,
     ...(config.fields !== undefined && { fields: config.fields })
   };
 
@@ -1367,16 +2001,126 @@ export type ValidateCreateCommentResult =
 
 export async function validateCreateComment(
   config: {
+  input: CreateCommentInput;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
 ): Promise<ValidateCreateCommentResult> {
   const payload = {
-    action: "create_comment"
+    action: "create_comment",
+    input: config.input
   };
 
   return executeValidationRpcRequest<ValidateCreateCommentResult>(
+    payload,
+    config
+  );
+}
+
+
+export type ListCategoriesFields = UnifiedFieldSelection<CategoryResourceSchema>[];
+
+
+type InferListCategoriesResult<
+  Fields extends ListCategoriesFields | undefined,
+  Page extends ListCategoriesConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<CategoryResourceSchema, Fields>>, {
+  results: Array<InferResult<CategoryResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<CategoryResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type ListCategoriesConfig = {
+  fields: ListCategoriesFields;
+  filter?: CategoryFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type ListCategoriesResult<Fields extends ListCategoriesFields, Page extends ListCategoriesConfig["page"] = undefined> = | { success: true; data: InferListCategoriesResult<Fields, Page>; }
+| {
+        success: false;
+        errors: Array<{
+          type: string;
+          message: string;
+          fieldPath?: string;
+          details: Record<string, string>;
+        }>;
+      }
+
+;
+
+export async function listCategories<Fields extends ListCategoriesFields, Config extends ListCategoriesConfig = ListCategoriesConfig>(
+  config: Config & { fields: Fields }
+): Promise<ListCategoriesResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "list_categories",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<ListCategoriesResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export type ValidateListCategoriesResult =
+  | { success: true }
+  | {
+      success: false;
+      errors: Array<{
+        type: string;
+        message: string;
+        field?: string;
+        fieldPath?: string;
+        details?: Record<string, any>;
+      }>;
+    };
+
+
+export async function validateListCategories(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidateListCategoriesResult> {
+  const payload = {
+    action: "list_categories"
+  };
+
+  return executeValidationRpcRequest<ValidateListCategoriesResult>(
     payload,
     config
   );

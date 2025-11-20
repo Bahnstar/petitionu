@@ -1,8 +1,9 @@
 import { TrendingUp, User } from "lucide-react"
+import { Link } from "react-router-dom"
 
 interface PetitionCardProps {
   petition: {
-    id: number
+    id: string | number
     title: string
     description: string
     author: string
@@ -18,57 +19,59 @@ export function PetitionCard({ petition }: PetitionCardProps) {
   const progress = (petition.signatures / petition.goal) * 100
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow duration-300">
-      <div className="flex items-start justify-between mb-4">
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-          {petition.category}
-        </span>
-        {petition.trending && (
-          <div className="flex items-center gap-1 text-primary">
-            <TrendingUp className="w-4 h-4" />
-            <span className="text-xs font-medium">Trending</span>
-          </div>
-        )}
-      </div>
-
-      <h3 className="text-xl font-semibold text-foreground mb-3 text-balance leading-snug">
-        {petition.title}
-      </h3>
-
-      <p className="text-sm text-muted-foreground mb-4 line-clamp-3 leading-relaxed">
-        {petition.description}
-      </p>
-
-      <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-        <User className="w-4 h-4" />
-        <span>by {petition.author}</span>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-foreground">
-            {petition.signatures.toLocaleString()} signatures
+    <Link to={`/ash-typescript/petitions/${petition.id}`}>
+      <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow duration-300">
+        <div className="flex items-start justify-between mb-4">
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+            {petition.category}
           </span>
-          <span className="text-muted-foreground">{petition.daysLeft} days left</span>
+          {petition.trending && (
+            <div className="flex items-center gap-1 text-primary">
+              <TrendingUp className="w-4 h-4" />
+              <span className="text-xs font-medium">Trending</span>
+            </div>
+          )}
         </div>
 
-        <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          />
+        <h3 className="text-xl font-semibold text-foreground mb-3 text-balance leading-snug">
+          {petition.title}
+        </h3>
+
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-3 leading-relaxed">
+          {petition.description}
+        </p>
+
+        <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
+          <User className="w-4 h-4" />
+          <span>by {petition.author}</span>
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          {Math.round(progress)}% of {petition.goal.toLocaleString()} goal
-        </div>
-      </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold text-foreground">
+              {petition.signatures.toLocaleString()} signatures
+            </span>
+            <span className="text-muted-foreground">{petition.daysLeft} days left</span>
+          </div>
 
-      {/*<Link href={`/petition/${petition.id}`}>
+          <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            {Math.round(progress)}% of {petition.goal.toLocaleString()} goal
+          </div>
+        </div>
+
+        {/*<Link href={`/petition/${petition.id}`}>
         <button className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
           Sign This Petition
         </button>
       </Link>*/}
-    </div>
+      </div>
+    </Link>
   )
 }
