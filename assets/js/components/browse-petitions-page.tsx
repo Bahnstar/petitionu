@@ -1,20 +1,4 @@
-// export const PetitionsPage = () => {
-// const [petitions, setPetitions] = useState<SuccessDataFunc<typeof listPetitions>>([])
-
-// useEffect(() => {
-//   const fetchPetitions = async () => {
-//     const result = await listPetitions({
-//       fields: ["id", "title", "description", "status", "category", "goal", "trending"],
-//       headers: buildCSRFHeaders(),
-//     })
-//     if (result.success) {
-//       setPetitions(result.data as SuccessDataFunc<typeof listPetitions>)
-//     }
-//   }
-//   fetchPetitions()
-// }, [])
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, Filter, X } from "lucide-react"
@@ -26,91 +10,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PetitionCard } from "./petition-card"
+import {
+  buildCSRFHeaders,
+  listCategories,
+  listPetitions,
+  PetitionResourceSchema,
+  CategoryResourceSchema,
+} from "../ash_rpc"
+import { CleanResource } from "../../lib/types"
 
-const SAMPLE_PETITIONS = [
-  {
-    id: 1,
-    title: "Extend Library Hours During Finals Week",
-    description:
-      "Students need access to study spaces beyond current closing times. This petition calls for 24/7 library access during the final two weeks of each semester.",
-    author: "Sarah Chen",
-    category: "Academic",
-    signatures: 2847,
-    goal: 3000,
-    daysLeft: 12,
-    trending: true,
-  },
-  {
-    id: 2,
-    title: "Add More Vegetarian Options in Dining Halls",
-    description:
-      "Many students follow vegetarian diets but struggle to find adequate meal options. We request at least 3 vegetarian entrees at every meal service.",
-    author: "Michael Rodriguez",
-    category: "Campus Life",
-    signatures: 1523,
-    goal: 2000,
-    daysLeft: 18,
-    trending: true,
-  },
-  {
-    id: 3,
-    title: "Reduce Student Parking Fees",
-    description:
-      "Parking fees have increased 40% in the past two years. This petition asks the administration to reduce fees and offer more affordable alternatives.",
-    author: "Jessica Williams",
-    category: "Finance",
-    signatures: 3421,
-    goal: 5000,
-    daysLeft: 25,
-    trending: false,
-  },
-  {
-    id: 4,
-    title: "Implement Mental Health Days",
-    description:
-      "Students need mental health support. This petition proposes 2 excused mental health days per semester without penalty to academic standing.",
-    author: "Alex Thompson",
-    category: "Wellness",
-    signatures: 4156,
-    goal: 4000,
-    daysLeft: 8,
-    trending: true,
-  },
-  {
-    id: 5,
-    title: "Increase Campus Safety Lighting",
-    description:
-      "Several areas of campus are poorly lit at night. This petition requests additional lighting installations for student safety.",
-    author: "Emily Davis",
-    category: "Safety",
-    signatures: 1890,
-    goal: 2500,
-    daysLeft: 15,
-    trending: false,
-  },
-  {
-    id: 6,
-    title: "Add Lactation Rooms Across Campus",
-    description:
-      "New parents need accessible, private spaces for nursing. This petition calls for dedicated lactation rooms in every major building.",
-    author: "Maria Garcia",
-    category: "Accessibility",
-    signatures: 876,
-    goal: 1500,
-    daysLeft: 22,
-    trending: false,
-  },
-]
-
-const CATEGORIES = [
-  "All",
-  "Academic",
-  "Campus Life",
-  "Finance",
-  "Wellness",
-  "Safety",
-  "Accessibility",
-]
 const SORT_OPTIONS = [
   { value: "trending", label: "Trending" },
   { value: "most-signed", label: "Most Signed" },
@@ -118,32 +26,94 @@ const SORT_OPTIONS = [
   { value: "ending-soon", label: "Ending Soon" },
 ]
 
+type Category = CleanResource<CategoryResourceSchema>
+type Petition = CleanResource<PetitionResourceSchema>
+
 export default function BrowsePetitionsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [sortBy, setSortBy] = useState("trending")
   const [showFilters, setShowFilters] = useState(false)
+  const [petitions, setPetitions] = useState<Petition[]>([])
+  const [categories, setCategories] = useState<Category[]>()
 
-  const filteredPetitions = SAMPLE_PETITIONS.filter((petition) => {
-    const matchesSearch =
-      petition.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      petition.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "All" || petition.category === selectedCategory
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [petitionsResult, categoriesResult] = await Promise.all([
+          listPetitions({
+            fields: [
+              "id",
+              "title",
+              "description",
+              "status",
+              "goal",
+              "signaturesCount",
+              "daysLeft",
+              "author",
+              "categoryId",
+              "allowComments",
+              "isAnonymous",
+              "deadline",
+            ],
+            headers: buildCSRFHeaders(),
+          }),
+          listCategories({
+            fields: ["id", "description", "name"],
+            headers: buildCSRFHeaders(),
+          }),
+        ])
 
-    return matchesSearch && matchesCategory
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "most-signed":
-        return b.signatures - a.signatures
-      case "newest":
-        return b.id - a.id
-      case "ending-soon":
-        return a.daysLeft - b.daysLeft
-      case "trending":
-      default:
-        return (b.trending ? 1 : 0) - (a.trending ? 1 : 0)
+        if (petitionsResult.success) setPetitions(petitionsResult.data)
+        if (categoriesResult.success) setCategories(categoriesResult.data)
+      } catch (err) {
+        console.error(err)
+      }
     }
-  })
+
+    loadData()
+  }, [])
+
+  if (!petitions || !categories) return <div>Loading...</div>
+
+  const categoryNames = ["All", ...categories.map((c) => c.name || "General")]
+
+  const getCategoryName = (categoryId: string | null) => {
+    if (!categoryId) return "General"
+    const category = categories.find((c) => c.id === categoryId)
+    return category?.name || "General"
+  }
+
+  const filteredPetitions = petitions
+    .filter((petition: any) => {
+      const categoryName = getCategoryName(petition.categoryId)
+      const matchesSearch =
+        (petition.title?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (petition.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
+      const matchesCategory = selectedCategory === "All" || categoryName === selectedCategory
+
+      return matchesSearch && matchesCategory
+    })
+    .sort((a: any, b: any) => {
+      const aSignatures = a.signatureCount || 0
+      const bSignatures = b.signatureCount || 0
+      const aDaysLeft = a.daysLeft || 0
+      const bDaysLeft = b.daysLeft || 0
+
+      switch (sortBy) {
+        case "most-signed":
+          return bSignatures - aSignatures
+        case "newest":
+          // UUIDv7 is time-sortable as string
+          return b.id.localeCompare(a.id)
+        case "ending-soon":
+          return aDaysLeft - bDaysLeft
+        case "trending":
+        default:
+          // Simple trending logic
+          return bSignatures - aSignatures
+      }
+    })
 
   return (
     <div className="min-h-screen bg-background">
@@ -189,7 +159,7 @@ export default function BrowsePetitionsPage() {
             <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between max-w-5xl mx-auto">
               {/* Category Filter */}
               <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                {CATEGORIES.map((category) => (
+                {categoryNames.map((category) => (
                   <Button
                     key={category}
                     variant={selectedCategory === category ? "default" : "outline"}
@@ -263,7 +233,20 @@ export default function BrowsePetitionsPage() {
         {filteredPetitions.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {filteredPetitions.map((petition) => (
-              <PetitionCard key={petition.id} petition={petition} />
+              <PetitionCard
+                key={petition.id}
+                petition={{
+                  id: petition.id,
+                  title: petition.title || "Untitled",
+                  description: petition.description || "",
+                  author: petition.author || "Anonymous",
+                  category: getCategoryName(petition.categoryId),
+                  signatures: petition.signaturesCount || 0,
+                  goal: petition.goal || 1000,
+                  daysLeft: petition.daysLeft || 0,
+                  trending: (petition.signaturesCount || 0) > 100, // Placeholder logic
+                }}
+              />
             ))}
           </div>
         ) : (
