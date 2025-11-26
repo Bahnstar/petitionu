@@ -70,6 +70,17 @@ defmodule Petitionu.Accounts.User do
   actions do
     defaults [:read]
 
+    # update :update do
+    #       primary? true
+    #       accept [:first_name, :last_name, :student_id, :graduation_year]
+    #     end
+    read :read_users do
+      primary? true
+      argument :first_name, :string
+      argument :last_name, :string
+      argument :email, :string
+    end
+
     read :get_by_subject do
       description "Get a user by the subject claim in a JWT"
       argument :subject, :string, allow_nil?: false

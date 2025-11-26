@@ -62,7 +62,7 @@ export type NotificationResourceSchema = {
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "userId" | "categoryId" | "signaturesCount" | "daysLeft" | "author";
+  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "userId" | "categoryId" | "signaturesCount" | "daysLeft" | "author" | "trending";
   id: UUIDv7;
   title: string | null;
   description: string | null;
@@ -76,10 +76,23 @@ export type PetitionResourceSchema = {
   signaturesCount: number | null;
   daysLeft: number | null;
   author: string | null;
+  trending: boolean | null;
   user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
   category: { __type: "Relationship"; __resource: CategoryResourceSchema | null; };
+  updates: { __type: "Relationship"; __array: true; __resource: UpdateResourceSchema; };
   comments: { __type: "Relationship"; __array: true; __resource: CommentResourceSchema; };
   signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
+};
+
+
+
+// Update Schema
+export type UpdateResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "title" | "body";
+  id: UUIDv7;
+  title: string;
+  body: string;
 };
 
 
@@ -100,10 +113,12 @@ export type SignatureResourceSchema = {
 // Comment Schema
 export type CommentResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment";
+  __primitiveFields: "id" | "text" | "sentiment" | "userId";
   id: UUIDv7;
   text: string | null;
   sentiment: string | null;
+  userId: UUID | null;
+  user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
 };
 
 
@@ -117,10 +132,6 @@ export type CategoryResourceSchema = {
   description: string | null;
   color: string | null;
 };
-
-
-
-
 
 
 
@@ -366,14 +377,47 @@ export type PetitionFilterInput = {
     in?: Array<string>;
   };
 
+  trending?: {
+    eq?: boolean;
+    notEq?: boolean;
+  };
+
 
   user?: UserFilterInput;
 
   category?: CategoryFilterInput;
 
+  updates?: UpdateFilterInput;
+
   comments?: CommentFilterInput;
 
   signatures?: SignatureFilterInput;
+
+};
+export type UpdateFilterInput = {
+  and?: Array<UpdateFilterInput>;
+  or?: Array<UpdateFilterInput>;
+  not?: Array<UpdateFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  title?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  body?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+
 
 };
 export type SignatureFilterInput = {
@@ -436,7 +480,14 @@ export type CommentFilterInput = {
     in?: Array<string>;
   };
 
+  userId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
 
+
+  user?: UserFilterInput;
 
 };
 export type CategoryFilterInput = {
@@ -477,7 +528,7 @@ export type CategoryFilterInput = {
 
 // Resource schema constraint
 type TypedSchema = {
-  __type: "Resource" | "TypedStruct" | "TypedMap" | "Union";
+  __type: "Resource" | "TypedMap" | "Union";
   __primitiveFields: string;
 };
 
@@ -501,11 +552,35 @@ type InferUnionFieldValue<
       : FieldSelection[FieldIndex] extends Record<string, any>
         ? {
             [UnionKey in keyof FieldSelection[FieldIndex]]: UnionKey extends keyof UnionSchema
-              ? UnionSchema[UnionKey] extends { __type: "TypedMap"; __primitiveFields: any }
-                ? UnionSchema[UnionKey]
-                : UnionSchema[UnionKey] extends TypedSchema
-                  ? InferResult<UnionSchema[UnionKey], FieldSelection[FieldIndex][UnionKey]>
+              ? UnionSchema[UnionKey] extends { __array: true; __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
+                ? FieldSelection[FieldIndex][UnionKey] extends any[]
+                  ? Array<
+                      UnionToIntersection<
+                        {
+                          [FieldIdx in keyof FieldSelection[FieldIndex][UnionKey]]: FieldSelection[FieldIndex][UnionKey][FieldIdx] extends TypedMapFields
+                            ? FieldSelection[FieldIndex][UnionKey][FieldIdx] extends keyof UnionSchema[UnionKey]
+                              ? { [P in FieldSelection[FieldIndex][UnionKey][FieldIdx]]: UnionSchema[UnionKey][P] }
+                              : never
+                            : never;
+                        }[number]
+                      >
+                    > | null
                   : never
+                : UnionSchema[UnionKey] extends { __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
+                  ? FieldSelection[FieldIndex][UnionKey] extends any[]
+                    ? UnionToIntersection<
+                        {
+                          [FieldIdx in keyof FieldSelection[FieldIndex][UnionKey]]: FieldSelection[FieldIndex][UnionKey][FieldIdx] extends TypedMapFields
+                            ? FieldSelection[FieldIndex][UnionKey][FieldIdx] extends keyof UnionSchema[UnionKey]
+                              ? { [P in FieldSelection[FieldIndex][UnionKey][FieldIdx]]: UnionSchema[UnionKey][P] }
+                              : never
+                            : never;
+                        }[number]
+                      > | null
+                    : never
+                  : UnionSchema[UnionKey] extends TypedSchema
+                    ? InferResult<UnionSchema[UnionKey], FieldSelection[FieldIndex][UnionKey]>
+                    : never
               : never;
           }
         : never;
@@ -548,25 +623,27 @@ type ComplexFieldSelection<T extends TypedSchema> = {
         : NonNullable<ReturnType> extends TypedSchema
           ? { fields: UnifiedFieldSelection<NonNullable<ReturnType>>[] }
           : never
-      : T[K] extends { __type: "Union"; __primitiveFields: infer PrimitiveFields }
-        ? T[K] extends { __array: true }
-          ? (PrimitiveFields | {
-              [UnionKey in keyof Omit<T[K], "__type" | "__primitiveFields" | "__array">]?: T[K][UnionKey] extends { __type: "TypedMap"; __primitiveFields: any }
-                ? T[K][UnionKey]["__primitiveFields"][]
-                : T[K][UnionKey] extends TypedSchema
-                  ? UnifiedFieldSelection<T[K][UnionKey]>[]
-                  : never;
-            })[]
-          : (PrimitiveFields | {
-              [UnionKey in keyof Omit<T[K], "__type" | "__primitiveFields">]?: T[K][UnionKey] extends { __type: "TypedMap"; __primitiveFields: any }
-                ? T[K][UnionKey]["__primitiveFields"][]
-                : T[K][UnionKey] extends TypedSchema
-                  ? UnifiedFieldSelection<T[K][UnionKey]>[]
-                  : never;
-            })[]
-          : NonNullable<T[K]> extends TypedSchema
-            ? UnifiedFieldSelection<NonNullable<T[K]>>[]
-            : never;
+      : T[K] extends { __type: "TypedMap"; __primitiveFields: infer PrimitiveFields }
+        ? PrimitiveFields[]
+        : T[K] extends { __type: "Union"; __primitiveFields: infer PrimitiveFields }
+          ? T[K] extends { __array: true }
+            ? (PrimitiveFields | {
+                [UnionKey in keyof Omit<T[K], "__type" | "__primitiveFields" | "__array">]?: T[K][UnionKey] extends { __type: "TypedMap"; __primitiveFields: any }
+                  ? T[K][UnionKey]["__primitiveFields"][]
+                  : T[K][UnionKey] extends TypedSchema
+                    ? UnifiedFieldSelection<T[K][UnionKey]>[]
+                    : never;
+              })[]
+            : (PrimitiveFields | {
+                [UnionKey in keyof Omit<T[K], "__type" | "__primitiveFields">]?: T[K][UnionKey] extends TypedSchema
+                  ? T[K][UnionKey]["__primitiveFields"][]
+                  : T[K][UnionKey] extends TypedSchema
+                    ? UnifiedFieldSelection<T[K][UnionKey]>[]
+                    : never;
+              })[]
+            : NonNullable<T[K]> extends TypedSchema
+              ? UnifiedFieldSelection<NonNullable<T[K]>>[]
+              : never;
 };
 
 // Main type: Use explicit base case detection to prevent infinite recursion
@@ -605,27 +682,75 @@ type InferFieldValue<
                 ? InferResult<NonNullable<ReturnType>, Field[K]["fields"]> | null
                 : InferResult<NonNullable<ReturnType>, Field[K]["fields"]>
               : ReturnType
-            : T[K] extends { __type: "Union"; __primitiveFields: any }
-              ? T[K] extends { __array: true }
-                ? {
-                    [CurrentK in K]: T[CurrentK] extends { __type: "Union"; __primitiveFields: any }
-                      ? Field[CurrentK] extends any[]
-                        ? Array<InferUnionFieldValue<T[CurrentK], Field[CurrentK]>> | null
-                        : never
-                      : never
-                  }
-                : {
-                    [CurrentK in K]: T[CurrentK] extends { __type: "Union"; __primitiveFields: any }
-                      ? Field[CurrentK] extends any[]
-                        ? InferUnionFieldValue<T[CurrentK], Field[CurrentK]> | null
-                        : never
-                      : never
-                  }
-                : NonNullable<T[K]> extends TypedSchema
+            : NonNullable<T[K]> extends { __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
+              ? NonNullable<T[K]> extends { __array: true }
+                ? Field[K] extends any[]
                   ? null extends T[K]
-                    ? InferResult<NonNullable<T[K]>, Field[K]> | null
-                    : InferResult<NonNullable<T[K]>, Field[K]>
+                    ? Array<
+                        UnionToIntersection<
+                          {
+                            [FieldIndex in keyof Field[K]]: Field[K][FieldIndex] extends TypedMapFields
+                              ? Field[K][FieldIndex] extends keyof NonNullable<T[K]>
+                                ? { [P in Field[K][FieldIndex]]: NonNullable<T[K]>[P] }
+                                : never
+                              : never;
+                          }[number]
+                        >
+                      > | null
+                    : Array<
+                        UnionToIntersection<
+                          {
+                            [FieldIndex in keyof Field[K]]: Field[K][FieldIndex] extends TypedMapFields
+                              ? Field[K][FieldIndex] extends keyof NonNullable<T[K]>
+                                ? { [P in Field[K][FieldIndex]]: NonNullable<T[K]>[P] }
+                                : never
+                              : never;
+                          }[number]
+                        >
+                      >
                   : never
+                : Field[K] extends any[]
+                  ? null extends T[K]
+                    ? UnionToIntersection<
+                        {
+                          [FieldIndex in keyof Field[K]]: Field[K][FieldIndex] extends TypedMapFields
+                            ? Field[K][FieldIndex] extends keyof NonNullable<T[K]>
+                              ? { [P in Field[K][FieldIndex]]: NonNullable<T[K]>[P] }
+                              : never
+                            : never;
+                        }[number]
+                      > | null
+                    : UnionToIntersection<
+                        {
+                          [FieldIndex in keyof Field[K]]: Field[K][FieldIndex] extends TypedMapFields
+                            ? Field[K][FieldIndex] extends keyof T[K]
+                              ? { [P in Field[K][FieldIndex]]: T[K][P] }
+                              : never
+                            : never;
+                        }[number]
+                      >
+                  : never
+              : T[K] extends { __type: "Union"; __primitiveFields: any }
+                ? T[K] extends { __array: true }
+                  ? {
+                      [CurrentK in K]: T[CurrentK] extends { __type: "Union"; __primitiveFields: any }
+                        ? Field[CurrentK] extends any[]
+                          ? Array<InferUnionFieldValue<T[CurrentK], Field[CurrentK]>> | null
+                          : never
+                        : never
+                    }
+                  : {
+                      [CurrentK in K]: T[CurrentK] extends { __type: "Union"; __primitiveFields: any }
+                        ? Field[CurrentK] extends any[]
+                          ? InferUnionFieldValue<T[CurrentK], Field[CurrentK]> | null
+                          : never
+                        : never
+                    }
+                  : NonNullable<T[K]> extends TypedSchema
+                    ? null extends T[K]
+                      ? InferResult<NonNullable<T[K]>, Field[K]> | null
+                      : InferResult<NonNullable<T[K]>, Field[K]>
+                    : never
           : never;
       }
     : never;
@@ -702,17 +827,66 @@ export type ErrorData<T extends (...args: any[]) => Promise<any>> = Extract<
 >["errors"];
 
 /**
- * Represents an error from an unsuccessful RPC call
+ * Represents an error from an unsuccessful RPC call.
+ *
+ * This type matches the error structure defined in the AshTypescript.Rpc.Error protocol.
+ *
  * @example
- * const error: AshRpcError = { type: "validation_error", message: "Something went wrong" }
+ * const error: AshRpcError = {
+ *   type: "invalid_changes",
+ *   message: "Invalid value for field %{field}",
+ *   shortMessage: "Invalid changes",
+ *   vars: { field: "email" },
+ *   fields: ["email"],
+ *   path: ["user", "email"],
+ *   details: { suggestion: "Provide a valid email address" }
+ * }
  */
 export type AshRpcError = {
+  /** Machine-readable error type (e.g., "invalid_changes", "not_found") */
   type: string;
+  /** Full error message (may contain template variables like %{key}) */
   message: string;
-  field?: string;
-  fieldPath?: string;
+  /** Concise version of the message */
+  shortMessage: string;
+  /** Variables to interpolate into the message template */
+  vars: Record<string, any>;
+  /** List of affected field names (for field-level errors) */
+  fields: string[];
+  /** Path to the error location in the data structure */
+  path: string[];
+  /** Optional map with extra details (e.g., suggestions, hints) */
   details?: Record<string, any>;
 }
+
+/**
+ * Represents the result of a validation RPC call.
+ *
+ * All validation actions return this same structure, indicating either
+ * successful validation or a list of validation errors.
+ *
+ * @example
+ * // Successful validation
+ * const result: ValidationResult = { success: true };
+ *
+ * // Failed validation
+ * const result: ValidationResult = {
+ *   success: false,
+ *   errors: [
+ *     {
+ *       type: "required",
+ *       message: "is required",
+ *       shortMessage: "Required field",
+ *       vars: { field: "email" },
+ *       fields: ["email"],
+ *       path: []
+ *     }
+ *   ]
+ * };
+ */
+export type ValidationResult =
+  | { success: true }
+  | { success: false; errors: AshRpcError[]; };
 
 
 
@@ -745,7 +919,7 @@ export interface ActionConfig {
       };
 
   // Metadata
-  metadataFields?: Record<string, any>; // Metadata field selection
+  metadataFields?: ReadonlyArray<string>;
 
   // HTTP customization
   headers?: Record<string, string>; // Custom headers
@@ -842,9 +1016,13 @@ async function executeActionRpcRequest<T>(
       success: false,
       errors: [
         {
-          type: "network",
-          message: response.statusText,
-          details: {}
+          type: "network_error",
+          message: `Network request failed: ${response.statusText}`,
+          shortMessage: "Network error",
+          vars: { statusCode: response.status, statusText: response.statusText },
+          fields: [],
+          path: [],
+          details: { statusCode: response.status }
         }
       ],
     } as T;
@@ -889,9 +1067,13 @@ async function executeValidationRpcRequest<T>(
       success: false,
       errors: [
         {
-          type: "network",
-          message: response.statusText,
-          details: {}
+          type: "network_error",
+          message: `Network request failed: ${response.statusText}`,
+          shortMessage: "Network error",
+          vars: { statusCode: response.status, statusText: response.statusText },
+          fields: [],
+          path: [],
+          details: { statusCode: response.status }
         }
       ],
     } as T;
@@ -911,7 +1093,7 @@ async function executeValidationRpcRequest<T>(
 export type GetOrganizationsFields = UnifiedFieldSelection<OrganizationResourceSchema>[];
 
 
-type InferGetOrganizationsResult<
+export type InferGetOrganizationsResult<
   Fields extends GetOrganizationsFields | undefined,
   Page extends GetOrganizationsConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<OrganizationResourceSchema, Fields>>, {
@@ -954,15 +1136,7 @@ export type GetOrganizationsConfig = {
 };
 
 export type GetOrganizationsResult<Fields extends GetOrganizationsFields, Page extends GetOrganizationsConfig["page"] = undefined> = | { success: true; data: InferGetOrganizationsResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
@@ -984,140 +1158,80 @@ export async function getOrganizations<Fields extends GetOrganizationsFields, Co
 }
 
 
-export type ValidateGetOrganizationsResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateGetOrganizations(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateGetOrganizationsResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "get_organizations"
   };
 
-  return executeValidationRpcRequest<ValidateGetOrganizationsResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
 }
 
 
-export type GetUsersFields = UnifiedFieldSelection<UserResourceSchema>[];
-
-
-type InferGetUsersResult<
-  Fields extends GetUsersFields | undefined,
-  Page extends GetUsersConfig["page"] = undefined
-> = ConditionalPaginatedResultMixed<Page, Array<InferResult<UserResourceSchema, Fields>>, {
-  results: Array<InferResult<UserResourceSchema, Fields>>;
-  hasMore: boolean;
-  limit: number;
-  offset: number;
-  count?: number | null;
-  type: "offset";
-}, {
-  results: Array<InferResult<UserResourceSchema, Fields>>;
-  hasMore: boolean;
-  limit: number;
-  after: string | null;
-  before: string | null;
-  previousPage: string;
-  nextPage: string;
-  count?: number | null;
-  type: "keyset";
-}>;
-
-export type GetUsersConfig = {
-  fields: GetUsersFields;
-  filter?: UserFilterInput;
-  sort?: string;
-  page?: (
-    {
-      limit?: number;
-      offset?: number;
-      count?: boolean;
-    } | {
-      limit?: number;
-      after?: string;
-      before?: string;
-    }
-  );
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type GetUsersInput = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
 };
 
-export type GetUsersResult<Fields extends GetUsersFields, Page extends GetUsersConfig["page"] = undefined> = | { success: true; data: InferGetUsersResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+export type GetUsersFields = UnifiedFieldSelection<UserResourceSchema>[];
+export type InferGetUsersResult<
+  Fields extends GetUsersFields,
+> = Array<InferResult<UserResourceSchema, Fields>>;
+
+export type GetUsersResult<Fields extends GetUsersFields> = | { success: true; data: InferGetUsersResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
-export async function getUsers<Fields extends GetUsersFields, Config extends GetUsersConfig = GetUsersConfig>(
-  config: Config & { fields: Fields }
-): Promise<GetUsersResult<Fields, Config["page"]>> {
+export async function getUsers<Fields extends GetUsersFields>(
+  config: {
+  input?: GetUsersInput;
+  fields: Fields;
+  filter?: UserFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetUsersResult<Fields>> {
   const payload = {
     action: "get_users",
+    input: config.input,
     ...(config.fields !== undefined && { fields: config.fields }),
     ...(config.filter && { filter: config.filter }),
-    ...(config.sort && { sort: config.sort }),
-    ...(config.page && { page: config.page })
+    ...(config.sort && { sort: config.sort })
   };
 
-  return executeActionRpcRequest<GetUsersResult<Fields, Config["page"]>>(
+  return executeActionRpcRequest<GetUsersResult<Fields>>(
     payload,
     config
   );
 }
-
-
-export type ValidateGetUsersResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
 
 
 export async function validateGetUsers(
   config: {
+  input?: GetUsersInput;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateGetUsersResult> {
+): Promise<ValidationResult> {
   const payload = {
-    action: "get_users"
+    action: "get_users",
+    input: config.input
   };
 
-  return executeValidationRpcRequest<ValidateGetUsersResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
@@ -1127,7 +1241,7 @@ export async function validateGetUsers(
 export type GetPreferencesFields = UnifiedFieldSelection<PreferenceResourceSchema>[];
 
 
-type InferGetPreferencesResult<
+export type InferGetPreferencesResult<
   Fields extends GetPreferencesFields | undefined,
   Page extends GetPreferencesConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<PreferenceResourceSchema, Fields>>, {
@@ -1170,15 +1284,7 @@ export type GetPreferencesConfig = {
 };
 
 export type GetPreferencesResult<Fields extends GetPreferencesFields, Page extends GetPreferencesConfig["page"] = undefined> = | { success: true; data: InferGetPreferencesResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
@@ -1200,32 +1306,18 @@ export async function getPreferences<Fields extends GetPreferencesFields, Config
 }
 
 
-export type ValidateGetPreferencesResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateGetPreferences(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateGetPreferencesResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "get_preferences"
   };
 
-  return executeValidationRpcRequest<ValidateGetPreferencesResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
@@ -1235,7 +1327,7 @@ export async function validateGetPreferences(
 export type GetNotificationsFields = UnifiedFieldSelection<NotificationResourceSchema>[];
 
 
-type InferGetNotificationsResult<
+export type InferGetNotificationsResult<
   Fields extends GetNotificationsFields | undefined,
   Page extends GetNotificationsConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<NotificationResourceSchema, Fields>>, {
@@ -1278,15 +1370,7 @@ export type GetNotificationsConfig = {
 };
 
 export type GetNotificationsResult<Fields extends GetNotificationsFields, Page extends GetNotificationsConfig["page"] = undefined> = | { success: true; data: InferGetNotificationsResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
@@ -1308,44 +1392,30 @@ export async function getNotifications<Fields extends GetNotificationsFields, Co
 }
 
 
-export type ValidateGetNotificationsResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateGetNotifications(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateGetNotificationsResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "get_notifications"
   };
 
-  return executeValidationRpcRequest<ValidateGetNotificationsResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
 }
 
 
-export type ListPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+export type GetPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
 
 
-type InferListPetitionsResult<
-  Fields extends ListPetitionsFields | undefined,
-  Page extends ListPetitionsConfig["page"] = undefined
+export type InferGetPetitionsResult<
+  Fields extends GetPetitionsFields | undefined,
+  Page extends GetPetitionsConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<PetitionResourceSchema, Fields>>, {
   results: Array<InferResult<PetitionResourceSchema, Fields>>;
   hasMore: boolean;
@@ -1365,8 +1435,8 @@ type InferListPetitionsResult<
   type: "keyset";
 }>;
 
-export type ListPetitionsConfig = {
-  fields: ListPetitionsFields;
+export type GetPetitionsConfig = {
+  fields: GetPetitionsFields;
   filter?: PetitionFilterInput;
   sort?: string;
   page?: (
@@ -1385,63 +1455,41 @@ export type ListPetitionsConfig = {
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
 
-export type ListPetitionsResult<Fields extends ListPetitionsFields, Page extends ListPetitionsConfig["page"] = undefined> = | { success: true; data: InferListPetitionsResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+export type GetPetitionsResult<Fields extends GetPetitionsFields, Page extends GetPetitionsConfig["page"] = undefined> = | { success: true; data: InferGetPetitionsResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
-export async function listPetitions<Fields extends ListPetitionsFields, Config extends ListPetitionsConfig = ListPetitionsConfig>(
+export async function getPetitions<Fields extends GetPetitionsFields, Config extends GetPetitionsConfig = GetPetitionsConfig>(
   config: Config & { fields: Fields }
-): Promise<ListPetitionsResult<Fields, Config["page"]>> {
+): Promise<GetPetitionsResult<Fields, Config["page"]>> {
   const payload = {
-    action: "list_petitions",
+    action: "get_petitions",
     ...(config.fields !== undefined && { fields: config.fields }),
     ...(config.filter && { filter: config.filter }),
     ...(config.sort && { sort: config.sort }),
     ...(config.page && { page: config.page })
   };
 
-  return executeActionRpcRequest<ListPetitionsResult<Fields, Config["page"]>>(
+  return executeActionRpcRequest<GetPetitionsResult<Fields, Config["page"]>>(
     payload,
     config
   );
 }
 
 
-export type ValidateListPetitionsResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
-export async function validateListPetitions(
+export async function validateGetPetitions(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateListPetitionsResult> {
+): Promise<ValidationResult> {
   const payload = {
-    action: "list_petitions"
+    action: "get_petitions"
   };
 
-  return executeValidationRpcRequest<ValidateListPetitionsResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
@@ -1452,31 +1500,19 @@ export type GetPetitionByIdInput = {
   id?: UUIDv7;
 };
 
-export type GetPetitionByIdValidationErrors = {
-  id?: string[];
-};
-
 export type GetPetitionByIdFields = UnifiedFieldSelection<PetitionResourceSchema>[];
-type InferGetPetitionByIdResult<
+export type InferGetPetitionByIdResult<
   Fields extends GetPetitionByIdFields,
 > = InferResult<PetitionResourceSchema, Fields> | null;
 
 export type GetPetitionByIdResult<Fields extends GetPetitionByIdFields> = | { success: true; data: InferGetPetitionByIdResult<Fields>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
 export async function getPetitionById<Fields extends GetPetitionByIdFields>(
   config: {
-  input: GetPetitionByIdInput;
+  input?: GetPetitionByIdInput;
   fields: Fields;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
@@ -1496,34 +1532,20 @@ export async function getPetitionById<Fields extends GetPetitionByIdFields>(
 }
 
 
-export type ValidateGetPetitionByIdResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateGetPetitionById(
   config: {
-  input: GetPetitionByIdInput;
+  input?: GetPetitionByIdInput;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateGetPetitionByIdResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "get_petition_by_id",
     input: config.input
   };
 
-  return executeValidationRpcRequest<ValidateGetPetitionByIdResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
@@ -1536,32 +1558,19 @@ export type CreatePetitionInput = {
   status?: "open" | "closed" | "victory" | null;
   goal?: number | null;
   deadline?: UtcDateTime | null;
-};
-
-export type CreatePetitionValidationErrors = {
-  title?: string[];
-  description?: string[];
-  status?: string[];
-  goal?: string[];
-  deadline?: string[];
+  allowComments?: boolean | null;
+  isAnonymous?: boolean | null;
+  categoryId: UUIDv7;
 };
 
 export type CreatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
 
-type InferCreatePetitionResult<
+export type InferCreatePetitionResult<
   Fields extends CreatePetitionFields | undefined,
 > = InferResult<PetitionResourceSchema, Fields>;
 
 export type CreatePetitionResult<Fields extends CreatePetitionFields | undefined = undefined> = | { success: true; data: InferCreatePetitionResult<Fields>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
@@ -1587,20 +1596,6 @@ export async function createPetition<Fields extends CreatePetitionFields | undef
 }
 
 
-export type ValidateCreatePetitionResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateCreatePetition(
   config: {
   input: CreatePetitionInput;
@@ -1608,25 +1603,111 @@ export async function validateCreatePetition(
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateCreatePetitionResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "create_petition",
     input: config.input
   };
 
-  return executeValidationRpcRequest<ValidateCreatePetitionResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
 }
 
 
-export type ListSignaturesFields = UnifiedFieldSelection<SignatureResourceSchema>[];
+export type GetUpdatesFields = UnifiedFieldSelection<UpdateResourceSchema>[];
 
 
-type InferListSignaturesResult<
-  Fields extends ListSignaturesFields | undefined,
-  Page extends ListSignaturesConfig["page"] = undefined
+export type InferGetUpdatesResult<
+  Fields extends GetUpdatesFields | undefined,
+  Page extends GetUpdatesConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<UpdateResourceSchema, Fields>>, {
+  results: Array<InferResult<UpdateResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<UpdateResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetUpdatesConfig = {
+  fields: GetUpdatesFields;
+  filter?: UpdateFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetUpdatesResult<Fields extends GetUpdatesFields, Page extends GetUpdatesConfig["page"] = undefined> = | { success: true; data: InferGetUpdatesResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getUpdates<Fields extends GetUpdatesFields, Config extends GetUpdatesConfig = GetUpdatesConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetUpdatesResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_updates",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetUpdatesResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetUpdates(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_updates"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetSignaturesFields = UnifiedFieldSelection<SignatureResourceSchema>[];
+
+
+export type InferGetSignaturesResult<
+  Fields extends GetSignaturesFields | undefined,
+  Page extends GetSignaturesConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<SignatureResourceSchema, Fields>>, {
   results: Array<InferResult<SignatureResourceSchema, Fields>>;
   hasMore: boolean;
@@ -1646,8 +1727,8 @@ type InferListSignaturesResult<
   type: "keyset";
 }>;
 
-export type ListSignaturesConfig = {
-  fields: ListSignaturesFields;
+export type GetSignaturesConfig = {
+  fields: GetSignaturesFields;
   filter?: SignatureFilterInput;
   sort?: string;
   page?: (
@@ -1666,63 +1747,41 @@ export type ListSignaturesConfig = {
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
 
-export type ListSignaturesResult<Fields extends ListSignaturesFields, Page extends ListSignaturesConfig["page"] = undefined> = | { success: true; data: InferListSignaturesResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+export type GetSignaturesResult<Fields extends GetSignaturesFields, Page extends GetSignaturesConfig["page"] = undefined> = | { success: true; data: InferGetSignaturesResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
-export async function listSignatures<Fields extends ListSignaturesFields, Config extends ListSignaturesConfig = ListSignaturesConfig>(
+export async function getSignatures<Fields extends GetSignaturesFields, Config extends GetSignaturesConfig = GetSignaturesConfig>(
   config: Config & { fields: Fields }
-): Promise<ListSignaturesResult<Fields, Config["page"]>> {
+): Promise<GetSignaturesResult<Fields, Config["page"]>> {
   const payload = {
-    action: "list_signatures",
+    action: "get_signatures",
     ...(config.fields !== undefined && { fields: config.fields }),
     ...(config.filter && { filter: config.filter }),
     ...(config.sort && { sort: config.sort }),
     ...(config.page && { page: config.page })
   };
 
-  return executeActionRpcRequest<ListSignaturesResult<Fields, Config["page"]>>(
+  return executeActionRpcRequest<GetSignaturesResult<Fields, Config["page"]>>(
     payload,
     config
   );
 }
 
 
-export type ValidateListSignaturesResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
-export async function validateListSignatures(
+export async function validateGetSignatures(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateListSignaturesResult> {
+): Promise<ValidationResult> {
   const payload = {
-    action: "list_signatures"
+    action: "get_signatures"
   };
 
-  return executeValidationRpcRequest<ValidateListSignaturesResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
@@ -1738,31 +1797,14 @@ export type CreateSignatureInput = {
   userId: UUID;
 };
 
-export type CreateSignatureValidationErrors = {
-  reason?: string[];
-  ipAddress?: string[];
-  userAgent?: string[];
-  isVerified?: string[];
-  petitionId?: string[];
-  userId?: string[];
-};
-
 export type CreateSignatureFields = UnifiedFieldSelection<SignatureResourceSchema>[];
 
-type InferCreateSignatureResult<
+export type InferCreateSignatureResult<
   Fields extends CreateSignatureFields | undefined,
 > = InferResult<SignatureResourceSchema, Fields>;
 
 export type CreateSignatureResult<Fields extends CreateSignatureFields | undefined = undefined> = | { success: true; data: InferCreateSignatureResult<Fields>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
@@ -1788,20 +1830,6 @@ export async function createSignature<Fields extends CreateSignatureFields | und
 }
 
 
-export type ValidateCreateSignatureResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateCreateSignature(
   config: {
   input: CreateSignatureInput;
@@ -1809,25 +1837,25 @@ export async function validateCreateSignature(
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateCreateSignatureResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "create_signature",
     input: config.input
   };
 
-  return executeValidationRpcRequest<ValidateCreateSignatureResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
 }
 
 
-export type ListCommentsFields = UnifiedFieldSelection<CommentResourceSchema>[];
+export type GetCommentsFields = UnifiedFieldSelection<CommentResourceSchema>[];
 
 
-type InferListCommentsResult<
-  Fields extends ListCommentsFields | undefined,
-  Page extends ListCommentsConfig["page"] = undefined
+export type InferGetCommentsResult<
+  Fields extends GetCommentsFields | undefined,
+  Page extends GetCommentsConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<CommentResourceSchema, Fields>>, {
   results: Array<InferResult<CommentResourceSchema, Fields>>;
   hasMore: boolean;
@@ -1847,8 +1875,8 @@ type InferListCommentsResult<
   type: "keyset";
 }>;
 
-export type ListCommentsConfig = {
-  fields: ListCommentsFields;
+export type GetCommentsConfig = {
+  fields: GetCommentsFields;
   filter?: CommentFilterInput;
   sort?: string;
   page?: (
@@ -1867,63 +1895,41 @@ export type ListCommentsConfig = {
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
 
-export type ListCommentsResult<Fields extends ListCommentsFields, Page extends ListCommentsConfig["page"] = undefined> = | { success: true; data: InferListCommentsResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+export type GetCommentsResult<Fields extends GetCommentsFields, Page extends GetCommentsConfig["page"] = undefined> = | { success: true; data: InferGetCommentsResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
-export async function listComments<Fields extends ListCommentsFields, Config extends ListCommentsConfig = ListCommentsConfig>(
+export async function getComments<Fields extends GetCommentsFields, Config extends GetCommentsConfig = GetCommentsConfig>(
   config: Config & { fields: Fields }
-): Promise<ListCommentsResult<Fields, Config["page"]>> {
+): Promise<GetCommentsResult<Fields, Config["page"]>> {
   const payload = {
-    action: "list_comments",
+    action: "get_comments",
     ...(config.fields !== undefined && { fields: config.fields }),
     ...(config.filter && { filter: config.filter }),
     ...(config.sort && { sort: config.sort }),
     ...(config.page && { page: config.page })
   };
 
-  return executeActionRpcRequest<ListCommentsResult<Fields, Config["page"]>>(
+  return executeActionRpcRequest<GetCommentsResult<Fields, Config["page"]>>(
     payload,
     config
   );
 }
 
 
-export type ValidateListCommentsResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
-export async function validateListComments(
+export async function validateGetComments(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateListCommentsResult> {
+): Promise<ValidationResult> {
   const payload = {
-    action: "list_comments"
+    action: "get_comments"
   };
 
-  return executeValidationRpcRequest<ValidateListCommentsResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
@@ -1937,29 +1943,14 @@ export type CreateCommentInput = {
   userId: UUID;
 };
 
-export type CreateCommentValidationErrors = {
-  text?: string[];
-  parentCommentId?: string[];
-  petitionId?: string[];
-  userId?: string[];
-};
-
 export type CreateCommentFields = UnifiedFieldSelection<CommentResourceSchema>[];
 
-type InferCreateCommentResult<
+export type InferCreateCommentResult<
   Fields extends CreateCommentFields | undefined,
 > = InferResult<CommentResourceSchema, Fields>;
 
 export type CreateCommentResult<Fields extends CreateCommentFields | undefined = undefined> = | { success: true; data: InferCreateCommentResult<Fields>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
@@ -1985,20 +1976,6 @@ export async function createComment<Fields extends CreateCommentFields | undefin
 }
 
 
-export type ValidateCreateCommentResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
 export async function validateCreateComment(
   config: {
   input: CreateCommentInput;
@@ -2006,25 +1983,25 @@ export async function validateCreateComment(
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateCreateCommentResult> {
+): Promise<ValidationResult> {
   const payload = {
     action: "create_comment",
     input: config.input
   };
 
-  return executeValidationRpcRequest<ValidateCreateCommentResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );
 }
 
 
-export type ListCategoriesFields = UnifiedFieldSelection<CategoryResourceSchema>[];
+export type GetCategoriesFields = UnifiedFieldSelection<CategoryResourceSchema>[];
 
 
-type InferListCategoriesResult<
-  Fields extends ListCategoriesFields | undefined,
-  Page extends ListCategoriesConfig["page"] = undefined
+export type InferGetCategoriesResult<
+  Fields extends GetCategoriesFields | undefined,
+  Page extends GetCategoriesConfig["page"] = undefined
 > = ConditionalPaginatedResultMixed<Page, Array<InferResult<CategoryResourceSchema, Fields>>, {
   results: Array<InferResult<CategoryResourceSchema, Fields>>;
   hasMore: boolean;
@@ -2044,8 +2021,8 @@ type InferListCategoriesResult<
   type: "keyset";
 }>;
 
-export type ListCategoriesConfig = {
-  fields: ListCategoriesFields;
+export type GetCategoriesConfig = {
+  fields: GetCategoriesFields;
   filter?: CategoryFilterInput;
   sort?: string;
   page?: (
@@ -2064,63 +2041,41 @@ export type ListCategoriesConfig = {
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
 
-export type ListCategoriesResult<Fields extends ListCategoriesFields, Page extends ListCategoriesConfig["page"] = undefined> = | { success: true; data: InferListCategoriesResult<Fields, Page>; }
-| {
-        success: false;
-        errors: Array<{
-          type: string;
-          message: string;
-          fieldPath?: string;
-          details: Record<string, string>;
-        }>;
-      }
+export type GetCategoriesResult<Fields extends GetCategoriesFields, Page extends GetCategoriesConfig["page"] = undefined> = | { success: true; data: InferGetCategoriesResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
 
 ;
 
-export async function listCategories<Fields extends ListCategoriesFields, Config extends ListCategoriesConfig = ListCategoriesConfig>(
+export async function getCategories<Fields extends GetCategoriesFields, Config extends GetCategoriesConfig = GetCategoriesConfig>(
   config: Config & { fields: Fields }
-): Promise<ListCategoriesResult<Fields, Config["page"]>> {
+): Promise<GetCategoriesResult<Fields, Config["page"]>> {
   const payload = {
-    action: "list_categories",
+    action: "get_categories",
     ...(config.fields !== undefined && { fields: config.fields }),
     ...(config.filter && { filter: config.filter }),
     ...(config.sort && { sort: config.sort }),
     ...(config.page && { page: config.page })
   };
 
-  return executeActionRpcRequest<ListCategoriesResult<Fields, Config["page"]>>(
+  return executeActionRpcRequest<GetCategoriesResult<Fields, Config["page"]>>(
     payload,
     config
   );
 }
 
 
-export type ValidateListCategoriesResult =
-  | { success: true }
-  | {
-      success: false;
-      errors: Array<{
-        type: string;
-        message: string;
-        field?: string;
-        fieldPath?: string;
-        details?: Record<string, any>;
-      }>;
-    };
-
-
-export async function validateListCategories(
+export async function validateGetCategories(
   config: {
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<ValidateListCategoriesResult> {
+): Promise<ValidationResult> {
   const payload = {
-    action: "list_categories"
+    action: "get_categories"
   };
 
-  return executeValidationRpcRequest<ValidateListCategoriesResult>(
+  return executeValidationRpcRequest<ValidationResult>(
     payload,
     config
   );

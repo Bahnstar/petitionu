@@ -55,7 +55,10 @@ defmodule Petitionu.Post.Comment do
   end
 
   relationships do
-    belongs_to :user, Petitionu.Accounts.User
+    belongs_to :user, Petitionu.Accounts.User do
+      public? true
+    end
+
     belongs_to :petition, Petitionu.Post.Petition
   end
 end

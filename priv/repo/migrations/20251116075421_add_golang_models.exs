@@ -23,7 +23,8 @@ defmodule Petitionu.Repo.Migrations.AddGolangModels do
             name: "user_petitions_user_id_fkey",
             type: :uuid,
             prefix: "public"
-          ), null: false
+          ),
+          null: false
 
       add :petition_id,
           references(:petition,
@@ -31,7 +32,8 @@ defmodule Petitionu.Repo.Migrations.AddGolangModels do
             name: "user_petitions_petition_id_fkey",
             type: :uuid,
             prefix: "public"
-          ), null: false
+          ),
+          null: false
 
       add :relationship, :text, null: false, default: "signee"
       add :bookmarked, :boolean, null: false, default: false

@@ -6,20 +6,16 @@ export function Header() {
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 lg:w-10 lg:h-10 bg-primary rounded-full flex items-center justify-center">
-              <GraduationCap className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />
+          <Link to={"/ash-typescript/"}>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-primary rounded-full flex items-center justify-center">
+                <GraduationCap className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />
+              </div>
+              <span className="text-lg lg:text-xl font-semibold text-foreground">PetitionU</span>
             </div>
-            <span className="text-lg lg:text-xl font-semibold text-foreground">PetitionU</span>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <Link
-              to="/ash-typescript"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Home
-            </Link>
             <Link
               to="/ash-typescript/dashboard"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"

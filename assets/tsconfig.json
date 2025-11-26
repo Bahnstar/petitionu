@@ -30,8 +30,8 @@
       // "*": ["../deps/*"],
     },
     "allowJs": true,
-    "noEmit": true,
-    "strictNullChecks": true
+    "noEmit": true
+    // "strictNullChecks": true
   },
   "include": ["js/**/*"]
 }

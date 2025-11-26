@@ -13,16 +13,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, CheckCircle2, Lightbulb } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-
-const CATEGORIES = [
-  "Academic",
-  "Campus Life",
-  "Finance",
-  "Wellness",
-  "Safety",
-  "Accessibility",
-  "Other",
-]
+import { buildCSRFHeaders, createPetition, getCategories } from "../ash_rpc"
+import { useQuery } from "@tanstack/react-query"
 
 export default function CreatePetitionPage() {
   const [formData, setFormData] = useState({
@@ -32,33 +24,52 @@ export default function CreatePetitionPage() {
     goal: "1000",
     targetAudience: "",
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+
+  const {
+    status,
+    data: categories,
+    error,
+  } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const result = await getCategories({
+        fields: ["id", "name"],
+        headers: buildCSRFHeaders(),
+      })
+      if (!result.success) {
+        throw new Error("Failed to fetch categories")
+      }
+      return result.data
+    },
+  })
+
+  switch (status) {
+    case "pending":
+      return <div>Loading...</div>
+    case "error":
+      return <div>Error: {error.message}</div>
+    case "success":
+    default:
+      break
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    setIsSubmitting(false)
-    setShowSuccess(true)
-
-    // Reset form after showing success
-    setTimeout(() => {
-      setFormData({
-        title: "",
-        description: "",
-        category: "",
-        goal: "1000",
-        targetAudience: "",
-      })
-      setShowSuccess(false)
-    }, 3000)
+    const result = await createPetition({
+      input: {
+        title: formData.title,
+        description: formData.description,
+        status: "open",
+        goal: parseInt(formData.goal),
+        categoryId: categories.find((category) => formData.category === category.name)?.id,
+      },
+      headers: buildCSRFHeaders(),
+    })
   }
 
   const handleChange = (field: string, value: string) => {
+    console.log(field, value)
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -163,9 +174,9 @@ export default function CreatePetitionPage() {
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -248,8 +259,13 @@ export default function CreatePetitionPage() {
 
                 {/* Submit Button */}
                 <div className="flex gap-4 pt-4">
-                  <Button type="submit" disabled={!isFormValid || isSubmitting} className="flex-1">
-                    {isSubmitting ? "Creating Petition..." : "Publish Petition"}
+                  <Button
+                    onClick={handleSubmit}
+                    type="submit"
+                    disabled={!isFormValid}
+                    className="flex-1"
+                  >
+                    Create Petition
                   </Button>
                   <Button type="button" variant="outline" onClick={() => window.history.back()}>
                     Cancel

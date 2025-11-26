@@ -1,154 +1,115 @@
 import { User, Calendar, TrendingUp, Share2, Flag, CheckCircle2, Clock } from "lucide-react"
 import { useParams } from "react-router-dom"
-import { buildCSRFHeaders, getPetitionById, listPetitions, SuccessDataFunc } from "../ash_rpc"
-import { useEffect, useState } from "react"
+import { buildCSRFHeaders, getPetitions, getUsers, PetitionResourceSchema } from "../ash_rpc"
+import { CleanResource } from "@/lib/types"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { useQuery } from "@tanstack/react-query"
 
-// Mock data - in a real app, this would fetch based on the id
-const getPetition = (id: string) => ({
-  id: parseInt(id),
-  title: "Extend Library Hours During Finals Week",
-  description: `As students, we need more access to quiet study spaces and academic resources during the most crucial time of the semester. The current library hours of 8 AM to 10 PM are insufficient during finals week when students need around-the-clock access to study materials and collaborative spaces.
-
-Many students have reported having to leave the library late at night when they are in the middle of productive study sessions. This disruption affects their academic performance and adds unnecessary stress during an already challenging time.
-
-We propose extending library hours to 24/7 operation during the two weeks of final examinations each semester. This change would:
-• Provide students with flexible study options that fit their schedules
-• Reduce crowding during peak hours by distributing students across more time slots
-• Support students who work part-time jobs and can only study late at night
-• Demonstrate the university's commitment to student academic success
-
-Other peer institutions have successfully implemented extended library hours during finals with overwhelmingly positive feedback from their student bodies. We believe our university should follow suit and invest in student success.`,
-  author: "Sarah Chen",
-  authorRole: "Senior, Political Science",
-  category: "Campus Facilities",
-  signatures: 2847,
-  goal: 5000,
-  daysLeft: 12,
-  trending: true,
-  createdAt: "2024-01-15",
-  updates: [
-    {
-      date: "2024-01-20",
-      title: "Meeting with Administration",
-      content:
-        "Met with the Dean of Students who expressed support for the initiative. Next steps include budget review.",
-    },
-    {
-      date: "2024-01-18",
-      title: "Reached 2,000 Signatures!",
-      content: "Thank you all for your incredible support. We're halfway to our goal!",
-    },
-  ],
-  recentSignatures: [
-    { name: "Alex Johnson", time: "2 minutes ago", comment: "This would help so much!" },
-    {
-      name: "Maria Garcia",
-      time: "15 minutes ago",
-      comment: "Absolutely necessary for student success.",
-    },
-    { name: "David Kim", time: "1 hour ago", comment: "Been waiting for this change for years." },
-    { name: "Emily Brown", time: "2 hours ago", comment: "Full support!" },
-  ],
-  comments: [
-    {
-      id: 1,
-      author: "Michael Torres",
-      role: "Junior, Engineering",
-      content:
-        "This is such an important initiative. As an engineering student, I often find myself needing to work on projects late into the night with my study group. Having 24/7 library access during finals would be a game-changer for us.",
-      time: "3 hours ago",
-      likes: 42,
-    },
-    {
-      id: 2,
-      author: "Jessica Liu",
-      role: "Sophomore, Pre-Med",
-      content:
-        "I completely support this. The library gets so crowded during the day that it's hard to find a quiet spot. Extended hours would really help distribute the crowd.",
-      time: "5 hours ago",
-      likes: 28,
-    },
-    {
-      id: 3,
-      author: "Ryan Patel",
-      role: "Senior, Business",
-      content:
-        "My previous university had this and it made such a difference. Really hope the administration listens to us on this one.",
-      time: "1 day ago",
-      likes: 15,
-    },
-    {
-      id: 4,
-      author: "Amanda Wright",
-      role: "Graduate Student, Psychology",
-      content:
-        "Not just for undergrads - grad students would benefit tremendously from this as well. We often have conflicting schedules and late-night access would be incredibly helpful.",
-      time: "1 day ago",
-      likes: 31,
-    },
-  ],
-})
+type Petition = CleanResource<PetitionResourceSchema>
+// type Petition = InferGetPetitionsResult<>
 
 export default function PetitionIndexPage() {
-  const [petition, setPetition] = useState<Partial<SuccessDataFunc<typeof getPetitionById>>>()
   const { id } = useParams()
-  useEffect(() => {
-    const fetchPetition = async () => {
-      //   const result = await getPetitionById({
-      //     fields: [
-      //       "id",
-      //       "title",
-      //       "description",
-      //       "status",
-      //       "goal",
-      //       "daysLeft",
-      //       "signatureCount",
-      //       "author",
-      //       "allowComments",
-      //       "deadline",
-      //       "isAnonymous",
-      //       "signatureCount",
-      //     ],
-      //     fetchOptions: { id },
-      //   })
-      //   if (result.success) {
-      //     setPetition(result.data as SuccessDataFunc<typeof getPetitionById>)
-      //   }
-      // }
-      const result = await listPetitions({
+
+  async function getAuthToken(): Promise<string> {
+    // Get token from storage, refresh if needed
+    // const token = localStorage.getItem("authToken")
+    const token = localStorage.getItem("_petitionu_key")
+    if (!token) {
+      throw new Error("Not authenticated")
+    }
+    return token
+  }
+
+  const authenticatedFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+    const token = await getAuthToken()
+
+    return fetch(url, {
+      ...init,
+      headers: {
+        ...init?.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  }
+
+  const {
+    status,
+    data: petition,
+    error,
+  } = useQuery({
+    queryKey: ["petition", id],
+    queryFn: async () => {
+      const result = await getPetitions({
         fields: [
           "id",
           "title",
           "description",
           "status",
           "goal",
-          "daysLeft",
-          "author",
-          "allowComments",
-          "deadline",
-          "isAnonymous",
           "signaturesCount",
-          "userId",
+          "daysLeft",
+          "trending",
+          "author",
           "categoryId",
-          {
-            category: ["id", "name", "description", "color"],
-            comments: ["id", "sentiment", "text"],
-            signatures: ["id", "reason"],
-          },
+          "allowComments",
+          "isAnonymous",
+          "deadline",
+          // { user: ["firstName", "lastName", "email"] },
+          { category: ["id", "name", "description"] },
+          { comments: ["sentiment", "text"] },
+          { signatures: ["reason", "userAgent"] },
+          { updates: ["id", "title", "body"] },
         ],
-        input: { id: id },
+        filter: { id: { eq: id } },
+        headers: buildCSRFHeaders(),
+        // customFetch: authenticatedFetch,
+      })
+
+      if (!result.success) {
+        // @ts-ignore
+        result.errors.forEach((error) => {
+          console.log(error.message, error.field, error.code)
+        })
+        throw new Error("Failed to fetch petitions")
+      }
+
+      const fetchedPetition: Petition = result.data[0]
+      return fetchedPetition
+    },
+  })
+
+  const userQuery = useQuery({
+    queryKey: ["user"],
+    queryFn: async () => {
+      const result = await getUsers({
+        fields: ["firstName", "lastName", "email"],
+        // filter: { id: { eq: 1 } },
         headers: buildCSRFHeaders(),
       })
-      if (result.success) {
-        console.log(result.data)
-        setPetition(result.data[0])
-      }
-    }
-    fetchPetition()
-  }, [])
 
-  if (!petition) {
-    return <div>Loading...</div>
+      if (!result.success) {
+        // @ts-ignore
+        result.errors.forEach((error) => {
+          console.log(error.message, error.field, error.code)
+        })
+        throw new Error("Failed to fetch user")
+      }
+
+      const fetchedUser = result.data[0]
+      return fetchedUser
+    },
+  })
+
+  switch (status) {
+    case "pending":
+      return <div>Loading...</div>
+    case "error":
+      return <div>Error: {error.message}</div>
+    case "success":
+    default:
+      break
   }
 
   const progress = (petition.signaturesCount / petition.goal) * 100
@@ -172,14 +133,14 @@ export default function PetitionIndexPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                  {petition.category.name ? petition.category.name : "General"}
+                  {petition.category.name ?? "General"}
                 </span>
-                {/*{petition.trending && (
+                {petition.trending && (
                   <div className="flex items-center gap-1 text-primary">
                     <TrendingUp className="w-4 h-4" />
                     <span className="text-xs font-medium">Trending</span>
                   </div>
-                )}*/}
+                )}
               </div>
 
               <h1 className="text-4xl font-bold text-foreground mb-4 text-balance leading-tight">
@@ -215,16 +176,16 @@ export default function PetitionIndexPage() {
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-4">Updates</h2>
               <div className="space-y-4">
-                {/*{petition.updates.map((update, index) => (
+                {petition.updates.map((update, index) => (
                   <div key={index} className="bg-card border border-border rounded-lg p-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      <span>{new Date(update.date).toLocaleDateString()}</span>
+                      <span>{new Date().toLocaleDateString()}</span>
                     </div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{update.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{update.content}</p>
-                  </div>*/}
-                {/*))}*/}
+                    <p className="text-muted-foreground leading-relaxed">{update.body}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -248,6 +209,7 @@ export default function PetitionIndexPage() {
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="w-3 h-3" />
                           {/*<span>{signature.time}</span>*/}
+                          <span>{new Date().toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
@@ -258,7 +220,7 @@ export default function PetitionIndexPage() {
             {/* Comments Section */}
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-4">
-                {/*Comments ({petition.comments.length})*/}
+                Comments ({petition.comments.length})
               </h2>
 
               {/* Comment Form */}
@@ -266,7 +228,7 @@ export default function PetitionIndexPage() {
                 <h3 className="text-lg font-semibold text-foreground mb-4">Leave a Comment</h3>
                 <form className="space-y-4">
                   <div>
-                    <textarea
+                    <Textarea
                       placeholder="Share your thoughts on this petition..."
                       rows={4}
                       className="resize-none"
@@ -288,9 +250,12 @@ export default function PetitionIndexPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          {/*<span className="font-semibold text-foreground">{comment.author}</span>*/}
+                          <span className="font-semibold text-foreground">
+                            Anon User
+                            {/*{`${comment.user.firstName} ${comment.user.lastName}`}*/}
+                          </span>
                           <span className="text-xs text-muted-foreground">•</span>
-                          {/*<span className="text-xs text-muted-foreground">{comment.role}</span>*/}
+                          <span className="text-xs text-muted-foreground">{"Student"}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="w-3 h-3" />
@@ -334,7 +299,7 @@ export default function PetitionIndexPage() {
                 <div className="space-y-4 mb-6">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-3xl font-bold text-foreground">
-                      {/*{petition.signatures.toLocaleString()}*/}
+                      {petition.signatures.length}
                     </span>
                     <span className="text-muted-foreground">{petition.daysLeft} days left</span>
                   </div>
@@ -357,14 +322,14 @@ export default function PetitionIndexPage() {
                     <label htmlFor="name" className="text-sm font-medium">
                       Full Name
                     </label>
-                    <input id="name" type="text" placeholder="Enter your name" className="mt-1" />
+                    <Input id="name" type="text" placeholder="Enter your name" className="mt-1" />
                   </div>
 
                   <div>
                     <label htmlFor="email" className="text-sm font-medium">
                       Email
                     </label>
-                    <input
+                    <Input
                       id="email"
                       type="email"
                       placeholder="your.email@university.edu"
@@ -376,7 +341,7 @@ export default function PetitionIndexPage() {
                     <label htmlFor="comment" className="text-sm font-medium">
                       Comment (Optional)
                     </label>
-                    <textarea
+                    <Textarea
                       id="comment"
                       placeholder="Why are you signing this petition?"
                       rows={3}
@@ -408,8 +373,6 @@ export default function PetitionIndexPage() {
           </div>
         </div>
       </div>
-
-      {/*<Footer />*/}
     </main>
   )
 }

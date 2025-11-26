@@ -4,29 +4,57 @@ import { UserPetitions } from "./user-petitions"
 import { SignedPetitions } from "./signed-petitions"
 import { TrendingAtSchool } from "./trending-at-school"
 import { RecentActivity } from "./recent-activity"
+import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
-import { buildCSRFHeaders, listPetitions } from "../ash_rpc"
+import { buildCSRFHeaders, getPetitions, InferGetPetitionsResult } from "../ash_rpc"
+import { Badge } from "@/components/ui/badge"
+import { Link } from "react-router-dom"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 export default function Dashboard() {
-  console.log("blah goober")
-  const [petitions, setPetitions] = useState()
-  useEffect(() => {
-    const fetchPetitions = async () => {
-      const getPetitions = await listPetitions({
+  const {
+    status,
+    data: petitions,
+    error,
+  } = useQuery({
+    queryKey: ["petitions"],
+    queryFn: async () => {
+      const result = await getPetitions({
         fields: ["id", "title", "description"],
         headers: buildCSRFHeaders(),
       })
 
-      if (!getPetitions.success) {
-        console.error("Failed to fetch petitions:", getPetitions)
-        return
+      if (!result.success) {
+        console.error("Failed to fetch petitions:", result)
+        // @ts-ignore
+        result.errors.forEach((error) => {
+          console.log(error.message, error.field, error.code)
+        })
+        throw new Error("Failed to fetch petitions")
       }
 
-      console.log(getPetitions.data)
-      setPetitions(getPetitions.data)
-    }
-    fetchPetitions()
-  }, [])
+      console.log(result.data)
+      return result.data
+    },
+  })
+  // const [petitions, setPetitions] = useState()
+  // useEffect(() => {
+  //   const fetchPetitions = async () => {
+  //     const result = await getPetitions({
+  //       fields: ["id", "title", "description"],
+  //       headers: buildCSRFHeaders(),
+  //     })
+
+  //     if (!result.success) {
+  //       console.error("Failed to fetch petitions:", result)
+  //       return
+  //     }
+
+  //     console.log(result.data)
+  //     setPetitions(result.data)
+  //   }
+  //   fetchPetitions()
+  // }, [])
 
   // Mock user data - would come from authentication in real app
   const user = {
@@ -46,9 +74,9 @@ export default function Dashboard() {
               Welcome back, {user.name}
             </h1>
             <p className="text-muted-foreground flex items-center gap-2">
-              {/*<Badge variant="secondary" className="font-normal">*/}
-              {user.school}
-              {/*</Badge>*/}
+              <Badge variant="secondary" className="font-normal">
+                {user.school}
+              </Badge>
               <span className="text-sm">
                 {user.role} • Member since {user.joinedDate}
               </span>
@@ -56,16 +84,18 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-2 rounded-md">
+            <Button className="relative p-2 rounded-md">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
                 3
               </span>
-            </button>
-            <button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Start New Petition
-            </button>
+            </Button>
+            <Link to={`/ash-typescript/create`}>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Start New Petition
+              </Button>
+            </Link>
           </div>
         </div>
 

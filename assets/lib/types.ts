@@ -1,9 +1,9 @@
-// Prettify<T> is flattens the tooltip so it looks like a real object
+// Prettify<T> flattens the tooltip so it looks like a regular object
 type Prettify<T> = {
   [K in keyof T]: T[K]
 } & {}
 
-// Cleaned<T> Removes the metadata fields from the schema
+// Cleaned<T> removes the metadata fields from the schema
 type Cleaned<T> = Omit<T, "__type" | "__primitiveFields">
 
 /**
@@ -25,7 +25,6 @@ type OptionalKeys<T> = {
 }[keyof T]
 
 // RequiredKeys<T> identifies which keys should be required
-// type RequiredKeys<T> = Exclude<keyof T, OptionalKeys<T>>
 type RequiredKeys<T> = {
   [K in keyof T]: T[K] extends { __type: "Relationship" } ? never : null extends T[K] ? never : K
 }[keyof T]

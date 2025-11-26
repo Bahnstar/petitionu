@@ -3,7 +3,7 @@ import {
   buildCSRFHeaders,
   createPetition,
   getOrganizations,
-  listPetitions,
+  getPetitions,
   SuccessDataFunc,
 } from "../ash_rpc"
 import { Hero } from "./hero"
@@ -12,21 +12,21 @@ import { PetitionGrid } from "./petition-grid"
 import { CreatePetitionCTA } from "./create-petition-cta"
 
 export const HomePage = () => {
-  const [petitions, setPetitions] = useState<SuccessDataFunc<typeof listPetitions>>([])
-  
+  const [petitions, setPetitions] = useState<SuccessDataFunc<typeof getPetitions>>([])
+
   useEffect(() => {
     const fetchPetitions = async () => {
-      const getPetitions = await listPetitions({
+      const result = await getPetitions({
         fields: ["id", "title", "description"],
         headers: buildCSRFHeaders(),
       })
 
-      if (!getPetitions.success) {
-        console.error("Failed to fetch petitions:", getPetitions)
+      if (!result.success) {
+        console.error("Failed to fetch petitions:", result)
         return
       }
 
-      setPetitions(getPetitions.data as SuccessDataFunc<typeof listPetitions>)
+      setPetitions(result.data as SuccessDataFunc<typeof getPetitions>)
     }
 
     fetchPetitions()

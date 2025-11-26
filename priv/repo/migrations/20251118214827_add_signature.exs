@@ -35,7 +35,8 @@ defmodule Petitionu.Repo.Migrations.AddSignature do
             type: :uuid,
             prefix: "public",
             on_delete: :delete_all
-          ), null: false
+          ),
+          null: false
 
       add :user_id,
           references(:users,
@@ -44,7 +45,8 @@ defmodule Petitionu.Repo.Migrations.AddSignature do
             type: :uuid,
             prefix: "public",
             on_delete: :delete_all
-          ), null: false
+          ),
+          null: false
     end
 
     create unique_index(:signature, [:petition_id, :user_id],

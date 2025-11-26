@@ -12,12 +12,14 @@ import {
 import { PetitionCard } from "./petition-card"
 import {
   buildCSRFHeaders,
-  listCategories,
-  listPetitions,
+  getCategories,
+  getPetitions,
   PetitionResourceSchema,
   CategoryResourceSchema,
+  getUsers,
 } from "../ash_rpc"
 import { CleanResource } from "../../lib/types"
+import { useQuery } from "@tanstack/react-query"
 
 const SORT_OPTIONS = [
   { value: "trending", label: "Trending" },
@@ -34,59 +36,86 @@ export default function BrowsePetitionsPage() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [sortBy, setSortBy] = useState("trending")
   const [showFilters, setShowFilters] = useState(false)
-  const [petitions, setPetitions] = useState<Petition[]>([])
-  const [categories, setCategories] = useState<Category[]>()
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [petitionsResult, categoriesResult] = await Promise.all([
-          listPetitions({
-            fields: [
-              "id",
-              "title",
-              "description",
-              "status",
-              "goal",
-              "signaturesCount",
-              "daysLeft",
-              "author",
-              "categoryId",
-              "allowComments",
-              "isAnonymous",
-              "deadline",
-            ],
-            headers: buildCSRFHeaders(),
-          }),
-          listCategories({
-            fields: ["id", "description", "name"],
-            headers: buildCSRFHeaders(),
-          }),
-        ])
+  const petitionsQuery = useQuery({
+    queryKey: ["petitions"],
+    queryFn: async () => {
+      const result = await getPetitions({
+        fields: [
+          "id",
+          "title",
+          "description",
+          "status",
+          "goal",
+          "signaturesCount",
+          "daysLeft",
+          "trending",
+          "author",
+          "categoryId",
+          "allowComments",
+          "isAnonymous",
+          "deadline",
+          { category: ["id", "name", "description"] },
+          { comments: ["sentiment", "text"] },
+          { signatures: ["reason", "userAgent"] },
+          { updates: ["id", "title", "body"] },
+        ],
+        headers: buildCSRFHeaders(),
+      })
 
-        if (petitionsResult.success) setPetitions(petitionsResult.data)
-        if (categoriesResult.success) setCategories(categoriesResult.data)
-      } catch (err) {
-        console.error(err)
+      if (!result.success) {
+        // @ts-ignore
+        result.errors.forEach((error) => {
+          console.log(error.message, error.field, error.code)
+        })
+        throw new Error("Failed to fetch petitions")
       }
-    }
 
-    loadData()
-  }, [])
+      const fetchedPetitions: Petition[] = result.data
+      return fetchedPetitions
+    },
+  })
 
-  if (!petitions || !categories) return <div>Loading...</div>
+  const categoryQuery = useQuery({
+    queryKey: ["category"],
+    queryFn: async () => {
+      const result = await getCategories({
+        fields: ["id", "description", "name"],
+        headers: buildCSRFHeaders(),
+      })
+
+      if (!result.success) {
+        // @ts-ignore
+        result.errors.forEach((error) => {
+          console.log(error.message, error.field, error.code)
+        })
+        throw new Error("Failed to fetch categories")
+      }
+
+      const fetchedCategory: Category[] = result.data
+      return fetchedCategory
+    },
+  })
+
+  switch (true) {
+    case petitionsQuery.isError || categoryQuery.isError:
+      return <div>Error: {petitionsQuery.error?.message ?? categoryQuery.error?.message}</div>
+    case petitionsQuery.isPending || categoryQuery.isPending:
+      return <div>Loading...</div>
+    case petitionsQuery.isSuccess || categoryQuery.isSuccess:
+      break
+    default:
+      return <div>Unknown status: {petitionsQuery.status}</div>
+  }
+
+  const petitions = petitionsQuery.data
+  const categories = categoryQuery.data
 
   const categoryNames = ["All", ...categories.map((c) => c.name || "General")]
 
-  const getCategoryName = (categoryId: string | null) => {
-    if (!categoryId) return "General"
-    const category = categories.find((c) => c.id === categoryId)
-    return category?.name || "General"
-  }
-
   const filteredPetitions = petitions
-    .filter((petition: any) => {
-      const categoryName = getCategoryName(petition.categoryId)
+    .filter((petition) => {
+      const categoryName = petition.category?.name || "General"
       const matchesSearch =
         (petition.title?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
         (petition.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
@@ -94,11 +123,13 @@ export default function BrowsePetitionsPage() {
 
       return matchesSearch && matchesCategory
     })
-    .sort((a: any, b: any) => {
-      const aSignatures = a.signatureCount || 0
-      const bSignatures = b.signatureCount || 0
+    .sort((a, b) => {
+      const aSignatures = a.signaturesCount || 0
+      const bSignatures = b.signaturesCount || 0
       const aDaysLeft = a.daysLeft || 0
       const bDaysLeft = b.daysLeft || 0
+      const aTrending = a.trending ? 1 : 0
+      const bTrending = b.trending ? 1 : 0
 
       switch (sortBy) {
         case "most-signed":
@@ -109,6 +140,8 @@ export default function BrowsePetitionsPage() {
         case "ending-soon":
           return aDaysLeft - bDaysLeft
         case "trending":
+          return bTrending - aTrending
+
         default:
           // Simple trending logic
           return bSignatures - aSignatures
@@ -118,7 +151,6 @@ export default function BrowsePetitionsPage() {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Page Header */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 text-balance">
             Browse Petitions
@@ -233,20 +265,7 @@ export default function BrowsePetitionsPage() {
         {filteredPetitions.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {filteredPetitions.map((petition) => (
-              <PetitionCard
-                key={petition.id}
-                petition={{
-                  id: petition.id,
-                  title: petition.title || "Untitled",
-                  description: petition.description || "",
-                  author: petition.author || "Anonymous",
-                  category: getCategoryName(petition.categoryId),
-                  signatures: petition.signaturesCount || 0,
-                  goal: petition.goal || 1000,
-                  daysLeft: petition.daysLeft || 0,
-                  trending: (petition.signaturesCount || 0) > 100, // Placeholder logic
-                }}
-              />
+              <PetitionCard key={petition.id} petition={petition} />
             ))}
           </div>
         ) : (

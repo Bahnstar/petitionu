@@ -1,29 +1,20 @@
+import { CleanResource } from "@/lib/types"
 import { TrendingUp, User } from "lucide-react"
 import { Link } from "react-router-dom"
+import { PetitionResourceSchema } from "../ash_rpc"
+import { Button } from "@/components/ui/button"
 
-interface PetitionCardProps {
-  petition: {
-    id: string | number
-    title: string
-    description: string
-    author: string
-    category: string
-    signatures: number
-    goal: number
-    daysLeft: number
-    trending: boolean
-  }
-}
+type Petition = CleanResource<PetitionResourceSchema>
 
-export function PetitionCard({ petition }: PetitionCardProps) {
-  const progress = (petition.signatures / petition.goal) * 100
+export function PetitionCard({ petition }: { petition: Petition }) {
+  const progress = ((petition.signaturesCount ?? 0) / (petition.goal ?? 1)) * 100
 
   return (
     <Link to={`/ash-typescript/petitions/${petition.id}`}>
       <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow duration-300">
         <div className="flex items-start justify-between mb-4">
           <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-            {petition.category}
+            {petition.category?.name ?? "Blank Category"}
           </span>
           {petition.trending && (
             <div className="flex items-center gap-1 text-primary">
@@ -49,7 +40,7 @@ export function PetitionCard({ petition }: PetitionCardProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-foreground">
-              {petition.signatures.toLocaleString()} signatures
+              {petition.signaturesCount?.toLocaleString()} signatures
             </span>
             <span className="text-muted-foreground">{petition.daysLeft} days left</span>
           </div>
@@ -62,15 +53,15 @@ export function PetitionCard({ petition }: PetitionCardProps) {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {Math.round(progress)}% of {petition.goal.toLocaleString()} goal
+            {Math.round(progress)}% of {petition.goal?.toLocaleString()} goal
           </div>
         </div>
 
-        {/*<Link href={`/petition/${petition.id}`}>
-        <button className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
+        {/*<Link to={`/petition/${petition.id}`}>*/}
+        <Button className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
           Sign This Petition
-        </button>
-      </Link>*/}
+        </Button>
+        {/*</Link>*/}
       </div>
     </Link>
   )

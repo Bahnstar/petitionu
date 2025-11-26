@@ -11,7 +11,7 @@ defmodule Petitionu.Accounts do
     end
 
     resource Petitionu.Accounts.User do
-      rpc_action :get_users, :read
+      rpc_action :get_users, :read_users
     end
 
     resource Petitionu.Accounts.Preference do
