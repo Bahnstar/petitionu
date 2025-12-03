@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { PetitionCard } from "./petition-card"
+import { PetitionCard } from "../features/petition/petition-card"
 import {
   buildCSRFHeaders,
   getCategories,

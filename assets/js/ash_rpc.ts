@@ -5,8 +5,8 @@
 
 
 
-export type UUID = string;
 export type UUIDv7 = string;
+export type UUID = string;
 export type UtcDateTime = string;
 
 // Organization Schema

@@ -1,15 +1,9 @@
 import React, { useEffect, useState } from "react"
-import {
-  buildCSRFHeaders,
-  createPetition,
-  getOrganizations,
-  getPetitions,
-  SuccessDataFunc,
-} from "../ash_rpc"
-import { Hero } from "./hero"
-import { Stats } from "./stats"
-import { PetitionGrid } from "./petition-grid"
-import { CreatePetitionCTA } from "./create-petition-cta"
+import { buildCSRFHeaders, getOrganizations, getPetitions, SuccessDataFunc } from "../ash_rpc"
+import { Hero } from "../features/home/hero"
+import { Stats } from "../features/home/stats"
+import { PetitionGrid } from "../features/petition/petition-grid"
+import { CreatePetitionCTA } from "../features/home/create-petition-cta"
 
 export const HomePage = () => {
   const [petitions, setPetitions] = useState<SuccessDataFunc<typeof getPetitions>>([])
@@ -40,19 +34,6 @@ export const HomePage = () => {
 
     fetchOrganizations()
   }, [])
-
-  const createPetitionAction = async () => {
-    const petition = await createPetition({
-      fields: ["title", "description", "status"],
-      input: {
-        title: "New Petition",
-        description: "This is a new petition",
-        status: "open",
-      },
-      headers: buildCSRFHeaders(),
-    })
-    console.log(petition)
-  }
 
   return (
     <>

@@ -1,7 +1,7 @@
 import { CleanResource } from "@/lib/types"
 import { TrendingUp, User } from "lucide-react"
 import { Link } from "react-router-dom"
-import { PetitionResourceSchema } from "../ash_rpc"
+import { PetitionResourceSchema } from "../../ash_rpc"
 import { Button } from "@/components/ui/button"
 
 type Petition = CleanResource<PetitionResourceSchema>

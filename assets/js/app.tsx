@@ -1,11 +1,11 @@
 import React from "react"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { Header } from "./components/header"
-import { HomePage } from "./components/home-page"
-import PetitionIndexPage from "./components/petition"
-import DashboardPage from "./components/dashboard-page"
-import BrowsePetitionsPage from "./components/browse-petitions-page"
-import CreatePetitionPage from "./components/create-petition-page"
+import { HomePage } from "./pages/home-page"
+import PetitionIndexPage from "./pages/petition-index-page"
+import DashboardPage from "./pages/dashboard-page"
+import BrowsePetitionsPage from "./pages/browse-petitions-page"
+import CreatePetitionPage from "./pages/create-petition-page"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 export const App = () => {
