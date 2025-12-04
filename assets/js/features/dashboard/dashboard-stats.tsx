@@ -1,25 +1,31 @@
 import { Card } from "@/components/ui/card"
 import { FileText, Users, TrendingUp, Award } from "lucide-react"
 
-export function DashboardStats() {
+interface DashboardStatsProps {
+  numPetitions: number
+  numSigned: number
+  numSupporters: number
+}
+
+export function DashboardStats(props: DashboardStatsProps) {
   const stats = [
     {
       label: "Petitions Created",
-      value: "3",
+      value: props.numPetitions,
       change: "+1 this month",
       icon: FileText,
       color: "text-chart-1",
     },
     {
       label: "Petitions Signed",
-      value: "24",
+      value: props.numSigned,
       change: "+5 this week",
       icon: Users,
       color: "text-chart-2",
     },
     {
       label: "Total Supporters",
-      value: "1,247",
+      value: props.numSupporters,
       change: "Across your petitions",
       icon: TrendingUp,
       color: "text-chart-3",

@@ -16,7 +16,7 @@ import {
   getPetitions,
   PetitionResourceSchema,
   CategoryResourceSchema,
-  getUsers,
+  UserResourceSchema,
 } from "../ash_rpc"
 import { CleanResource } from "../../lib/types"
 import { useQuery } from "@tanstack/react-query"
@@ -30,6 +30,7 @@ const SORT_OPTIONS = [
 
 type Category = CleanResource<CategoryResourceSchema>
 type Petition = CleanResource<PetitionResourceSchema>
+type User = CleanResource<UserResourceSchema>
 
 export default function BrowsePetitionsPage() {
   const [searchQuery, setSearchQuery] = useState("")

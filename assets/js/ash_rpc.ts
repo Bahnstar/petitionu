@@ -26,12 +26,15 @@ export type OrganizationResourceSchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "numPetitions" | "numSigned" | "numPetitionSignees";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
   email: string;
   graduationYear: number | null;
+  numPetitions: number;
+  numSigned: number;
+  numPetitionSignees: number;
 };
 
 
@@ -219,6 +222,35 @@ export type UserFilterInput = {
     in?: Array<number>;
   };
 
+  numPetitions?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+  numSigned?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+  numPetitionSignees?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
 
 
 };
@@ -1228,6 +1260,63 @@ export async function validateGetUsers(
 ): Promise<ValidationResult> {
   const payload = {
     action: "get_users",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetUserByIdInput = {
+  id?: UUID;
+  includeStats?: boolean;
+};
+
+export type GetUserByIdFields = UnifiedFieldSelection<UserResourceSchema>[];
+export type InferGetUserByIdResult<
+  Fields extends GetUserByIdFields,
+> = InferResult<UserResourceSchema, Fields> | null;
+
+export type GetUserByIdResult<Fields extends GetUserByIdFields> = | { success: true; data: InferGetUserByIdResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getUserById<Fields extends GetUserByIdFields>(
+  config: {
+  input?: GetUserByIdInput;
+  fields: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetUserByIdResult<Fields>> {
+  const payload = {
+    action: "get_user_by_id",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<GetUserByIdResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetUserById(
+  config: {
+  input?: GetUserByIdInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_user_by_id",
     input: config.input
   };
 

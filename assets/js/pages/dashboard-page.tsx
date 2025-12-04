@@ -6,17 +6,16 @@ import { TrendingAtSchool } from "../features/dashboard/trending-at-school"
 import { RecentActivity } from "../features/dashboard/recent-activity"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
-import { buildCSRFHeaders, getPetitions, InferGetPetitionsResult } from "../ash_rpc"
+import { buildCSRFHeaders, getPetitions, getUserById, UserResourceSchema } from "../ash_rpc"
 import { Badge } from "@/components/ui/badge"
 import { Link } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { CleanResource } from "@/lib/types"
+
+type User = CleanResource<UserResourceSchema>
 
 export default function Dashboard() {
-  const {
-    status,
-    data: petitions,
-    error,
-  } = useQuery({
+  const petitionsQuery = useQuery({
     queryKey: ["petitions"],
     queryFn: async () => {
       const result = await getPetitions({
@@ -37,24 +36,42 @@ export default function Dashboard() {
       return result.data
     },
   })
-  // const [petitions, setPetitions] = useState()
-  // useEffect(() => {
-  //   const fetchPetitions = async () => {
-  //     const result = await getPetitions({
-  //       fields: ["id", "title", "description"],
-  //       headers: buildCSRFHeaders(),
-  //     })
 
-  //     if (!result.success) {
-  //       console.error("Failed to fetch petitions:", result)
-  //       return
-  //     }
+  const userQuery = useQuery({
+    queryKey: ["apiUser"],
+    queryFn: async () => {
+      const result = await getUserById({
+        input: { id: "8eebb180-33a8-47d8-90e8-74b794694c18", includeStats: true },
+        fields: ["id", "email", "firstName", "lastName", "numPetitions", "numSigned"],
+        headers: buildCSRFHeaders(),
+      })
 
-  //     console.log(result.data)
-  //     setPetitions(result.data)
-  //   }
-  //   fetchPetitions()
-  // }, [])
+      if (!result.success) {
+        // @ts-ignore
+        result.errors.forEach((error) => {
+          console.log(error.message, error.field, error.code)
+        })
+        throw new Error("Failed to fetch user")
+      }
+
+      const fetchedUser: User = result.data
+      return fetchedUser
+    },
+  })
+
+  console.log(userQuery.data)
+  const apiUser = userQuery.data
+
+  switch (true) {
+    case petitionsQuery.isError || userQuery.isError:
+      return <div>Error: {petitionsQuery.error?.message ?? userQuery.error?.message}</div>
+    case petitionsQuery.isPending || userQuery.isPending:
+      return <div>Loading...</div>
+    case petitionsQuery.isSuccess || userQuery.isSuccess:
+      break
+    default:
+      return <div>Unknown status: {petitionsQuery.status}</div>
+  }
 
   // Mock user data - would come from authentication in real app
   const user = {
@@ -100,7 +117,11 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Overview */}
-        <DashboardStats />
+        <DashboardStats
+          numPetitions={apiUser.numPetitions}
+          numSigned={apiUser.numSigned}
+          numSupporters={25}
+        />
 
         {/* Main Grid */}
         <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 mt-8">

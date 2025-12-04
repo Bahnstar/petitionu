@@ -81,6 +81,18 @@ defmodule Petitionu.Accounts.User do
       argument :email, :string
     end
 
+    read :read_by_id do
+      get_by :id
+      argument :include_stats, :boolean, default: false
+
+      prepare fn query, context ->
+        case Ash.Query.get_argument(query, :include_stats) do
+          true -> Ash.Query.load(query, [:num_petitions, :num_signed, :num_petition_signees])
+          _ -> query
+        end
+      end
+    end
+
     read :get_by_subject do
       description "Get a user by the subject claim in a JWT"
       argument :subject, :string, allow_nil?: false
@@ -286,6 +298,12 @@ defmodule Petitionu.Accounts.User do
     bypass AshAuthentication.Checks.AshAuthenticationInteraction do
       authorize_if always()
     end
+
+    # REMOVE LATER BAD SECURITY
+    policy action_type(:read) do
+      description "Allow reading user data if not authenticated"
+      authorize_if always()
+    end
   end
 
   attributes do
@@ -326,7 +344,22 @@ defmodule Petitionu.Accounts.User do
 
   relationships do
     belongs_to :organization, Petitionu.Accounts.Organization
+    has_many :petitions, Petitionu.Post.Petition
     has_many :signatures, Petitionu.Post.Signature
+  end
+
+  aggregates do
+    count :num_petitions, :petitions do
+      public? true
+    end
+
+    count :num_signed, :signatures do
+      public? true
+    end
+
+    count :num_petition_signees, :signatures do
+      public? true
+    end
   end
 
   identities do
