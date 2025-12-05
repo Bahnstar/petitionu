@@ -65,6 +65,7 @@ defmodule Petitionu.Accounts.User do
 
   code_interface do
     define :get_by_email, args: [:email]
+    # define :read_by_id
   end
 
   actions do
@@ -86,10 +87,7 @@ defmodule Petitionu.Accounts.User do
       argument :include_stats, :boolean, default: false
 
       prepare fn query, context ->
-        case Ash.Query.get_argument(query, :include_stats) do
-          true -> Ash.Query.load(query, [:num_petitions, :num_signed, :num_petition_signees])
-          _ -> query
-        end
+        load_user_stats(query, Ash.Query.get_argument(query, :include_stats))
       end
     end
 
@@ -344,8 +342,20 @@ defmodule Petitionu.Accounts.User do
 
   relationships do
     belongs_to :organization, Petitionu.Accounts.Organization
-    has_many :petitions, Petitionu.Post.Petition
-    has_many :signatures, Petitionu.Post.Signature
+
+    has_many :petitions, Petitionu.Post.Petition do
+      public? true
+    end
+
+    has_many :signatures, Petitionu.Post.Signature do
+      public? true
+    end
+  end
+
+  calculations do
+    calculate :total_petition_signatures, :integer, expr(count(petitions.signatures)) do
+      public? true
+    end
   end
 
   aggregates do
@@ -365,4 +375,26 @@ defmodule Petitionu.Accounts.User do
   identities do
     identity :unique_email, [:email]
   end
+
+  defp load_user_stats(query, true) do
+    query
+    |> Ash.Query.load([:num_petitions, :num_signed, :num_petition_signees])
+    |> Ash.Query.load(:total_petition_signatures)
+    |> Ash.Query.load(
+      petitions: [
+        Petitionu.Post.Petition
+        |> Ash.Query.sort(inserted_at: :desc)
+        |> Ash.Query.limit(4)
+      ]
+    )
+    |> Ash.Query.load(
+      signatures: [
+        Petitionu.Post.Signature
+        |> Ash.Query.sort(inserted_at: :desc)
+        |> Ash.Query.limit(4)
+      ]
+    )
+  end
+
+  defp load_user_stats(query, _), do: query
 end

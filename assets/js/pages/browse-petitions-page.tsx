@@ -32,6 +32,94 @@ type Category = CleanResource<CategoryResourceSchema>
 type Petition = CleanResource<PetitionResourceSchema>
 type User = CleanResource<UserResourceSchema>
 
+function LoadingState() {
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header Skeleton */}
+        <div className="mb-12 text-center">
+          <div className="h-12 md:h-14 lg:h-16 bg-muted rounded-lg w-3/4 mx-auto mb-4 animate-pulse"></div>
+          <div className="h-6 bg-muted rounded-lg w-1/2 mx-auto animate-pulse"></div>
+        </div>
+
+        {/* Search Bar Skeleton */}
+        <div className="mb-8 space-y-4">
+          <div className="relative max-w-3xl mx-auto">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-muted rounded animate-pulse"></div>
+            <div className="h-14 bg-muted rounded-lg w-full animate-pulse"></div>
+          </div>
+
+          {/* Filter Toggle Button Skeleton (Mobile) */}
+          <div className="flex justify-center md:hidden">
+            <div className="h-10 bg-muted rounded-lg w-32 animate-pulse"></div>
+          </div>
+
+          {/* Filters Skeleton */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start max-w-5xl mx-auto">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-8 bg-muted rounded-full w-20 animate-pulse"></div>
+              ))}
+            </div>
+
+            {/* Sort Dropdown Skeleton */}
+            <div className="flex items-center gap-2 justify-center md:justify-end max-w-5xl mx-auto">
+              <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
+              <div className="h-10 bg-muted rounded-lg w-[180px] animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Results Count Skeleton */}
+        <div className="text-center mb-6">
+          <div className="h-4 bg-muted rounded-lg w-32 mx-auto animate-pulse"></div>
+        </div>
+
+        {/* Petitions Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-card rounded-lg border border-border p-6 space-y-4">
+              {/* Title skeleton */}
+              <div className="h-6 bg-muted rounded-lg w-3/4 animate-pulse"></div>
+              
+              {/* Description skeleton */}
+              <div className="space-y-2">
+                <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-4/6 animate-pulse"></div>
+              </div>
+
+              {/* Category and author skeleton */}
+              <div className="flex items-center gap-4">
+                <div className="h-6 bg-muted rounded-full w-20 animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
+              </div>
+
+              {/* Stats skeleton */}
+              <div className="flex items-center justify-between pt-4 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 bg-muted rounded-lg w-16 animate-pulse"></div>
+                  <div className="h-4 bg-muted rounded-lg w-12 animate-pulse"></div>
+                </div>
+                <div className="h-8 bg-muted rounded-lg w-20 animate-pulse"></div>
+              </div>
+
+              {/* Progress bar skeleton */}
+              <div className="space-y-2">
+                <div className="h-2 bg-muted rounded-full w-full animate-pulse"></div>
+                <div className="flex justify-between">
+                  <div className="h-3 bg-muted rounded-lg w-12 animate-pulse"></div>
+                  <div className="h-3 bg-muted rounded-lg w-16 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  )
+}
+
 export default function BrowsePetitionsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
@@ -102,7 +190,7 @@ export default function BrowsePetitionsPage() {
     case petitionsQuery.isError || categoryQuery.isError:
       return <div>Error: {petitionsQuery.error?.message ?? categoryQuery.error?.message}</div>
     case petitionsQuery.isPending || categoryQuery.isPending:
-      return <div>Loading...</div>
+      return <LoadingState />
     case petitionsQuery.isSuccess || categoryQuery.isSuccess:
       break
     default:

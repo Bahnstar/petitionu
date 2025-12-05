@@ -26,7 +26,7 @@ export type OrganizationResourceSchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "numPetitions" | "numSigned" | "numPetitionSignees";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
@@ -35,6 +35,9 @@ export type UserResourceSchema = {
   numPetitions: number;
   numSigned: number;
   numPetitionSignees: number;
+  totalPetitionSignatures: number | null;
+  petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; };
+  signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
 };
 
 
@@ -103,12 +106,16 @@ export type UpdateResourceSchema = {
 // Signature Schema
 export type SignatureResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified";
+  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "petitionId" | "userId";
   id: UUIDv7;
   reason: string | null;
   ipAddress: string | null;
   userAgent: string | null;
   isVerified: boolean | null;
+  petitionId: UUID;
+  userId: UUID;
+  petition: { __type: "Relationship"; __resource: PetitionResourceSchema; };
+  user: { __type: "Relationship"; __resource: UserResourceSchema; };
 };
 
 
@@ -222,6 +229,16 @@ export type UserFilterInput = {
     in?: Array<number>;
   };
 
+  totalPetitionSignatures?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
   numPetitions?: {
     eq?: number;
     notEq?: number;
@@ -252,6 +269,9 @@ export type UserFilterInput = {
     in?: Array<number>;
   };
 
+  petitions?: PetitionFilterInput;
+
+  signatures?: SignatureFilterInput;
 
 };
 export type PreferenceFilterInput = {
@@ -486,7 +506,22 @@ export type SignatureFilterInput = {
     notEq?: boolean;
   };
 
+  petitionId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
 
+  userId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+
+  petition?: PetitionFilterInput;
+
+  user?: UserFilterInput;
 
 };
 export type CommentFilterInput = {

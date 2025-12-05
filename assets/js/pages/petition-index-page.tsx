@@ -9,6 +9,195 @@ import { useQuery } from "@tanstack/react-query"
 type Petition = CleanResource<PetitionResourceSchema>
 // type Petition = InferGetPetitionsResult<>
 
+function PetitionIndexLoadingState() {
+  return (
+    <main className="min-h-screen">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Breadcrumb Skeleton */}
+        <div className="text-sm text-muted-foreground mb-6">
+          <div className="h-4 bg-muted rounded-lg w-16 inline animate-pulse"></div>
+          <span className="mx-2">/</span>
+          <div className="h-4 bg-muted rounded-lg w-20 inline animate-pulse"></div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content Skeleton */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Header Skeleton */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-6 bg-muted rounded-full w-20 animate-pulse"></div>
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 bg-muted rounded-lg w-16 animate-pulse"></div>
+                </div>
+              </div>
+
+              <div className="h-12 bg-muted rounded-lg w-full mb-4 animate-pulse"></div>
+
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 bg-muted rounded-lg w-32 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Description Skeleton */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="space-y-2">
+                <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-4/5 animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-4 bg-muted rounded-lg w-3/4 animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* Updates Skeleton */}
+            <div>
+              <div className="h-8 bg-muted rounded-lg w-24 mb-4 animate-pulse"></div>
+              <div className="space-y-4">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} className="bg-card border border-border rounded-lg p-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                      <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
+                    </div>
+                    <div className="h-6 bg-muted rounded-lg w-3/4 mb-2 animate-pulse"></div>
+                    <div className="space-y-1">
+                      <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
+                      <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recent Signatures Skeleton */}
+            <div>
+              <div className="h-8 bg-muted rounded-lg w-40 mb-4 animate-pulse"></div>
+              <div className="bg-card border border-border rounded-lg divide-y divide-border">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="h-4 bg-muted rounded-lg w-32 mb-2 animate-pulse"></div>
+                        <div className="h-3 bg-muted rounded-lg w-48 animate-pulse"></div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-muted rounded animate-pulse"></div>
+                        <div className="h-3 bg-muted rounded-lg w-20 animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Comments Section Skeleton */}
+            <div>
+              <div className="h-8 bg-muted rounded-lg w-32 mb-4 animate-pulse"></div>
+
+              {/* Comment Form Skeleton */}
+              <div className="bg-card border border-border rounded-lg p-6 mb-6">
+                <div className="h-6 bg-muted rounded-lg w-40 mb-4 animate-pulse"></div>
+                <div className="space-y-4">
+                  <div className="h-24 bg-muted rounded-lg w-full animate-pulse"></div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 bg-muted rounded-lg w-48 animate-pulse"></div>
+                    <div className="h-8 bg-muted rounded-lg w-24 animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comments List Skeleton */}
+              <div className="space-y-4">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} className="bg-card border border-border rounded-lg p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
+                          <div className="h-3 bg-muted rounded-lg w-16 animate-pulse"></div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-muted rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1 mb-4">
+                      <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
+                      <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                        <div className="h-3 bg-muted rounded-lg w-8 animate-pulse"></div>
+                      </div>
+                      <div className="h-3 bg-muted rounded-lg w-12 animate-pulse"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar Skeleton */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-6 space-y-6">
+              {/* Sign Card Skeleton */}
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="h-8 bg-muted rounded-lg w-16 animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded-lg w-20 animate-pulse"></div>
+                  </div>
+
+                  <div className="h-3 bg-muted rounded-full w-full animate-pulse"></div>
+
+                  <div className="h-4 bg-muted rounded-lg w-32 animate-pulse"></div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="h-4 bg-muted rounded-lg w-20 mb-1 animate-pulse"></div>
+                    <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+                  </div>
+
+                  <div>
+                    <div className="h-4 bg-muted rounded-lg w-16 mb-1 animate-pulse"></div>
+                    <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+                  </div>
+
+                  <div>
+                    <div className="h-4 bg-muted rounded-lg w-28 mb-1 animate-pulse"></div>
+                    <div className="h-20 bg-muted rounded-lg w-full animate-pulse"></div>
+                  </div>
+
+                  <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+
+                  <div className="h-3 bg-muted rounded-lg w-48 mx-auto animate-pulse"></div>
+                </div>
+              </div>
+
+              {/* Share & Report Skeleton */}
+              <div className="flex gap-3">
+                <div className="flex-1 h-10 bg-muted rounded-lg animate-pulse"></div>
+                <div className="h-10 w-10 bg-muted rounded-lg animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  )
+}
+
 export default function PetitionIndexPage() {
   const { id } = useParams()
 
@@ -104,7 +293,7 @@ export default function PetitionIndexPage() {
 
   switch (status) {
     case "pending":
-      return <div>Loading...</div>
+      return <PetitionIndexLoadingState />
     case "error":
       return <div>Error: {error.message}</div>
     case "success":

@@ -16,6 +16,105 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { buildCSRFHeaders, createPetition, getCategories } from "../ash_rpc"
 import { useQuery } from "@tanstack/react-query"
 
+function CreatePetitionLoadingState() {
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-4xl mx-auto">
+          {/* Page Header Skeleton */}
+          <div className="mb-12 text-center">
+            <div className="h-12 md:h-14 lg:h-16 bg-muted rounded-lg w-3/4 mx-auto mb-4 animate-pulse"></div>
+            <div className="h-6 bg-muted rounded-lg w-1/2 mx-auto animate-pulse"></div>
+          </div>
+
+          {/* Tips Card Skeleton */}
+          <div className="mb-8 p-4 rounded-xl border border-border bg-card">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-5 h-5 bg-muted rounded animate-pulse"></div>
+              <div className="h-6 bg-muted rounded-lg w-48 animate-pulse"></div>
+            </div>
+            <div className="space-y-2">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex gap-2">
+                  <div className="w-4 h-4 bg-muted rounded-full animate-pulse mt-0.5"></div>
+                  <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Petition Form Skeleton */}
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <div className="mb-6">
+              <div className="h-6 bg-muted rounded-lg w-32 mb-2 animate-pulse"></div>
+              <div className="h-4 bg-muted rounded-lg w-64 animate-pulse"></div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Title Field Skeleton */}
+              <div className="space-y-2">
+                <div className="h-5 bg-muted rounded-lg w-32 animate-pulse"></div>
+                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-3 bg-muted rounded-lg w-16 animate-pulse"></div>
+              </div>
+
+              {/* Category Field Skeleton */}
+              <div className="space-y-2">
+                <div className="h-5 bg-muted rounded-lg w-24 animate-pulse"></div>
+                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+              </div>
+
+              {/* Description Field Skeleton */}
+              <div className="space-y-2">
+                <div className="h-5 bg-muted rounded-lg w-28 animate-pulse"></div>
+                <div className="h-32 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-3 bg-muted rounded-lg w-20 animate-pulse"></div>
+              </div>
+
+              {/* Target Audience Field Skeleton */}
+              <div className="space-y-2">
+                <div className="h-5 bg-muted rounded-lg w-48 animate-pulse"></div>
+                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-3 bg-muted rounded-lg w-3/4 animate-pulse"></div>
+              </div>
+
+              {/* Signature Goal Field Skeleton */}
+              <div className="space-y-2">
+                <div className="h-5 bg-muted rounded-lg w-32 animate-pulse"></div>
+                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
+                <div className="h-3 bg-muted rounded-lg w-2/3 animate-pulse"></div>
+              </div>
+
+              {/* Guidelines Notice Skeleton */}
+              <div className="p-4 rounded-lg border border-border bg-muted/20">
+                <div className="flex gap-2 mb-2">
+                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 bg-muted rounded-lg w-40 animate-pulse"></div>
+                </div>
+                <div className="space-y-1">
+                  <div className="h-3 bg-muted rounded-lg w-full animate-pulse"></div>
+                  <div className="h-3 bg-muted rounded-lg w-5/6 animate-pulse"></div>
+                </div>
+              </div>
+
+              {/* Submit Buttons Skeleton */}
+              <div className="flex gap-4 pt-4">
+                <div className="h-10 bg-muted rounded-lg flex-1 animate-pulse"></div>
+                <div className="h-10 bg-muted rounded-lg w-24 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Info Skeleton */}
+          <div className="mt-8 text-center">
+            <div className="h-4 bg-muted rounded-lg w-48 mx-auto animate-pulse"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
 export default function CreatePetitionPage() {
   const [formData, setFormData] = useState({
     title: "",
@@ -47,7 +146,7 @@ export default function CreatePetitionPage() {
 
   switch (status) {
     case "pending":
-      return <div>Loading...</div>
+      return <CreatePetitionLoadingState />
     case "error":
       return <div>Error: {error.message}</div>
     case "success":

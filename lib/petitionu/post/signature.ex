@@ -54,10 +54,12 @@ defmodule Petitionu.Post.Signature do
   relationships do
     belongs_to :petition, Petitionu.Post.Petition do
       allow_nil? false
+      public? true
     end
 
     belongs_to :user, Petitionu.Accounts.User do
       allow_nil? false
+      public? true
     end
   end
 

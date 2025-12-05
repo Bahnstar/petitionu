@@ -3,41 +3,17 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { MoreHorizontal, TrendingUp, Users, Calendar } from "lucide-react"
+import { CleanResource } from "@/lib/types"
+import { PetitionResourceSchema } from "@/js/ash_rpc"
 
-export function UserPetitions() {
-  const petitions = [
-    {
-      id: 1,
-      title: "Extend Library Hours During Finals Week",
-      category: "Campus Life",
-      status: "active",
-      signatures: 1247,
-      goal: 2000,
-      created: "2 weeks ago",
-      trending: true,
-    },
-    {
-      id: 2,
-      title: "Add More Vegetarian Options in Dining Halls",
-      category: "Food & Dining",
-      status: "active",
-      signatures: 892,
-      goal: 1500,
-      created: "1 month ago",
-      trending: false,
-    },
-    {
-      id: 3,
-      title: "Improve Campus WiFi Infrastructure",
-      category: "Technology",
-      status: "under review",
-      signatures: 2341,
-      goal: 2000,
-      created: "3 months ago",
-      trending: false,
-    },
-  ]
+type Petition = CleanResource<PetitionResourceSchema>
+type Petitions = Petition[]
 
+interface UserPetitionsProps {
+  petitions: Petitions
+}
+
+export function UserPetitions({ petitions }: UserPetitionsProps) {
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -49,7 +25,7 @@ export function UserPetitions() {
 
       <div className="space-y-4">
         {petitions.map((petition) => {
-          const progress = (petition.signatures / petition.goal) * 100
+          const progress = (petition.signaturesCount / petition.goal) * 100
 
           return (
             // <Link key={petition.id} href={`/petition/${petition.id}`} className="block group">
@@ -58,7 +34,7 @@ export function UserPetitions() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="secondary" className="text-xs">
-                      {petition.category}
+                      {petition.category.name!}
                     </Badge>
                     {petition.trending && (
                       <Badge
@@ -70,7 +46,7 @@ export function UserPetitions() {
                       </Badge>
                     )}
                     <Badge
-                      variant={petition.status === "active" ? "default" : "outline"}
+                      variant={petition.status === "open" ? "default" : "outline"}
                       className="text-xs capitalize"
                     >
                       {petition.status}
@@ -90,11 +66,12 @@ export function UserPetitions() {
                   <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Users className="w-4 h-4" />
-                      {petition.signatures.toLocaleString()} signatures
+                      {petition.signaturesCount.toLocaleString()} signatures
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Calendar className="w-4 h-4" />
-                      {petition.created}
+                      {Date()}
+                      {/*{petition.created}*/}
                     </span>
                   </div>
                   <span className="text-muted-foreground font-medium">{Math.round(progress)}%</span>
@@ -103,10 +80,10 @@ export function UserPetitions() {
                 <Progress value={progress} className="h-2" />
 
                 <div className="text-xs text-muted-foreground">
-                  {petition.goal - petition.signatures > 0 ? (
+                  {petition.goal - petition.signaturesCount > 0 ? (
                     <span>
-                      {(petition.goal - petition.signatures).toLocaleString()} more needed to reach
-                      goal
+                      {(petition.goal - petition.signaturesCount).toLocaleString()} more needed to
+                      reach goal
                     </span>
                   ) : (
                     <span className="text-primary font-medium">Goal reached! 🎉</span>
