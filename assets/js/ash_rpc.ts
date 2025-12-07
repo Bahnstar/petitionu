@@ -8,17 +8,20 @@
 export type UUIDv7 = string;
 export type UUID = string;
 export type UtcDateTime = string;
+export type UtcDateTimeUsec = string;
 
 // Organization Schema
 export type OrganizationResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "domain" | "logoUrl" | "allowPublicSignatures";
+  __primitiveFields: "id" | "name" | "description" | "domain" | "logoUrl" | "allowPublicSignatures" | "insertedAt" | "updatedAt";
   id: UUIDv7;
   name: string | null;
   description: string | null;
   domain: string | null;
   logoUrl: string | null;
   allowPublicSignatures: boolean | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
@@ -26,12 +29,14 @@ export type OrganizationResourceSchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "insertedAt" | "updatedAt" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
   email: string;
   graduationYear: number | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
   numPetitions: number;
   numSigned: number;
   numPetitionSignees: number;
@@ -45,10 +50,12 @@ export type UserResourceSchema = {
 // Preference Schema
 export type PreferenceResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "value";
+  __primitiveFields: "id" | "name" | "value" | "insertedAt" | "updatedAt";
   id: UUIDv7;
   name: string | null;
   value: string | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
@@ -56,11 +63,13 @@ export type PreferenceResourceSchema = {
 // Notification Schema
 export type NotificationResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body" | "status";
+  __primitiveFields: "id" | "title" | "body" | "status" | "insertedAt" | "updatedAt";
   id: UUIDv7;
   title: string;
   body: string | null;
   status: "unread" | "read" | "archived";
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
@@ -68,7 +77,7 @@ export type NotificationResourceSchema = {
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "userId" | "categoryId" | "signaturesCount" | "daysLeft" | "author" | "trending";
+  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "signaturesCount" | "daysLeft" | "author" | "trending";
   id: UUIDv7;
   title: string | null;
   description: string | null;
@@ -77,6 +86,8 @@ export type PetitionResourceSchema = {
   allowComments: boolean | null;
   isAnonymous: boolean | null;
   deadline: UtcDateTime | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
   categoryId: UUID | null;
   signaturesCount: number | null;
@@ -95,10 +106,12 @@ export type PetitionResourceSchema = {
 // Update Schema
 export type UpdateResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body";
+  __primitiveFields: "id" | "title" | "body" | "insertedAt" | "updatedAt";
   id: UUIDv7;
   title: string;
   body: string;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
@@ -106,12 +119,14 @@ export type UpdateResourceSchema = {
 // Signature Schema
 export type SignatureResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "petitionId" | "userId";
+  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId" | "userId";
   id: UUIDv7;
   reason: string | null;
   ipAddress: string | null;
   userAgent: string | null;
   isVerified: boolean | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
   petitionId: UUID;
   userId: UUID;
   petition: { __type: "Relationship"; __resource: PetitionResourceSchema; };
@@ -123,10 +138,12 @@ export type SignatureResourceSchema = {
 // Comment Schema
 export type CommentResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment" | "userId";
+  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId";
   id: UUIDv7;
   text: string | null;
   sentiment: string | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
   user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
 };
@@ -136,11 +153,13 @@ export type CommentResourceSchema = {
 // Category Schema
 export type CategoryResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "color";
+  __primitiveFields: "id" | "name" | "description" | "color" | "insertedAt" | "updatedAt";
   id: UUIDv7;
   name: string | null;
   description: string | null;
   color: string | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
@@ -187,6 +206,26 @@ export type OrganizationFilterInput = {
     notEq?: boolean;
   };
 
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
 
 
 };
@@ -227,6 +266,26 @@ export type UserFilterInput = {
     lessThan?: number;
     lessThanOrEqual?: number;
     in?: Array<number>;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
   };
 
   totalPetitionSignatures?: {
@@ -297,6 +356,26 @@ export type PreferenceFilterInput = {
     in?: Array<string>;
   };
 
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
 
 
 };
@@ -327,6 +406,26 @@ export type NotificationFilterInput = {
     eq?: "unread" | "read" | "archived";
     notEq?: "unread" | "read" | "archived";
     in?: Array<"unread" | "read" | "archived">;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
   };
 
 
@@ -389,6 +488,26 @@ export type PetitionFilterInput = {
     lessThan?: UtcDateTime;
     lessThanOrEqual?: UtcDateTime;
     in?: Array<UtcDateTime>;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
   };
 
   userId?: {
@@ -469,6 +588,26 @@ export type UpdateFilterInput = {
     in?: Array<string>;
   };
 
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
 
 
 };
@@ -504,6 +643,26 @@ export type SignatureFilterInput = {
   isVerified?: {
     eq?: boolean;
     notEq?: boolean;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
   };
 
   petitionId?: {
@@ -547,6 +706,26 @@ export type CommentFilterInput = {
     in?: Array<string>;
   };
 
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
   userId?: {
     eq?: UUID;
     notEq?: UUID;
@@ -584,6 +763,26 @@ export type CategoryFilterInput = {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
   };
 
 

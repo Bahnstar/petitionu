@@ -52,7 +52,7 @@ defmodule Petitionu.Accounts.Organization do
       default false
     end
 
-    timestamps()
+    timestamps(public?: true)
   end
 
   relationships do

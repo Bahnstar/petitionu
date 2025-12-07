@@ -337,7 +337,7 @@ defmodule Petitionu.Accounts.User do
 
     attribute :confirmed_at, :utc_datetime_usec
 
-    timestamps()
+    timestamps(public?: true)
   end
 
   relationships do

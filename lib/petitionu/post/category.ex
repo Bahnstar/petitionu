@@ -50,7 +50,7 @@ defmodule Petitionu.Post.Category do
       default "#00683d"
     end
 
-    timestamps()
+    timestamps(public?: true)
   end
 
   relationships do

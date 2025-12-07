@@ -40,7 +40,7 @@ defmodule Petitionu.Accounts.Notification do
       allow_nil? false
     end
 
-    timestamps()
+    timestamps(public?: true)
   end
 
   relationships do

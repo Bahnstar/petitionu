@@ -28,7 +28,7 @@ defmodule Petitionu.Accounts.Preference do
       public? true
     end
 
-    timestamps()
+    timestamps(public?: true)
   end
 
   relationships do

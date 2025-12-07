@@ -78,7 +78,7 @@ defmodule Petitionu.Post.Petition do
       allow_nil? true
     end
 
-    timestamps()
+    timestamps(public?: true)
   end
 
   relationships do
