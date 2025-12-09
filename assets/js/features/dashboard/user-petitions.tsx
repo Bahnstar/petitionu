@@ -70,8 +70,7 @@ export function UserPetitions({ petitions }: UserPetitionsProps) {
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Calendar className="w-4 h-4" />
-                      {Date()}
-                      {/*{petition.created}*/}
+                      {petition.insertedAt?.toLocaleString()}
                     </span>
                   </div>
                   <span className="text-muted-foreground font-medium">{Math.round(progress)}%</span>

@@ -81,7 +81,7 @@ function LoadingState() {
             <div key={i} className="bg-card rounded-lg border border-border p-6 space-y-4">
               {/* Title skeleton */}
               <div className="h-6 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-              
+
               {/* Description skeleton */}
               <div className="space-y-2">
                 <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
@@ -144,6 +144,8 @@ export default function BrowsePetitionsPage() {
           "allowComments",
           "isAnonymous",
           "deadline",
+          "insertedAt",
+          "updatedAt",
           { category: ["id", "name", "description"] },
           { comments: ["sentiment", "text"] },
           { signatures: ["reason", "userAgent"] },

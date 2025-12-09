@@ -40,7 +40,7 @@ export function PetitionCard({ petition }: { petition: Petition }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-foreground">
-              {petition.signaturesCount?.toLocaleString()} signatures
+              {petition.signaturesCount} signatures
             </span>
             <span className="text-muted-foreground">{petition.daysLeft} days left</span>
           </div>
@@ -53,7 +53,7 @@ export function PetitionCard({ petition }: { petition: Petition }) {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {Math.round(progress)}% of {petition.goal?.toLocaleString()} goal
+            {Math.round(progress)}% of {petition.goal} goal
           </div>
         </div>
 
