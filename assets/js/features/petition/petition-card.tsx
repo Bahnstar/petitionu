@@ -57,11 +57,11 @@ export function PetitionCard({ petition }: { petition: Petition }) {
           </div>
         </div>
 
-        {/*<Link to={`/petition/${petition.id}`}>*/}
-        <Button className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
-          Sign This Petition
-        </Button>
-        {/*</Link>*/}
+        <Link to={`/ash-typescript/petitions/${petition.id}`}>
+          <Button className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
+            Sign This Petition
+          </Button>
+        </Link>
       </div>
     </Link>
   )

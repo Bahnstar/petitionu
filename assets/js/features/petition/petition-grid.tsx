@@ -1,81 +1,104 @@
 import { PetitionCard } from "./petition-card"
+import { CleanResource, PetitionResourceSchema } from "../../ash_rpc"
+import { Button } from "../../../../components/ui/button"
 
-const petitions = [
+// Fallback mock data for when no petitions are available
+const mockPetitions: CleanResource<PetitionResourceSchema>[] = [
   {
-    id: 1,
+    id: "018f1234-5678-9abc-def0-123456789abc",
     title: "Extend Library Hours During Finals Week",
-    description:
-      "Request 24/7 library access during final exams to support student study needs and reduce stress during the most critical academic period.",
+    description: "Request 24/7 library access during final exams to support student study needs and reduce stress during most critical academic period.",
     author: "Sarah Mitchell",
-    category: "Academic",
-    signatures: 2847,
+    signaturesCount: 2847,
     goal: 3000,
     daysLeft: 12,
     trending: true,
+    status: "open",
+    deadline: null,
+    allowComments: true,
+    isAnonymous: false,
+    insertedAt: "2024-01-15T10:30:00Z",
+    updatedAt: "2024-01-15T10:30:00Z",
+    userId: "018f1234-5678-9abc-def0-123456789abc",
+    categoryId: "018f1234-5678-9abc-def0-123456789abc",
+    category: {
+      id: "018f1234-5678-9abc-def0-123456789abc",
+      name: "Academic",
+      description: "Academic related petitions",
+      color: "#3b82f6",
+      insertedAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    user: {
+      id: "018f1234-5678-9abc-def0-123456789abc",
+      firstName: "Sarah",
+      lastName: "Mitchell",
+      email: "sarah.mitchell@example.com",
+      graduationYear: 2025,
+      insertedAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+      numPetitions: 2,
+      numSigned: 15,
+      numPetitionSignees: 50,
+      totalPetitionSignatures: 120,
+      petitions: [],
+      signatures: []
+    },
+    updates: [],
+    comments: [],
+    signatures: []
   },
   {
-    id: 2,
+    id: "018f1234-5678-9abc-def0-123456789abd",
     title: "Add More Vegetarian Options in Dining Halls",
-    description:
-      "Expand plant-based meal choices across all campus dining facilities to accommodate dietary preferences and promote sustainable eating.",
+    description: "Expand plant-based meal choices across all campus dining facilities to accommodate dietary preferences and promote sustainable eating.",
     author: "James Chen",
-    category: "Campus Life",
-    signatures: 1653,
+    signaturesCount: 1653,
     goal: 2500,
     daysLeft: 8,
     trending: false,
-  },
-  {
-    id: 3,
-    title: "Improve Mental Health Services Access",
-    description:
-      "Reduce wait times and increase counseling staff to ensure all students can access mental health support when needed.",
-    author: "Emma Rodriguez",
-    category: "Student Wellness",
-    signatures: 4129,
-    goal: 5000,
-    daysLeft: 15,
-    trending: true,
-  },
-  {
-    id: 4,
-    title: "Create Gender-Neutral Bathrooms Campus-Wide",
-    description:
-      "Install inclusive restroom facilities in all major buildings to support students of all gender identities.",
-    author: "Alex Thompson",
-    category: "Inclusion",
-    signatures: 892,
-    goal: 1500,
-    daysLeft: 21,
-    trending: false,
-  },
-  {
-    id: 5,
-    title: "Reduce Student Parking Permit Costs",
-    description:
-      "Lower annual parking fees to make campus parking more affordable for students, especially those commuting.",
-    author: "Michael Park",
-    category: "Finance",
-    signatures: 3241,
-    goal: 4000,
-    daysLeft: 6,
-    trending: true,
-  },
-  {
-    id: 6,
-    title: "Implement Mandatory Sustainability Courses",
-    description:
-      "Add climate change and sustainability education as a graduation requirement for all undergraduate programs.",
-    author: "Lisa Nguyen",
-    category: "Academic",
-    signatures: 1567,
-    goal: 2000,
-    daysLeft: 18,
-    trending: false,
-  },
+    status: "open",
+    deadline: null,
+    allowComments: true,
+    isAnonymous: false,
+    insertedAt: "2024-01-14T09:15:00Z",
+    updatedAt: "2024-01-14T09:15:00Z",
+    userId: "018f1234-5678-9abc-def0-123456789abd",
+    categoryId: "018f1234-5678-9abc-def0-123456789abd",
+    category: {
+      id: "018f1234-5678-9abc-def0-123456789abd",
+      name: "Campus Life",
+      description: "Campus life related petitions",
+      color: "#10b981",
+      insertedAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    },
+    user: {
+      id: "018f1234-5678-9abc-def0-123456789abd",
+      firstName: "James",
+      lastName: "Chen",
+      email: "james.chen@example.com",
+      graduationYear: 2024,
+      insertedAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+      numPetitions: 1,
+      numSigned: 8,
+      numPetitionSignees: 25,
+      totalPetitionSignatures: 60,
+      petitions: [],
+      signatures: []
+    },
+    updates: [],
+    comments: [],
+    signatures: []
+  }
 ]
 
-export function PetitionGrid() {
+interface PetitionGridProps {
+  petitions?: CleanResource<PetitionResourceSchema>[]
+}
+
+export function PetitionGrid({ petitions = mockPetitions }: PetitionGridProps) {
   return (
     <section id="petitions" className="py-16 lg:py-24">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -98,9 +121,20 @@ export function PetitionGrid() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {petitions.map((petition) => (
-            <PetitionCard key={petition.id} petition={petition} />
-          ))}
+          {petitions.length > 0 ? (
+            petitions.map((petition) => (
+              <PetitionCard key={petition.id} petition={petition} />
+            ))
+          ) : (
+            <div className="col-span-full text-center py-16">
+              <p className="text-muted-foreground text-lg">
+                No petitions found. Be the first to start a petition!
+              </p>
+              <Button className="mt-4" asChild>
+                <a href="/ash-typescript/create">Start a Petition</a>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </section>

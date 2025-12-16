@@ -155,11 +155,10 @@ export default function BrowsePetitionsPage() {
       })
 
       if (!result.success) {
-        // @ts-ignore
-        result.errors.forEach((error) => {
-          console.log(error.message, error.field, error.code)
+        result.errors?.forEach((error) => {
+          console.error("API Error:", error.message, error.fields, error.type)
         })
-        throw new Error("Failed to fetch petitions")
+        throw new Error(`Failed to fetch petitions: ${result.errors?.map(e => e.message).join(", ")}`)
       }
 
       const fetchedPetitions: Petition[] = result.data
@@ -176,11 +175,10 @@ export default function BrowsePetitionsPage() {
       })
 
       if (!result.success) {
-        // @ts-ignore
-        result.errors.forEach((error) => {
-          console.log(error.message, error.field, error.code)
+        result.errors?.forEach((error) => {
+          console.error("API Error:", error.message, error.fields, error.type)
         })
-        throw new Error("Failed to fetch categories")
+        throw new Error(`Failed to fetch categories: ${result.errors?.map(e => e.message).join(", ")}`)
       }
 
       const fetchedCategory: Category[] = result.data

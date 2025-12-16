@@ -202,11 +202,10 @@ export default function Dashboard() {
       })
 
       if (!result.success) {
-        // @ts-ignore
-        result.errors.forEach((error) => {
-          console.log(error.message, error.field, error.code)
+        result.errors?.forEach((error) => {
+          console.error("API Error:", error.message, error.fields, error.type)
         })
-        throw new Error("Failed to fetch user")
+        throw new Error(`Failed to fetch user: ${result.errors?.map(e => e.message).join(", ")}`)
       }
 
       const fetchedUser: User = result.data
@@ -214,7 +213,6 @@ export default function Dashboard() {
     },
   })
 
-  console.log(userQuery.data)
   const apiUser = userQuery.data
 
   switch (true) {
