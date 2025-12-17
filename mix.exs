@@ -45,7 +45,7 @@ defmodule Petitionu.MixProject do
       {:picosat_elixir, "~> 0.2"},
       {:sourceror, "~> 1.8", only: [:dev, :test]},
       {:open_api_spex, "~> 3.0"},
-      {:ash_typescript, "~> 0.7"},
+      {:ash_typescript, "~> 0.11"},
       {:usage_rules, "~> 0.1", only: [:dev]},
       {:tidewave, "~> 0.5", only: [:dev]},
       {:ash_admin, "~> 0.13"},
