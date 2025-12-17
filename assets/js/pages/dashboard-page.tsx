@@ -117,7 +117,10 @@ function DashboardLoadingState() {
               <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse"></div>
               <div className="space-y-3">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 pb-3 border-b border-border last:border-0">
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 pb-3 border-b border-border last:border-0"
+                  >
                     <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
                     <div className="flex-1 space-y-1">
                       <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
@@ -133,7 +136,10 @@ function DashboardLoadingState() {
               <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse"></div>
               <div className="space-y-3">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex items-start gap-3 pb-3 border-b border-border last:border-0">
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 pb-3 border-b border-border last:border-0"
+                  >
                     <div className="h-8 w-8 bg-muted rounded-full animate-pulse mt-1"></div>
                     <div className="flex-1 space-y-1">
                       <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
@@ -201,11 +207,11 @@ export default function Dashboard() {
         headers: buildCSRFHeaders(),
       })
 
-      if (!result.success) {
-        result.errors?.forEach((error) => {
+      if (result.success === false) {
+        result.errors.forEach((error) => {
           console.error("API Error:", error.message, error.fields, error.type)
         })
-        throw new Error(`Failed to fetch user: ${result.errors?.map(e => e.message).join(", ")}`)
+        throw new Error(`Failed to fetch user: ${result.errors.map((e) => e.message).join(", ")}`)
       }
 
       const fetchedUser: User = result.data

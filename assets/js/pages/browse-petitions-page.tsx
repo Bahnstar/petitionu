@@ -17,6 +17,7 @@ import {
   PetitionResourceSchema,
   CategoryResourceSchema,
   UserResourceSchema,
+  AshRpcError,
 } from "../ash_rpc"
 import { CleanResource } from "../../lib/types"
 import { useQuery } from "@tanstack/react-query"
@@ -154,11 +155,13 @@ export default function BrowsePetitionsPage() {
         headers: buildCSRFHeaders(),
       })
 
-      if (!result.success) {
-        result.errors?.forEach((error) => {
+      if (result.success === false) {
+        result.errors.forEach((error) => {
           console.error("API Error:", error.message, error.fields, error.type)
         })
-        throw new Error(`Failed to fetch petitions: ${result.errors?.map(e => e.message).join(", ")}`)
+        throw new Error(
+          `Failed to fetch petitions: ${result.errors.map((e) => e.message).join(", ")}`,
+        )
       }
 
       const fetchedPetitions: Petition[] = result.data
@@ -174,11 +177,13 @@ export default function BrowsePetitionsPage() {
         headers: buildCSRFHeaders(),
       })
 
-      if (!result.success) {
-        result.errors?.forEach((error) => {
+      if (result.success === false) {
+        result.errors.forEach((error) => {
           console.error("API Error:", error.message, error.fields, error.type)
         })
-        throw new Error(`Failed to fetch categories: ${result.errors?.map(e => e.message).join(", ")}`)
+        throw new Error(
+          `Failed to fetch categories: ${result.errors.map((e) => e.message).join(", ")}`,
+        )
       }
 
       const fetchedCategory: Category[] = result.data
