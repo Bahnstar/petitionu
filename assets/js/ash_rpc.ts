@@ -29,12 +29,13 @@ export type OrganizationResourceSchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "insertedAt" | "updatedAt" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
   email: string;
   graduationYear: number | null;
+  role: "student" | "professor" | "admin";
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
   numPetitions: number;
@@ -43,6 +44,8 @@ export type UserResourceSchema = {
   totalPetitionSignatures: number | null;
   petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; };
   signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
+  classroomMemberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; };
+  ownedClassrooms: { __type: "Relationship"; __array: true; __resource: ClassroomResourceSchema; };
 };
 
 
@@ -77,7 +80,7 @@ export type NotificationResourceSchema = {
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "signaturesCount" | "daysLeft" | "author" | "trending";
+  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "classroomId" | "signaturesCount" | "isClassroomPetition" | "daysLeft" | "author" | "trending";
   id: UUIDv7;
   title: string | null;
   description: string | null;
@@ -90,12 +93,15 @@ export type PetitionResourceSchema = {
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
   categoryId: UUID | null;
+  classroomId: UUID | null;
   signaturesCount: number | null;
+  isClassroomPetition: boolean | null;
   daysLeft: number | null;
   author: string | null;
   trending: boolean | null;
   user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
   category: { __type: "Relationship"; __resource: CategoryResourceSchema | null; };
+  classroom: { __type: "Relationship"; __resource: ClassroomResourceSchema | null; };
   updates: { __type: "Relationship"; __array: true; __resource: UpdateResourceSchema; };
   comments: { __type: "Relationship"; __array: true; __resource: CommentResourceSchema; };
   signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
@@ -106,12 +112,14 @@ export type PetitionResourceSchema = {
 // Update Schema
 export type UpdateResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body" | "insertedAt" | "updatedAt";
+  __primitiveFields: "id" | "title" | "body" | "insertedAt" | "updatedAt" | "petitionId";
   id: UUIDv7;
   title: string;
   body: string;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
+  petitionId: UUID | null;
+  petition: { __type: "Relationship"; __resource: PetitionResourceSchema | null; };
 };
 
 
@@ -160,6 +168,50 @@ export type CategoryResourceSchema = {
   color: string | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
+};
+
+
+
+// Classroom Schema
+export type ClassroomResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "name" | "description" | "joinCode" | "archived" | "allowStudentPetitions" | "insertedAt" | "updatedAt" | "professorId" | "organizationId" | "memberCount" | "petitionCount";
+  id: UUIDv7;
+  name: string;
+  description: string | null;
+  joinCode: UUID;
+  archived: boolean;
+  allowStudentPetitions: boolean;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
+  professorId: UUID;
+  organizationId: UUID | null;
+  memberCount: number | null;
+  petitionCount: number | null;
+  professor: { __type: "Relationship"; __resource: UserResourceSchema; };
+  organization: { __type: "Relationship"; __resource: OrganizationResourceSchema | null; };
+  memberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; };
+  petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; };
+};
+
+
+
+// ClassroomMembership Schema
+export type ClassroomMembershipResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "role" | "status" | "joinedAt" | "insertedAt" | "updatedAt" | "classroomId" | "userId" | "invitedById";
+  id: UUIDv7;
+  role: "student" | "ta";
+  status: "pending" | "active" | "removed";
+  joinedAt: UtcDateTimeUsec | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
+  classroomId: UUID;
+  userId: UUID;
+  invitedById: UUID | null;
+  classroom: { __type: "Relationship"; __resource: ClassroomResourceSchema; };
+  user: { __type: "Relationship"; __resource: UserResourceSchema; };
+  invitedBy: { __type: "Relationship"; __resource: UserResourceSchema | null; };
 };
 
 
@@ -268,6 +320,12 @@ export type UserFilterInput = {
     in?: Array<number>;
   };
 
+  role?: {
+    eq?: "student" | "professor" | "admin";
+    notEq?: "student" | "professor" | "admin";
+    in?: Array<"student" | "professor" | "admin">;
+  };
+
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
@@ -331,6 +389,10 @@ export type UserFilterInput = {
   petitions?: PetitionFilterInput;
 
   signatures?: SignatureFilterInput;
+
+  classroomMemberships?: ClassroomMembershipFilterInput;
+
+  ownedClassrooms?: ClassroomFilterInput;
 
 };
 export type PreferenceFilterInput = {
@@ -522,6 +584,12 @@ export type PetitionFilterInput = {
     in?: Array<UUID>;
   };
 
+  classroomId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
   signaturesCount?: {
     eq?: number;
     notEq?: number;
@@ -530,6 +598,11 @@ export type PetitionFilterInput = {
     lessThan?: number;
     lessThanOrEqual?: number;
     in?: Array<number>;
+  };
+
+  isClassroomPetition?: {
+    eq?: boolean;
+    notEq?: boolean;
   };
 
   daysLeft?: {
@@ -557,6 +630,8 @@ export type PetitionFilterInput = {
   user?: UserFilterInput;
 
   category?: CategoryFilterInput;
+
+  classroom?: ClassroomFilterInput;
 
   updates?: UpdateFilterInput;
 
@@ -608,7 +683,14 @@ export type UpdateFilterInput = {
     in?: Array<UtcDateTimeUsec>;
   };
 
+  petitionId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
 
+
+  petition?: PetitionFilterInput;
 
 };
 export type SignatureFilterInput = {
@@ -786,6 +868,186 @@ export type CategoryFilterInput = {
   };
 
 
+
+};
+export type ClassroomFilterInput = {
+  and?: Array<ClassroomFilterInput>;
+  or?: Array<ClassroomFilterInput>;
+  not?: Array<ClassroomFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  name?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  description?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  joinCode?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  archived?: {
+    eq?: boolean;
+    notEq?: boolean;
+  };
+
+  allowStudentPetitions?: {
+    eq?: boolean;
+    notEq?: boolean;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  professorId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  organizationId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  memberCount?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+  petitionCount?: {
+    eq?: number;
+    notEq?: number;
+    greaterThan?: number;
+    greaterThanOrEqual?: number;
+    lessThan?: number;
+    lessThanOrEqual?: number;
+    in?: Array<number>;
+  };
+
+
+  professor?: UserFilterInput;
+
+  organization?: OrganizationFilterInput;
+
+  memberships?: ClassroomMembershipFilterInput;
+
+  petitions?: PetitionFilterInput;
+
+};
+export type ClassroomMembershipFilterInput = {
+  and?: Array<ClassroomMembershipFilterInput>;
+  or?: Array<ClassroomMembershipFilterInput>;
+  not?: Array<ClassroomMembershipFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  role?: {
+    eq?: "student" | "ta";
+    notEq?: "student" | "ta";
+    in?: Array<"student" | "ta">;
+  };
+
+  status?: {
+    eq?: "pending" | "active" | "removed";
+    notEq?: "pending" | "active" | "removed";
+    in?: Array<"pending" | "active" | "removed">;
+  };
+
+  joinedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  classroomId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  userId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  invitedById?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+
+  classroom?: ClassroomFilterInput;
+
+  user?: UserFilterInput;
+
+  invitedBy?: UserFilterInput;
 
 };
 
@@ -1619,6 +1881,115 @@ export async function validateGetUserById(
 }
 
 
+export type GetMeFields = UnifiedFieldSelection<UserResourceSchema>[];
+export type InferGetMeResult<
+  Fields extends GetMeFields,
+> = InferResult<UserResourceSchema, Fields>;
+
+export type GetMeResult<Fields extends GetMeFields> = | { success: true; data: InferGetMeResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getMe<Fields extends GetMeFields>(
+  config: {
+  fields: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetMeResult<Fields>> {
+  const payload = {
+    action: "get_me",
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<GetMeResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetMe(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_me"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type SetUserRoleInput = {
+  role?: "student" | "professor" | "admin";
+};
+
+export type SetUserRoleFields = UnifiedFieldSelection<UserResourceSchema>[];
+
+export type InferSetUserRoleResult<
+  Fields extends SetUserRoleFields | undefined,
+> = InferResult<UserResourceSchema, Fields>;
+
+export type SetUserRoleResult<Fields extends SetUserRoleFields | undefined = undefined> = | { success: true; data: InferSetUserRoleResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function setUserRole<Fields extends SetUserRoleFields | undefined = undefined>(
+  config: {
+  identity: UUID;
+  input?: SetUserRoleInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<SetUserRoleResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "set_user_role",
+    identity: config.identity,
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<SetUserRoleResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateSetUserRole(
+  config: {
+  identity: UUID | string;
+  input?: SetUserRoleInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "set_user_role",
+    identity: config.identity,
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type GetPreferencesFields = UnifiedFieldSelection<PreferenceResourceSchema>[];
 
 
@@ -1997,6 +2368,183 @@ export async function validateCreatePetition(
 }
 
 
+export type CreateClassroomPetitionInput = {
+  title?: string | null;
+  description?: string | null;
+  status?: "open" | "closed" | "victory" | null;
+  goal?: number | null;
+  deadline?: UtcDateTime | null;
+  allowComments?: boolean | null;
+  isAnonymous?: boolean | null;
+  categoryId: UUIDv7;
+  classroomId: UUIDv7;
+};
+
+export type CreateClassroomPetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+export type InferCreateClassroomPetitionResult<
+  Fields extends CreateClassroomPetitionFields | undefined,
+> = InferResult<PetitionResourceSchema, Fields>;
+
+export type CreateClassroomPetitionResult<Fields extends CreateClassroomPetitionFields | undefined = undefined> = | { success: true; data: InferCreateClassroomPetitionResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function createClassroomPetition<Fields extends CreateClassroomPetitionFields | undefined = undefined>(
+  config: {
+  input: CreateClassroomPetitionInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreateClassroomPetitionResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_classroom_petition",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreateClassroomPetitionResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateCreateClassroomPetition(
+  config: {
+  input: CreateClassroomPetitionInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "create_classroom_petition",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetClassroomPetitionsInput = {
+  classroomId: UUIDv7;
+};
+
+export type GetClassroomPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+export type InferGetClassroomPetitionsResult<
+  Fields extends GetClassroomPetitionsFields,
+> = Array<InferResult<PetitionResourceSchema, Fields>>;
+
+export type GetClassroomPetitionsResult<Fields extends GetClassroomPetitionsFields> = | { success: true; data: InferGetClassroomPetitionsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getClassroomPetitions<Fields extends GetClassroomPetitionsFields>(
+  config: {
+  input: GetClassroomPetitionsInput;
+  fields: Fields;
+  filter?: PetitionFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetClassroomPetitionsResult<Fields>> {
+  const payload = {
+    action: "get_classroom_petitions",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort })
+  };
+
+  return executeActionRpcRequest<GetClassroomPetitionsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetClassroomPetitions(
+  config: {
+  input: GetClassroomPetitionsInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_classroom_petitions",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetPublicPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+export type InferGetPublicPetitionsResult<
+  Fields extends GetPublicPetitionsFields,
+> = Array<InferResult<PetitionResourceSchema, Fields>>;
+
+export type GetPublicPetitionsResult<Fields extends GetPublicPetitionsFields> = | { success: true; data: InferGetPublicPetitionsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getPublicPetitions<Fields extends GetPublicPetitionsFields>(
+  config: {
+  fields: Fields;
+  filter?: PetitionFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetPublicPetitionsResult<Fields>> {
+  const payload = {
+    action: "get_public_petitions",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort })
+  };
+
+  return executeActionRpcRequest<GetPublicPetitionsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetPublicPetitions(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_public_petitions"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type GetUpdatesFields = UnifiedFieldSelection<UpdateResourceSchema>[];
 
 
@@ -2074,6 +2622,125 @@ export async function validateGetUpdates(
 ): Promise<ValidationResult> {
   const payload = {
     action: "get_updates"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetUpdatesForPetitionInput = {
+  petitionId: UUIDv7;
+};
+
+export type GetUpdatesForPetitionFields = UnifiedFieldSelection<UpdateResourceSchema>[];
+export type InferGetUpdatesForPetitionResult<
+  Fields extends GetUpdatesForPetitionFields,
+> = Array<InferResult<UpdateResourceSchema, Fields>>;
+
+export type GetUpdatesForPetitionResult<Fields extends GetUpdatesForPetitionFields> = | { success: true; data: InferGetUpdatesForPetitionResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getUpdatesForPetition<Fields extends GetUpdatesForPetitionFields>(
+  config: {
+  input: GetUpdatesForPetitionInput;
+  fields: Fields;
+  filter?: UpdateFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetUpdatesForPetitionResult<Fields>> {
+  const payload = {
+    action: "get_updates_for_petition",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort })
+  };
+
+  return executeActionRpcRequest<GetUpdatesForPetitionResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetUpdatesForPetition(
+  config: {
+  input: GetUpdatesForPetitionInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_updates_for_petition",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type CreateUpdateInput = {
+  title: string;
+  body: string;
+  petitionId?: UUID | null;
+};
+
+export type CreateUpdateFields = UnifiedFieldSelection<UpdateResourceSchema>[];
+
+export type InferCreateUpdateResult<
+  Fields extends CreateUpdateFields | undefined,
+> = InferResult<UpdateResourceSchema, Fields>;
+
+export type CreateUpdateResult<Fields extends CreateUpdateFields | undefined = undefined> = | { success: true; data: InferCreateUpdateResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function createUpdate<Fields extends CreateUpdateFields | undefined = undefined>(
+  config: {
+  input: CreateUpdateInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreateUpdateResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_update",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreateUpdateResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateCreateUpdate(
+  config: {
+  input: CreateUpdateInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "create_update",
+    input: config.input
   };
 
   return executeValidationRpcRequest<ValidationResult>(
@@ -2454,6 +3121,1073 @@ export async function validateGetCategories(
 ): Promise<ValidationResult> {
   const payload = {
     action: "get_categories"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetClassroomsFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+
+
+export type InferGetClassroomsResult<
+  Fields extends GetClassroomsFields | undefined,
+  Page extends GetClassroomsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<ClassroomResourceSchema, Fields>>, {
+  results: Array<InferResult<ClassroomResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<ClassroomResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetClassroomsConfig = {
+  fields: GetClassroomsFields;
+  filter?: ClassroomFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetClassroomsResult<Fields extends GetClassroomsFields, Page extends GetClassroomsConfig["page"] = undefined> = | { success: true; data: InferGetClassroomsResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getClassrooms<Fields extends GetClassroomsFields, Config extends GetClassroomsConfig = GetClassroomsConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetClassroomsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_classrooms",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetClassroomsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetClassrooms(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_classrooms"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetClassroomByIdInput = {
+  id?: UUIDv7;
+};
+
+export type GetClassroomByIdFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+export type InferGetClassroomByIdResult<
+  Fields extends GetClassroomByIdFields,
+> = InferResult<ClassroomResourceSchema, Fields>;
+
+export type GetClassroomByIdResult<Fields extends GetClassroomByIdFields> = | { success: true; data: InferGetClassroomByIdResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getClassroomById<Fields extends GetClassroomByIdFields>(
+  config: {
+  input?: GetClassroomByIdInput;
+  fields: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetClassroomByIdResult<Fields>> {
+  const payload = {
+    action: "get_classroom_by_id",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<GetClassroomByIdResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetClassroomById(
+  config: {
+  input?: GetClassroomByIdInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_classroom_by_id",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetMyClassroomsFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+export type InferGetMyClassroomsResult<
+  Fields extends GetMyClassroomsFields,
+> = Array<InferResult<ClassroomResourceSchema, Fields>>;
+
+export type GetMyClassroomsResult<Fields extends GetMyClassroomsFields> = | { success: true; data: InferGetMyClassroomsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getMyClassrooms<Fields extends GetMyClassroomsFields>(
+  config: {
+  fields: Fields;
+  filter?: ClassroomFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetMyClassroomsResult<Fields>> {
+  const payload = {
+    action: "get_my_classrooms",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort })
+  };
+
+  return executeActionRpcRequest<GetMyClassroomsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetMyClassrooms(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_my_classrooms"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type CreateClassroomInput = {
+  name: string;
+  description?: string | null;
+  allowStudentPetitions?: boolean;
+  organizationId?: UUID;
+};
+
+export type CreateClassroomFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+
+export type InferCreateClassroomResult<
+  Fields extends CreateClassroomFields | undefined,
+> = InferResult<ClassroomResourceSchema, Fields>;
+
+export type CreateClassroomResult<Fields extends CreateClassroomFields | undefined = undefined> = | { success: true; data: InferCreateClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function createClassroom<Fields extends CreateClassroomFields | undefined = undefined>(
+  config: {
+  input: CreateClassroomInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreateClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_classroom",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreateClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateCreateClassroom(
+  config: {
+  input: CreateClassroomInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "create_classroom",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type UpdateClassroomInput = {
+  name?: string;
+  description?: string | null;
+  allowStudentPetitions?: boolean;
+};
+
+export type UpdateClassroomFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+
+export type InferUpdateClassroomResult<
+  Fields extends UpdateClassroomFields | undefined,
+> = InferResult<ClassroomResourceSchema, Fields>;
+
+export type UpdateClassroomResult<Fields extends UpdateClassroomFields | undefined = undefined> = | { success: true; data: InferUpdateClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function updateClassroom<Fields extends UpdateClassroomFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  input: UpdateClassroomInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<UpdateClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "update_classroom",
+    identity: config.identity,
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<UpdateClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateUpdateClassroom(
+  config: {
+  identity: UUIDv7 | string;
+  input: UpdateClassroomInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "update_classroom",
+    identity: config.identity,
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type ArchiveClassroomFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+
+export type InferArchiveClassroomResult<
+  Fields extends ArchiveClassroomFields | undefined,
+> = InferResult<ClassroomResourceSchema, Fields>;
+
+export type ArchiveClassroomResult<Fields extends ArchiveClassroomFields | undefined = undefined> = | { success: true; data: InferArchiveClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function archiveClassroom<Fields extends ArchiveClassroomFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ArchiveClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "archive_classroom",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<ArchiveClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateArchiveClassroom(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "archive_classroom",
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type UnarchiveClassroomFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+
+export type InferUnarchiveClassroomResult<
+  Fields extends UnarchiveClassroomFields | undefined,
+> = InferResult<ClassroomResourceSchema, Fields>;
+
+export type UnarchiveClassroomResult<Fields extends UnarchiveClassroomFields | undefined = undefined> = | { success: true; data: InferUnarchiveClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function unarchiveClassroom<Fields extends UnarchiveClassroomFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<UnarchiveClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "unarchive_classroom",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<UnarchiveClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateUnarchiveClassroom(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "unarchive_classroom",
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type RegenerateJoinCodeFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+
+export type InferRegenerateJoinCodeResult<
+  Fields extends RegenerateJoinCodeFields | undefined,
+> = InferResult<ClassroomResourceSchema, Fields>;
+
+export type RegenerateJoinCodeResult<Fields extends RegenerateJoinCodeFields | undefined = undefined> = | { success: true; data: InferRegenerateJoinCodeResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function regenerateJoinCode<Fields extends RegenerateJoinCodeFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<RegenerateJoinCodeResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "regenerate_join_code",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<RegenerateJoinCodeResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateRegenerateJoinCode(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "regenerate_join_code",
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetClassroomMembershipsFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+
+export type InferGetClassroomMembershipsResult<
+  Fields extends GetClassroomMembershipsFields | undefined,
+  Page extends GetClassroomMembershipsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<ClassroomMembershipResourceSchema, Fields>>, {
+  results: Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string;
+  nextPage: string;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetClassroomMembershipsConfig = {
+  fields: GetClassroomMembershipsFields;
+  filter?: ClassroomMembershipFilterInput;
+  sort?: string;
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetClassroomMembershipsResult<Fields extends GetClassroomMembershipsFields, Page extends GetClassroomMembershipsConfig["page"] = undefined> = | { success: true; data: InferGetClassroomMembershipsResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getClassroomMemberships<Fields extends GetClassroomMembershipsFields, Config extends GetClassroomMembershipsConfig = GetClassroomMembershipsConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetClassroomMembershipsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_classroom_memberships",
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetClassroomMembershipsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetClassroomMemberships(
+  config: {
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_classroom_memberships"
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetMembershipsForClassroomInput = {
+  classroomId: UUID;
+};
+
+export type GetMembershipsForClassroomFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+export type InferGetMembershipsForClassroomResult<
+  Fields extends GetMembershipsForClassroomFields,
+> = Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+
+export type GetMembershipsForClassroomResult<Fields extends GetMembershipsForClassroomFields> = | { success: true; data: InferGetMembershipsForClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getMembershipsForClassroom<Fields extends GetMembershipsForClassroomFields>(
+  config: {
+  input: GetMembershipsForClassroomInput;
+  fields: Fields;
+  filter?: ClassroomMembershipFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetMembershipsForClassroomResult<Fields>> {
+  const payload = {
+    action: "get_memberships_for_classroom",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort })
+  };
+
+  return executeActionRpcRequest<GetMembershipsForClassroomResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetMembershipsForClassroom(
+  config: {
+  input: GetMembershipsForClassroomInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_memberships_for_classroom",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetPendingMembershipsInput = {
+  classroomId: UUID;
+};
+
+export type GetPendingMembershipsFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+export type InferGetPendingMembershipsResult<
+  Fields extends GetPendingMembershipsFields,
+> = Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+
+export type GetPendingMembershipsResult<Fields extends GetPendingMembershipsFields> = | { success: true; data: InferGetPendingMembershipsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function getPendingMemberships<Fields extends GetPendingMembershipsFields>(
+  config: {
+  input: GetPendingMembershipsInput;
+  fields: Fields;
+  filter?: ClassroomMembershipFilterInput;
+  sort?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetPendingMembershipsResult<Fields>> {
+  const payload = {
+    action: "get_pending_memberships",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: config.sort })
+  };
+
+  return executeActionRpcRequest<GetPendingMembershipsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateGetPendingMemberships(
+  config: {
+  input: GetPendingMembershipsInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_pending_memberships",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type JoinClassroomByCodeInput = {
+  joinCode: UUID;
+};
+
+export type JoinClassroomByCodeFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferJoinClassroomByCodeResult<
+  Fields extends JoinClassroomByCodeFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type JoinClassroomByCodeResult<Fields extends JoinClassroomByCodeFields | undefined = undefined> = | { success: true; data: InferJoinClassroomByCodeResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function joinClassroomByCode<Fields extends JoinClassroomByCodeFields | undefined = undefined>(
+  config: {
+  input: JoinClassroomByCodeInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<JoinClassroomByCodeResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "join_classroom_by_code",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<JoinClassroomByCodeResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateJoinClassroomByCode(
+  config: {
+  input: JoinClassroomByCodeInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "join_classroom_by_code",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type RequestToJoinClassroomInput = {
+  classroomId: UUID;
+};
+
+export type RequestToJoinClassroomFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferRequestToJoinClassroomResult<
+  Fields extends RequestToJoinClassroomFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type RequestToJoinClassroomResult<Fields extends RequestToJoinClassroomFields | undefined = undefined> = | { success: true; data: InferRequestToJoinClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function requestToJoinClassroom<Fields extends RequestToJoinClassroomFields | undefined = undefined>(
+  config: {
+  input: RequestToJoinClassroomInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<RequestToJoinClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "request_to_join_classroom",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<RequestToJoinClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateRequestToJoinClassroom(
+  config: {
+  input: RequestToJoinClassroomInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "request_to_join_classroom",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type InviteToClassroomInput = {
+  classroomId: UUID;
+  email: string;
+  role?: "student" | "ta";
+};
+
+export type InviteToClassroomFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferInviteToClassroomResult<
+  Fields extends InviteToClassroomFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type InviteToClassroomResult<Fields extends InviteToClassroomFields | undefined = undefined> = | { success: true; data: InferInviteToClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function inviteToClassroom<Fields extends InviteToClassroomFields | undefined = undefined>(
+  config: {
+  input: InviteToClassroomInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<InviteToClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "invite_to_classroom",
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<InviteToClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateInviteToClassroom(
+  config: {
+  input: InviteToClassroomInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "invite_to_classroom",
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type ApproveMembershipFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferApproveMembershipResult<
+  Fields extends ApproveMembershipFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type ApproveMembershipResult<Fields extends ApproveMembershipFields | undefined = undefined> = | { success: true; data: InferApproveMembershipResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function approveMembership<Fields extends ApproveMembershipFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ApproveMembershipResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "approve_membership",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<ApproveMembershipResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateApproveMembership(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "approve_membership",
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type RemoveFromClassroomFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferRemoveFromClassroomResult<
+  Fields extends RemoveFromClassroomFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type RemoveFromClassroomResult<Fields extends RemoveFromClassroomFields | undefined = undefined> = | { success: true; data: InferRemoveFromClassroomResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function removeFromClassroom<Fields extends RemoveFromClassroomFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<RemoveFromClassroomResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "remove_from_classroom",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<RemoveFromClassroomResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateRemoveFromClassroom(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "remove_from_classroom",
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type PromoteToTaFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferPromoteToTaResult<
+  Fields extends PromoteToTaFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type PromoteToTaResult<Fields extends PromoteToTaFields | undefined = undefined> = | { success: true; data: InferPromoteToTaResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function promoteToTa<Fields extends PromoteToTaFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<PromoteToTaResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "promote_to_ta",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<PromoteToTaResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validatePromoteToTa(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "promote_to_ta",
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type DemoteToStudentFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+export type InferDemoteToStudentResult<
+  Fields extends DemoteToStudentFields | undefined,
+> = InferResult<ClassroomMembershipResourceSchema, Fields>;
+
+export type DemoteToStudentResult<Fields extends DemoteToStudentFields | undefined = undefined> = | { success: true; data: InferDemoteToStudentResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+export async function demoteToStudent<Fields extends DemoteToStudentFields | undefined = undefined>(
+  config: {
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<DemoteToStudentResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "demote_to_student",
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<DemoteToStudentResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export async function validateDemoteToStudent(
+  config: {
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "demote_to_student",
+    identity: config.identity
   };
 
   return executeValidationRpcRequest<ValidationResult>(

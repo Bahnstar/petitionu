@@ -513,4 +513,154 @@ Enum.each(updates_data, fn data ->
   end
 end)
 
+# 8. Create Classrooms
+IO.puts("Creating Classrooms...")
+
+# First, let's make sure we have a professor user
+professor =
+  case Accounts.User.get_by_email("professor@tech.edu", authorize?: false) do
+    {:ok, user} ->
+      user
+
+    _ ->
+      user =
+        Accounts.User
+        |> Ash.Changeset.for_create(:register_with_password, %{
+          email: "professor@tech.edu",
+          password: "password123",
+          password_confirmation: "password123"
+        })
+        |> Ash.create!(authorize?: false)
+
+      user
+      |> Ash.Changeset.for_update(:update, %{
+        first_name: "Dr. James",
+        last_name: "Wilson"
+      })
+      |> Ash.update!(authorize?: false)
+
+      user
+      |> Ash.Seed.update!(%{organization_id: organization.id, role: :professor})
+  end
+
+classrooms_data = [
+  %{
+    name: "Introduction to Political Science",
+    description:
+      "A foundational course exploring the principles of government, political systems, and civic engagement. Students will learn to analyze policy issues and advocate for change.",
+    allow_student_petitions: true
+  },
+  %{
+    name: "Environmental Studies 201",
+    description:
+      "This course examines environmental challenges facing our campus and community. Students will work on real petitions to address sustainability issues.",
+    allow_student_petitions: true
+  },
+  %{
+    name: "Social Justice and Advocacy",
+    description:
+      "Learn how to create meaningful change through organized action. This class focuses on petition writing, community organizing, and advocacy strategies.",
+    allow_student_petitions: true
+  },
+  %{
+    name: "Public Policy Workshop",
+    description:
+      "An advanced seminar where students draft and refine policy proposals. Petitions created here may be submitted to university administration.",
+    allow_student_petitions: false
+  }
+]
+
+classrooms =
+  Enum.map(classrooms_data, fn data ->
+    # Check if classroom exists
+    query =
+      Post.Classroom
+      |> Ash.Query.filter(name == ^data.name and professor_id == ^professor.id)
+      |> Ash.Query.limit(1)
+
+    case Ash.read_one!(query, authorize?: false) do
+      nil ->
+        Post.Classroom
+        |> Ash.Seed.seed!(%{
+          name: data.name,
+          description: data.description,
+          allow_student_petitions: data.allow_student_petitions,
+          professor_id: professor.id,
+          organization_id: organization.id,
+          join_code: Ash.UUID.generate()
+        })
+
+      classroom ->
+        classroom
+    end
+  end)
+  |> Map.new(fn classroom -> {classroom.name, classroom} end)
+
+# 9. Create Classroom Memberships
+IO.puts("Creating Classroom Memberships...")
+
+# Get student users (excluding the professor)
+student_users = Enum.reject(Map.values(users), fn user -> user.id == professor.id end)
+
+# Add students to classrooms
+Enum.each(classrooms, fn {_name, classroom} ->
+  # Randomly select 3-5 students for each classroom
+  num_students = Enum.random(3..min(5, length(student_users)))
+  selected_students = Enum.take_random(student_users, num_students)
+
+  Enum.each(selected_students, fn student ->
+    # Check if membership exists
+    membership_query =
+      Post.ClassroomMembership
+      |> Ash.Query.filter(classroom_id == ^classroom.id and user_id == ^student.id)
+      |> Ash.Query.limit(1)
+
+    case Ash.read_one!(membership_query, authorize?: false) do
+      nil ->
+        Post.ClassroomMembership
+        |> Ash.Seed.seed!(%{
+          classroom_id: classroom.id,
+          user_id: student.id,
+          role: :student,
+          status: :active,
+          joined_at: DateTime.utc_now()
+        })
+
+      _ ->
+        :ok
+    end
+  end)
+
+  # Add one TA to the first two classrooms
+  if classroom.name in ["Introduction to Political Science", "Environmental Studies 201"] do
+    ta_candidate = Enum.at(student_users, 0)
+
+    if ta_candidate do
+      # Check if membership exists and update to TA if needed
+      membership_query =
+        Post.ClassroomMembership
+        |> Ash.Query.filter(classroom_id == ^classroom.id and user_id == ^ta_candidate.id)
+        |> Ash.Query.limit(1)
+
+      case Ash.read_one!(membership_query, authorize?: false) do
+        nil ->
+          Post.ClassroomMembership
+          |> Ash.Seed.seed!(%{
+            classroom_id: classroom.id,
+            user_id: ta_candidate.id,
+            role: :ta,
+            status: :active,
+            joined_at: DateTime.utc_now()
+          })
+
+        membership ->
+          if membership.role != :ta do
+            membership
+            |> Ash.Seed.update!(%{role: :ta})
+          end
+      end
+    end
+  end
+end)
+
 IO.puts("Seeding complete!")

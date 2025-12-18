@@ -1,6 +1,7 @@
 import { PetitionCard } from "./petition-card"
-import { CleanResource, PetitionResourceSchema } from "../../ash_rpc"
-import { Button } from "../../../../components/ui/button"
+import { PetitionResourceSchema } from "../../ash_rpc"
+import { CleanResource } from "@/lib/types"
+import { Button } from "@/components/ui/button"
 
 // Fallback mock data for when no petitions are available
 const mockPetitions: CleanResource<PetitionResourceSchema>[] = [

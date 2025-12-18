@@ -91,6 +91,12 @@ defmodule Petitionu.Accounts.User do
       end
     end
 
+    read :me do
+      description "Get the currently authenticated user"
+      get? true
+      filter expr(id == ^actor(:id))
+    end
+
     read :get_by_subject do
       description "Get a user by the subject claim in a JWT"
       argument :subject, :string, allow_nil?: false
@@ -231,6 +237,11 @@ defmodule Petitionu.Accounts.User do
       accept [:first_name, :last_name, :student_id, :graduation_year]
     end
 
+    update :set_role do
+      description "Admin action to set a user's role"
+      accept [:role]
+    end
+
     update :reset_password_with_token do
       argument :reset_token, :string do
         allow_nil? false
@@ -297,6 +308,11 @@ defmodule Petitionu.Accounts.User do
       authorize_if always()
     end
 
+    # Only admins can set user roles
+    policy action(:set_role) do
+      authorize_if actor_attribute_equals(:role, :admin)
+    end
+
     # REMOVE LATER BAD SECURITY
     policy action_type(:read) do
       description "Allow reading user data if not authenticated"
@@ -335,6 +351,13 @@ defmodule Petitionu.Accounts.User do
       public? true
     end
 
+    attribute :role, :atom do
+      constraints one_of: [:student, :professor, :admin]
+      default :student
+      allow_nil? false
+      public? true
+    end
+
     attribute :confirmed_at, :utc_datetime_usec
 
     timestamps(public?: true)
@@ -348,6 +371,15 @@ defmodule Petitionu.Accounts.User do
     end
 
     has_many :signatures, Petitionu.Post.Signature do
+      public? true
+    end
+
+    has_many :classroom_memberships, Petitionu.Post.ClassroomMembership do
+      public? true
+    end
+
+    has_many :owned_classrooms, Petitionu.Post.Classroom do
+      destination_attribute :professor_id
       public? true
     end
   end

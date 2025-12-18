@@ -4,12 +4,14 @@ import { UserPetitions } from "../features/dashboard/user-petitions"
 import { SignedPetitions } from "../features/dashboard/signed-petitions"
 import { TrendingAtSchool } from "../features/dashboard/trending-at-school"
 import { RecentActivity } from "../features/dashboard/recent-activity"
+import { MyClassrooms } from "../features/classroom/my-classrooms"
 import { Button } from "@/components/ui/button"
 import { buildCSRFHeaders, getUserById, UserResourceSchema } from "../ash_rpc"
 import { Badge } from "@/components/ui/badge"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { CleanResource } from "@/lib/types"
+import { useAuth } from "../contexts/auth-context"
 
 type User = CleanResource<UserResourceSchema>
 
@@ -158,11 +160,17 @@ function DashboardLoadingState() {
 }
 
 export default function Dashboard() {
+  const { user: currentUser, isLoading: authLoading, isAuthenticated } = useAuth()
+
   const userQuery = useQuery({
-    queryKey: ["apiUser"],
+    queryKey: ["dashboardUser", currentUser?.id],
     queryFn: async () => {
+      if (!currentUser?.id) {
+        throw new Error("No authenticated user")
+      }
+
       const result = await getUserById({
-        input: { id: "8eebb180-33a8-47d8-90e8-74b794694c18", includeStats: true },
+        input: { id: currentUser.id, includeStats: true },
         fields: [
           "id",
           "email",
@@ -217,19 +225,28 @@ export default function Dashboard() {
       const fetchedUser: User = result.data
       return fetchedUser
     },
+    enabled: !!currentUser?.id, // Only run query when we have a user ID
   })
 
   const apiUser = userQuery.data
 
-  switch (true) {
-    case userQuery.isError:
-      return <div>Error: {userQuery.error?.message}</div>
-    case userQuery.isPending:
-      return <DashboardLoadingState />
-    case userQuery.isSuccess:
-      break
-    default:
-      return <div>Unknown status: {userQuery.status}</div>
+  // Show loading if auth is loading or if we're fetching user data
+  if (authLoading || userQuery.isPending) {
+    return <DashboardLoadingState />
+  }
+
+  // Redirect to sign-in if not authenticated
+  if (!isAuthenticated || !currentUser) {
+    window.location.href = "/sign-in"
+    return <DashboardLoadingState />
+  }
+
+  if (userQuery.isError) {
+    return <div>Error: {userQuery.error?.message}</div>
+  }
+
+  if (!apiUser) {
+    return <DashboardLoadingState />
   }
 
   // Use real user data from API
@@ -295,6 +312,7 @@ export default function Dashboard() {
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
+            <MyClassrooms currentUserId={apiUser.id} />
             <TrendingAtSchool school={user.school} />
             <RecentActivity />
           </div>

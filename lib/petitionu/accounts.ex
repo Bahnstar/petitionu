@@ -13,6 +13,8 @@ defmodule Petitionu.Accounts do
     resource Petitionu.Accounts.User do
       rpc_action :get_users, :read_users
       rpc_action :get_user_by_id, :read_by_id
+      rpc_action :get_me, :me
+      rpc_action :set_user_role, :set_role
     end
 
     resource Petitionu.Accounts.Preference do
@@ -26,7 +28,12 @@ defmodule Petitionu.Accounts do
 
   resources do
     resource Petitionu.Accounts.Token
-    resource Petitionu.Accounts.User
+
+    resource Petitionu.Accounts.User do
+      define :get_user_by_email, action: :get_by_email, args: [:email]
+      define :set_user_role, action: :set_role
+    end
+
     resource Petitionu.Accounts.Organization
     resource Petitionu.Accounts.Preference
     resource Petitionu.Accounts.Notification
