@@ -2223,8 +2223,7 @@ export async function validateRequestToJoinClassroom(
 export type CreateCommentInput = {
   text?: string | null;
   parentCommentId?: UUIDv7 | null;
-  petitionId: UUID;
-  userId: UUID;
+  petitionId: UUIDv7;
 };
 
 export type CreateCommentFields = UnifiedFieldSelection<CommentResourceSchema>[];
