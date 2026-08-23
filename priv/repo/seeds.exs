@@ -408,12 +408,11 @@ Enum.each(comments_data, fn data ->
     case Ash.read_one!(existing_comment_query, authorize?: false) do
       nil ->
         Post.Comment
-        |> Ash.Changeset.for_create(:create, %{
+        |> Ash.Seed.seed!(%{
           text: data.message,
           petition_id: petition.id,
           user_id: user.id
         })
-        |> Ash.create!(authorize?: false)
 
       _ ->
         :ok
