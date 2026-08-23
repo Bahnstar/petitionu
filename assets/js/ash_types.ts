@@ -230,27 +230,30 @@ export type ClassroomMembershipAttributesOnlySchema = {
 // Comment Schema
 export type CommentResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId";
+  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId" | "petitionId";
   id: UUIDv7;
   text: string | null;
   sentiment: string | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
+  petitionId: UUID | null;
   user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
+  petition: { __type: "Relationship"; __resource: PetitionResourceSchema | null; };
 };
 
 
 
 export type CommentAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId";
+  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId" | "petitionId";
   id: UUIDv7;
   text: string | null;
   sentiment: string | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
+  petitionId: UUID | null;
 };
 
 
@@ -949,8 +952,17 @@ export type CommentFilterInput = {
     isNil?: boolean;
   };
 
+  petitionId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    isNil?: boolean;
+  };
+
 
   user?: UserFilterInput;
+
+  petition?: PetitionFilterInput;
 
 };
 export type PetitionFilterInput = {
@@ -1268,7 +1280,7 @@ export type ClassroomFilterField = (typeof classroomFilterFields)[number];
 export const classroomMembershipFilterFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById", "classroom", "user", "invitedBy"] as const;
 export type ClassroomMembershipFilterField = (typeof classroomMembershipFilterFields)[number];
 
-export const commentFilterFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "user"] as const;
+export const commentFilterFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "user", "petition"] as const;
 export type CommentFilterField = (typeof commentFilterFields)[number];
 
 export const petitionFilterFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "userId", "categoryId", "classroomId", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending", "user", "category", "classroom", "updates", "comments", "signatures"] as const;
@@ -1302,7 +1314,7 @@ export type ClassroomSortField = (typeof classroomSortFields)[number];
 export const classroomMembershipSortFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById"] as const;
 export type ClassroomMembershipSortField = (typeof classroomMembershipSortFields)[number];
 
-export const commentSortFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId"] as const;
+export const commentSortFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId"] as const;
 export type CommentSortField = (typeof commentSortFields)[number];
 
 export const petitionSortFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "userId", "categoryId", "classroomId", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending"] as const;

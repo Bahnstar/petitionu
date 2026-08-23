@@ -2,6 +2,7 @@ defmodule Petitionu.Post.Comment do
   use Ash.Resource,
     domain: Petitionu.Post,
     data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshTypescript.Resource]
 
   postgres do
@@ -20,21 +21,34 @@ defmodule Petitionu.Post.Comment do
       primary? true
       accept [:text, :parent_comment_id]
 
-      argument :petition_id, :uuid do
+      argument :petition_id, :uuid_v7 do
         allow_nil? false
       end
 
-      argument :user_id, :uuid do
-        allow_nil? false
-      end
-
+      change relate_actor(:user, allow_nil?: true)
       change manage_relationship(:petition_id, :petition, type: :append_and_remove)
-      change manage_relationship(:user_id, :user, type: :append_and_remove)
     end
 
     update :update do
       primary? true
       accept [:text]
+    end
+  end
+
+  policies do
+    # Comments are public content
+    policy action_type(:read) do
+      authorize_if always()
+    end
+
+    # Only authenticated users can create comments
+    policy action(:create) do
+      authorize_if actor_present()
+    end
+
+    # Only the author can update or destroy their comment
+    policy action([:update, :destroy]) do
+      authorize_if relates_to_actor_via(:user)
     end
   end
 
@@ -59,6 +73,8 @@ defmodule Petitionu.Post.Comment do
       public? true
     end
 
-    belongs_to :petition, Petitionu.Post.Petition
+    belongs_to :petition, Petitionu.Post.Petition do
+      public? true
+    end
   end
 end

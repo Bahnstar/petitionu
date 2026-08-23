@@ -1,10 +1,16 @@
+import { useState } from "react"
 import { User, Calendar, TrendingUp, Share2, Flag, CheckCircle2, Clock } from "lucide-react"
 import { useParams } from "react-router-dom"
-import { buildCSRFHeaders, getPetitions, getUsers, PetitionResourceSchema } from "../ash_rpc"
+import {
+  buildCSRFHeaders,
+  createComment,
+  getPetitions,
+  PetitionResourceSchema,
+} from "../ash_rpc"
 import { CleanResource } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 type Petition = CleanResource<PetitionResourceSchema>
 // type Petition = InferGetPetitionsResult<>
@@ -247,7 +253,7 @@ export default function PetitionIndexPage() {
           "deadline",
           // { user: ["firstName", "lastName", "email"] },
           { category: ["id", "name", "description"] },
-          { comments: ["sentiment", "text"] },
+          { comments: ["id", "sentiment", "text", { user: ["firstName", "lastName"] }] },
           { signatures: ["reason", "userAgent"] },
           { updates: ["id", "title", "body"] },
         ],
@@ -269,27 +275,39 @@ export default function PetitionIndexPage() {
     },
   })
 
-  const userQuery = useQuery({
-    queryKey: ["user"],
-    queryFn: async () => {
-      const result = await getUsers({
-        fields: ["firstName", "lastName", "email"],
-        // filter: { id: { eq: 1 } },
+  const [commentText, setCommentText] = useState("")
+  const [commentError, setCommentError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  const createCommentMutation = useMutation({
+    mutationFn: async (petitionId: string) => {
+      const result = await createComment({
+        input: { text: commentText.trim(), petitionId },
         headers: buildCSRFHeaders(),
       })
 
-      if (!result.success) {
-        // @ts-ignore
-        result.errors.forEach((error) => {
-          console.log(error.message, error.field, error.code)
-        })
-        throw new Error("Failed to fetch user")
+      if (result.success === false) {
+        throw new Error(result.errors[0]?.message || "Failed to post comment")
       }
 
-      const fetchedUser = result.data[0]
-      return fetchedUser
+      return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["petition", id] })
+      setCommentText("")
+      setCommentError(null)
+    },
+    onError: (error: Error) => {
+      setCommentError(error.message)
     },
   })
+
+  const handleCommentSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!petition || !commentText.trim()) return
+    setCommentError(null)
+    createCommentMutation.mutate(petition.id)
+  }
 
   switch (status) {
     case "pending":
@@ -415,19 +433,24 @@ export default function PetitionIndexPage() {
               {/* Comment Form */}
               <div className="bg-card border border-border rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Leave a Comment</h3>
-                <form className="space-y-4">
+                <form onSubmit={handleCommentSubmit} className="space-y-4">
                   <div>
                     <Textarea
                       placeholder="Share your thoughts on this petition..."
                       rows={4}
                       className="resize-none"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
                     />
                   </div>
+                  {commentError && <p className="text-sm text-destructive">{commentError}</p>}
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground">
                       Be respectful and constructive in your comments
                     </p>
-                    <button type="submit">Post Comment</button>
+                    <button type="submit" disabled={createCommentMutation.isPending}>
+                      {createCommentMutation.isPending ? "Posting..." : "Post Comment"}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -440,8 +463,10 @@ export default function PetitionIndexPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold text-foreground">
-                            Anon User
-                            {/*{`${comment.user.firstName} ${comment.user.lastName}`}*/}
+                            {comment.user
+                              ? `${comment.user.firstName ?? ""} ${comment.user.lastName ?? ""}`.trim() ||
+                                "Anon User"
+                              : "Anon User"}
                           </span>
                           <span className="text-xs text-muted-foreground">•</span>
                           <span className="text-xs text-muted-foreground">{"Student"}</span>
