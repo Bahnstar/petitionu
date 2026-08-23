@@ -124,6 +124,7 @@ export default function CreatePetitionPage() {
     targetAudience: "",
   })
   const [showSuccess, setShowSuccess] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
@@ -159,6 +160,7 @@ export default function CreatePetitionPage() {
     e.preventDefault()
     if (isSubmitting) return
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
       const result = await createPetition({
         input: {
@@ -170,7 +172,10 @@ export default function CreatePetitionPage() {
         },
         headers: buildCSRFHeaders(),
       })
-      if (result.success) {
+      if (result.success === false) {
+        const message = result.errors.map((error) => error.message).join(" ")
+        setSubmitError(message || "Something went wrong. Please try again.")
+      } else {
         setShowSuccess(true)
         setFormData({
           title: "",
@@ -180,6 +185,8 @@ export default function CreatePetitionPage() {
           targetAudience: "",
         })
       }
+    } catch {
+      setSubmitError("Something went wrong. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -256,6 +263,13 @@ export default function CreatePetitionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {submitError && (
+                <Alert variant="destructive" className="mb-6">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Unable to Create Petition</AlertTitle>
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+              )}
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Title */}
                 <div className="space-y-2">
