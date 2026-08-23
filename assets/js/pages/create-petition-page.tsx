@@ -124,6 +124,7 @@ export default function CreatePetitionPage() {
     targetAudience: "",
   })
   const [showSuccess, setShowSuccess] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const {
@@ -155,20 +156,36 @@ export default function CreatePetitionPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    const result = await createPetition({
-      input: {
-        title: formData.title,
-        description: formData.description,
-        status: "open",
-        goal: parseInt(formData.goal),
-        categoryId: categories.find((category) => formData.category === category.name)?.id,
-      },
-      headers: buildCSRFHeaders(),
-    })
+    e.preventDefault()
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    try {
+      const result = await createPetition({
+        input: {
+          title: formData.title,
+          description: formData.description,
+          status: "open",
+          goal: parseInt(formData.goal),
+          categoryId: categories.find((category) => formData.category === category.name)?.id,
+        },
+        headers: buildCSRFHeaders(),
+      })
+      if (result.success) {
+        setShowSuccess(true)
+        setFormData({
+          title: "",
+          description: "",
+          category: "",
+          goal: "1000",
+          targetAudience: "",
+        })
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (field: string, value: string) => {
-    console.log(field, value)
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -359,9 +376,8 @@ export default function CreatePetitionPage() {
                 {/* Submit Button */}
                 <div className="flex gap-4 pt-4">
                   <Button
-                    onClick={handleSubmit}
                     type="submit"
-                    disabled={!isFormValid}
+                    disabled={!isFormValid || isSubmitting}
                     className="flex-1"
                   >
                     Create Petition
