@@ -51,7 +51,7 @@ defmodule Petitionu.Post.Comment do
 
     attribute :parent_comment_id, :uuid_v7, allow_nil?: true
 
-    timestamps(public?: true)
+    timestamps public?: true
   end
 
   relationships do

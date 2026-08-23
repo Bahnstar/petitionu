@@ -48,7 +48,7 @@ defmodule Petitionu.Post.Signature do
       default true
     end
 
-    timestamps(public?: true)
+    timestamps public?: true
   end
 
   relationships do

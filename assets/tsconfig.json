@@ -21,17 +21,19 @@
 // Feel free to adjust this configuration however you need.
 {
   "compilerOptions": {
+    "target": "ES2022",
     "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-      // "*": ["../deps/*"],
     },
+    "skipLibCheck": true,
     "allowJs": true,
-    "noEmit": true
-    // "strictNullChecks": true
+    "noEmit": true,
+    "strict": false
   },
-  "include": ["js/**/*"]
+  "include": ["js/**/*", "components/**/*", "lib/**/*"]
 }

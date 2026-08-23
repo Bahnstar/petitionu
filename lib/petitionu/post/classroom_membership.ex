@@ -228,7 +228,7 @@ defmodule Petitionu.Post.ClassroomMembership do
       public? true
     end
 
-    timestamps(public?: true)
+    timestamps public?: true
   end
 
   relationships do

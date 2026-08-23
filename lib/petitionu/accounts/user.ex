@@ -77,9 +77,6 @@ defmodule Petitionu.Accounts.User do
     #     end
     read :read_users do
       primary? true
-      argument :first_name, :string
-      argument :last_name, :string
-      argument :email, :string
     end
 
     read :read_by_id do
@@ -360,7 +357,7 @@ defmodule Petitionu.Accounts.User do
 
     attribute :confirmed_at, :utc_datetime_usec
 
-    timestamps(public?: true)
+    timestamps public?: true
   end
 
   relationships do

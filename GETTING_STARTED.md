@@ -26,6 +26,8 @@ This will:
 ### 1. Install Dependencies
 
 ```bash
+cd assets && bun install   # installs the React SPA's npm packages
+cd ..
 mix setup
 ```
 
