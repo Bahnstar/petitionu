@@ -707,7 +707,7 @@ export async function validateGetUsers(
 
 
 export type SetUserRoleInput = {
-  role?: "admin" | "professor" | "student";
+  role?: "admin" | "professor" | "student" | "superadmin";
 };
 
 export type SetUserRoleFields = UnifiedFieldSelection<UserResourceSchema>[];

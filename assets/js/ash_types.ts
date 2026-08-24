@@ -97,7 +97,7 @@ export type UserResourceSchema = {
   lastName: string | null;
   email: string;
   graduationYear: number | null;
-  role: "admin" | "professor" | "student";
+  role: "admin" | "professor" | "student" | "superadmin";
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
   numPetitions: number;
@@ -120,7 +120,7 @@ export type UserAttributesOnlySchema = {
   lastName: string | null;
   email: string;
   graduationYear: number | null;
-  role: "admin" | "professor" | "student";
+  role: "admin" | "professor" | "student" | "superadmin";
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
 };
@@ -578,9 +578,9 @@ export type UserFilterInput = {
   };
 
   role?: {
-    eq?: "admin" | "professor" | "student";
-    notEq?: "admin" | "professor" | "student";
-    in?: Array<"admin" | "professor" | "student">;
+    eq?: "admin" | "professor" | "student" | "superadmin";
+    notEq?: "admin" | "professor" | "student" | "superadmin";
+    in?: Array<"admin" | "professor" | "student" | "superadmin">;
   };
 
   insertedAt?: {

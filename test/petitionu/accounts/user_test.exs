@@ -2,10 +2,17 @@ defmodule Petitionu.Accounts.UserTest do
   use Petitionu.DataCase, async: true
 
   alias Petitionu.Accounts
+  alias Petitionu.Accounts.Organization
 
   import Ash.Query
 
   @password "password123"
+
+  defp create_organization! do
+    Organization
+    |> Ash.Changeset.for_create(:create, %{name: "Test University"})
+    |> Ash.create!(authorize?: false)
+  end
 
   defp create_user!(attrs) do
     attrs = Map.merge(%{first_name: "Test", last_name: "User", role: :student}, Map.new(attrs))
@@ -21,7 +28,14 @@ defmodule Petitionu.Accounts.UserTest do
 
     Ash.Seed.update!(
       user,
-      Map.take(attrs, [:first_name, :last_name, :student_id, :graduation_year, :role])
+      Map.take(attrs, [
+        :first_name,
+        :last_name,
+        :student_id,
+        :graduation_year,
+        :role,
+        :organization_id
+      ])
     )
   end
 
@@ -49,11 +63,9 @@ defmodule Petitionu.Accounts.UserTest do
       anonymous_view = Enum.find(users, &(&1.id == other.id))
       refute is_nil(anonymous_view)
 
-      # Public display fields stay visible to anonymous visitors
       assert anonymous_view.first_name == "Jane"
       assert anonymous_view.last_name == "Doe"
 
-      # Sensitive fields are hidden from anonymous visitors
       assert %Ash.ForbiddenField{} = anonymous_view.email
       assert %Ash.ForbiddenField{} = anonymous_view.role
       assert %Ash.ForbiddenField{} = anonymous_view.graduation_year
@@ -62,9 +74,6 @@ defmodule Petitionu.Accounts.UserTest do
       assert %Ash.ForbiddenField{} = anonymous_view.num_petition_signees
       assert %Ash.ForbiddenField{} = anonymous_view.total_petition_signatures
 
-      # student_id is a private (non-public) attribute: it is never included
-      # in public interfaces (RPC responses / generated client), even though
-      # plain Ash reads still see it.
       public_attrs =
         Accounts.User
         |> Ash.Resource.Info.public_attributes()
@@ -136,21 +145,16 @@ defmodule Petitionu.Accounts.UserTest do
       student = create_user!(email: "student-role@example.com", role: :student)
       target = create_user!(email: "target-role@example.com", role: :student)
 
-      # A non-admin actor is forbidden from changing roles
       assert {:error, %Ash.Error.Forbidden{}} =
                target
                |> Ash.Changeset.for_update(:set_role, %{role: :admin}, actor: student)
                |> Ash.update(actor: student)
 
-      # The updated record, returned to an admin acting on another user,
-      # has role scrubbed (role is only visible to the user themself), so
-      # verify the write succeeded by reading the target as the target.
       assert {:ok, %Accounts.User{} = updated} =
                target
                |> Ash.Changeset.for_update(:set_role, %{role: :professor}, actor: admin)
                |> Ash.update(actor: admin)
 
-      # The target's own read now shows the new role.
       own_read =
         Accounts.User
         |> Ash.Query.for_read(:read_users)
@@ -159,11 +163,98 @@ defmodule Petitionu.Accounts.UserTest do
 
       assert own_read.role == :professor
 
-      # Anonymous actors are forbidden as well
+      assert {:error, %Ash.Error.Invalid{}} =
+               target
+               |> Ash.Changeset.for_update(:set_role, %{role: :superadmin}, actor: admin)
+               |> Ash.update(actor: admin)
+
+      superadmin = create_user!(email: "global-role@example.com", role: :superadmin)
+
+      assert {:ok, _updated} =
+               target
+               |> Ash.Changeset.for_update(:set_role, %{role: :admin}, actor: superadmin)
+               |> Ash.update(actor: superadmin)
+
       assert {:error, %Ash.Error.Forbidden{}} =
                target
                |> Ash.Changeset.for_update(:set_role, %{role: :admin})
                |> Ash.update(actor: nil)
+    end
+
+    test "an admin can read sensitive fields for users in the same organization" do
+      organization = create_organization!()
+
+      admin =
+        create_user!(
+          email: "org-admin@example.com",
+          role: :admin,
+          organization_id: organization.id
+        )
+
+      target =
+        create_user!(
+          email: "org-target@example.com",
+          role: :student,
+          organization_id: organization.id
+        )
+
+      target_view =
+        Accounts.User
+        |> for_read(:read_by_id, %{id: target.id, include_stats: true})
+        |> Ash.read_one!(actor: admin)
+
+      assert to_string(target_view.email) == "org-target@example.com"
+      assert target_view.role == :student
+      assert target_view.num_petitions == 0
+    end
+
+    test "an admin cannot read sensitive fields outside their organization" do
+      admin_org = create_organization!()
+      other_org = create_organization!()
+
+      admin =
+        create_user!(
+          email: "scoped-admin@example.com",
+          role: :admin,
+          organization_id: admin_org.id
+        )
+
+      target =
+        create_user!(
+          email: "other-org@example.com",
+          role: :student,
+          organization_id: other_org.id
+        )
+
+      target_view =
+        Accounts.User
+        |> for_read(:read_by_id, %{id: target.id, include_stats: true})
+        |> Ash.read_one!(actor: admin)
+
+      assert %Ash.ForbiddenField{} = target_view.email
+      assert %Ash.ForbiddenField{} = target_view.role
+      assert %Ash.ForbiddenField{} = target_view.num_petitions
+    end
+
+    test "a superadmin can read sensitive fields across organizations" do
+      organization = create_organization!()
+      superadmin = create_user!(email: "global-admin@example.com", role: :superadmin)
+
+      target =
+        create_user!(
+          email: "global-target@example.com",
+          role: :student,
+          organization_id: organization.id
+        )
+
+      target_view =
+        Accounts.User
+        |> for_read(:read_by_id, %{id: target.id, include_stats: true})
+        |> Ash.read_one!(actor: superadmin)
+
+      assert to_string(target_view.email) == "global-target@example.com"
+      assert target_view.role == :student
+      assert target_view.num_petitions == 0
     end
   end
 
@@ -182,9 +273,6 @@ defmodule Petitionu.Accounts.UserTest do
       assert signed_in.id == user.id
       refute is_nil(signed_in.__metadata__.token)
 
-      # The record returned by the sign-in action itself has its sensitive
-      # fields scrubbed (the actor that would authorize them isn't present
-      # yet), so clients must use `getMe` to load the full profile.
       assert %Ash.ForbiddenField{} = signed_in.email
       assert %Ash.ForbiddenField{} = signed_in.role
     end
@@ -192,12 +280,6 @@ defmodule Petitionu.Accounts.UserTest do
     test "get_by_email internal read (used by password reset) keeps email/role" do
       user = create_user!(email: "reset@example.com", first_name: "Reset", last_name: "Me")
 
-      # Mirrors AshAuthentication.Strategy.Password.RequestPasswordReset.run/5,
-      # which reads the user with `private.ash_authentication?: true` set.
-      # The private context is only set by AshAuthentication's own internals
-      # (the public RPC pipeline forwards only `shared` context), so this
-      # exemption cannot be triggered by anonymous clients; their
-      # get_user_by_email calls get these fields scrubbed.
       assert {:ok, found} =
                Accounts.User
                |> Ash.Query.new()
