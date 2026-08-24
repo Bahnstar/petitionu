@@ -60,23 +60,13 @@ defmodule Petitionu.Accounts.User do
   end
 
   field_policies do
-    # Sensitive profile fields are readable only by the user themself
-    # (actor(:id) == id). Anonymous visitors and other users get
-    # %Ash.ForbiddenField{} (or a null) for these fields instead.
-    #
-    # AshAuthentication internal interactions (sign in, password lookup,
-    # subject-based actor loading) are exempted via the same check that backs
-    # the action-level bypass below. The exemption is evaluated when field
-    # visibility is decided (with the real query context), so internal reads
-    # still select these fields; `get_by_subject` additionally opts out of the
-    # post-read scrub via the `internal?` private context, so the loaded actor
-    # record keeps its `role` intact for role-based authorization checks.
     field_policy [:email, :role, :graduation_year] do
       authorize_if {AshAuthentication.Checks.AshAuthenticationInteraction, []}
       authorize_if expr(id == ^actor(:id))
+      authorize_if actor_attribute_equals(:role, :superadmin)
+      authorize_if expr(organization_id == ^actor(:organization_id) and ^actor(:role) == :admin)
     end
 
-    # Stats aggregates/calculations are only visible to the user themself.
     field_policy [
       :num_petitions,
       :num_signed,
@@ -85,9 +75,10 @@ defmodule Petitionu.Accounts.User do
     ] do
       authorize_if {AshAuthentication.Checks.AshAuthenticationInteraction, []}
       authorize_if expr(id == ^actor(:id))
+      authorize_if actor_attribute_equals(:role, :superadmin)
+      authorize_if expr(organization_id == ^actor(:organization_id) and ^actor(:role) == :admin)
     end
 
-    # All remaining fields (first_name, last_name, timestamps, ...) are publicly readable.
     field_policy :* do
       authorize_if always()
     end
@@ -134,13 +125,6 @@ defmodule Petitionu.Accounts.User do
       get? true
       prepare AshAuthentication.Preparations.FilterBySubject
 
-      # The record loaded here becomes the request actor (via
-      # AshAuthentication.subject_to_user/2), and its `role` drives
-      # authorization checks (e.g. `set_role` requires an admin actor). Keep
-      # its fields intact by opting out of field-level scrubbing as a second
-      # line of defense on top of the `AshAuthenticationInteraction` field
-      # policy checks. This action is not exposed via RPC or AshJsonApi
-      # (domains: []), and the internal? context is never settable by clients.
       prepare fn query, _ ->
         Ash.Query.set_context(query, %{private: %{internal?: true}})
       end
@@ -282,6 +266,18 @@ defmodule Petitionu.Accounts.User do
     update :set_role do
       description "Admin action to set a user's role"
       accept [:role]
+      require_atomic? false
+
+      validate fn changeset, context ->
+        requested_role = Ash.Changeset.get_attribute(changeset, :role)
+        actor_role = context.actor && context.actor.role
+
+        if requested_role == :superadmin and actor_role != :superadmin do
+          {:error, "only a superadmin can assign the superadmin role"}
+        else
+          :ok
+        end
+      end
     end
 
     update :reset_password_with_token do
@@ -353,14 +349,10 @@ defmodule Petitionu.Accounts.User do
     # Only admins can set user roles
     policy action(:set_role) do
       authorize_if actor_attribute_equals(:role, :admin)
+      authorize_if actor_attribute_equals(:role, :superadmin)
     end
 
-    # Anyone may read user records. Non-sensitive fields (e.g. first_name,
-    # last_name) are public so the UI can render author display names for
-    # unauthenticated visitors; sensitive fields are gated by the field
-    # policies below.
     policy action_type(:read) do
-      description "Allow reading user data; sensitive fields are gated by field policies"
       authorize_if always()
     end
   end
@@ -389,8 +381,6 @@ defmodule Petitionu.Accounts.User do
 
     attribute :student_id, :string do
       allow_nil? true
-      # Student IDs are never exposed over public interfaces (RPC/client),
-      # so keep them private.
       public? false
     end
 
@@ -400,7 +390,7 @@ defmodule Petitionu.Accounts.User do
     end
 
     attribute :role, :atom do
-      constraints one_of: [:student, :professor, :admin]
+      constraints one_of: [:student, :professor, :admin, :superadmin]
       default :student
       allow_nil? false
       public? true

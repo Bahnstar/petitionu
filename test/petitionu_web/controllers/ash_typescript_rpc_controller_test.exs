@@ -26,9 +26,6 @@ defmodule PetitionuWeb.AshTypescriptRpcControllerTest do
       rpc_view = Enum.find(users, &(&1["firstName"] == "RPC"))
       refute is_nil(rpc_view)
       assert rpc_view["lastName"] == "User"
-      # The read succeeds; the denied email field is emitted as null, so the
-      # frontend's `getUsers({fields: [\"firstName\", \"lastName\", \"email\"]})`
-      # call in petition-index-page.tsx does NOT error.
       assert rpc_view["email"] == nil
     end
   end
