@@ -1,10 +1,10 @@
+import { useState } from "react"
 import { PetitionCard } from "./petition-card"
 import { PetitionResourceSchema } from "../../ash_rpc"
 import { CleanResource } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/lib/routes"
 
-// Fallback mock data for when no petitions are available
 const mockPetitions: CleanResource<PetitionResourceSchema>[] = [
   {
     id: "018f1234-5678-9abc-def0-123456789abc",
@@ -100,7 +100,15 @@ interface PetitionGridProps {
   petitions?: CleanResource<PetitionResourceSchema>[]
 }
 
-export function PetitionGrid({ petitions = mockPetitions }: PetitionGridProps) {
+export function PetitionGrid({ petitions = [] }: PetitionGridProps) {
+  const showDemo = typeof window !== "undefined" && window.location.search.includes("demo")
+  const effectivePetitions = petitions.length > 0 ? petitions : showDemo ? mockPetitions : []
+  const [filter, setFilter] = useState<"trending" | "recent">("trending")
+
+  const sorted = [...effectivePetitions].sort((a, b) => {
+    if (filter === "trending") return (b.trending ? 1 : 0) - (a.trending ? 1 : 0)
+    return (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")
+  })
   return (
     <section id="petitions" className="py-16 lg:py-24">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -113,18 +121,24 @@ export function PetitionGrid({ petitions = mockPetitions }: PetitionGridProps) {
           </div>
 
           <div className="flex gap-2">
-            <button className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground">
+            <button
+              onClick={() => setFilter("trending")}
+              className={`px-4 py-2 text-sm rounded-lg ${filter === "trending" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}
+            >
               Trending
             </button>
-            <button className="px-4 py-2 text-sm rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80">
+            <button
+              onClick={() => setFilter("recent")}
+              className={`px-4 py-2 text-sm rounded-lg ${filter === "recent" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}
+            >
               Recent
             </button>
           </div>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {petitions.length > 0 ? (
-            petitions.map((petition) => (
+          {sorted.length > 0 ? (
+            sorted.map((petition) => (
               <PetitionCard key={petition.id} petition={petition} />
             ))
           ) : (

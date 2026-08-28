@@ -14,7 +14,21 @@ export const HomePage = () => {
     queryKey: ["homePetitions"],
     queryFn: async () => {
       const result = await getPetitions({
-        fields: ["id", "title", "description"],
+        fields: [
+          "id",
+          "title",
+          "description",
+          "status",
+          "goal",
+          "signaturesCount",
+          "daysLeft",
+          "trending",
+          "author",
+          "insertedAt",
+          { category: ["id", "name", "color"] },
+        ],
+        page: { limit: 6 },
+        sort: "-trending",
         headers: buildCSRFHeaders(),
       })
 

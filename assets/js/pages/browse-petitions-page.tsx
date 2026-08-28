@@ -22,6 +22,7 @@ import {
 import { CleanResource } from "../../lib/types"
 import { useQuery } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { useLocation } from "react-router-dom"
 
 const SORT_OPTIONS = [
   { value: "trending", label: "Trending" },
@@ -125,10 +126,17 @@ function LoadingState() {
 export default function BrowsePetitionsPage() {
   useDocumentTitle("Browse Petitions")
 
-  const [searchQuery, setSearchQuery] = useState("")
+  const location = useLocation()
+  const initialQ = new URLSearchParams(location.search).get("q") ?? ""
+  const [searchQuery, setSearchQuery] = useState(initialQ)
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [sortBy, setSortBy] = useState("trending")
   const [showFilters, setShowFilters] = useState(false)
+
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get("q") ?? ""
+    if (q !== searchQuery) setSearchQuery(q)
+  }, [location.search])
 
   const petitionsQuery = useQuery({
     queryKey: ["petitions"],

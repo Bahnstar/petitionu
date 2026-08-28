@@ -1,11 +1,38 @@
 import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { buildCSRFHeaders, getPetitions } from "../../ash_rpc"
 
 export function Stats() {
+  const statsQuery = useQuery({
+    queryKey: ["statsAggregates"],
+    queryFn: async () => {
+      const result = await getPetitions({
+        fields: ["id", "status", "signaturesCount"],
+        headers: buildCSRFHeaders(),
+      })
+      if (result.success === false) throw new Error(result.errors.map((e) => e.message).join(", "))
+      const petitions = result.data as { status: string; signaturesCount: number | null }[]
+      const active = petitions.filter((p) => p.status === "open").length
+      const totalSigs = petitions.reduce((sum, p) => sum + (p.signaturesCount ?? 0), 0)
+      const victories = petitions.filter((p) => p.status === "victory").length
+      return {
+        active,
+        totalSigs,
+        victories,
+        participants: totalSigs,
+        count: petitions.length,
+      }
+    },
+    staleTime: 60_000,
+  })
+
+  const data = statsQuery.data
+
   const stats = [
-    { label: "Active Petitions", value: 127, suffix: "" },
-    { label: "Total Signatures", value: 24853, suffix: "" },
-    { label: "Successful Changes", value: 43, suffix: "" },
-    { label: "Student Participants", value: 8492, suffix: "" },
+    { label: "Active Petitions", value: data?.active ?? 0, suffix: "" },
+    { label: "Total Signatures", value: data?.totalSigs ?? 0, suffix: "" },
+    { label: "Successful Changes", value: data?.victories ?? 0, suffix: "" },
+    { label: "Student Participants", value: data?.participants ?? 0, suffix: "" },
   ]
 
   return (
