@@ -2,7 +2,7 @@ defmodule PetitionuWeb.PageController do
   use PetitionuWeb, :controller
 
   def home(conn, _params) do
-    render(conn, :home)
+    redirect(conn, to: "/ash-typescript")
   end
 
   def index conn, _params do
