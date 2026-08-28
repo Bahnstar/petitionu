@@ -2,6 +2,7 @@ import { PetitionCard } from "./petition-card"
 import { PetitionResourceSchema } from "../../ash_rpc"
 import { CleanResource } from "@/lib/types"
 import { Button } from "@/components/ui/button"
+import { ROUTES } from "@/lib/routes"
 
 // Fallback mock data for when no petitions are available
 const mockPetitions: CleanResource<PetitionResourceSchema>[] = [
@@ -132,7 +133,7 @@ export function PetitionGrid({ petitions = mockPetitions }: PetitionGridProps) {
                 No petitions found. Be the first to start a petition!
               </p>
               <Button className="mt-4" asChild>
-                <a href="/ash-typescript/create">Start a Petition</a>
+                <a href={ROUTES.createPetition}>Start a Petition</a>
               </Button>
             </div>
           )}

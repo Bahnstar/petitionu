@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getMyClassrooms, buildCSRFHeaders, ClassroomResourceSchema } from "@/js/ash_rpc"
 import { CleanResource } from "@/lib/types"
+import { ROUTES } from "@/lib/routes"
 
 type Classroom = CleanResource<ClassroomResourceSchema>
 
@@ -86,7 +87,7 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
           <GraduationCap className="w-5 h-5" />
           My Classrooms
         </h2>
-        <Link to="/ash-typescript/classrooms">
+        <Link to={ROUTES.classrooms}>
           <Button variant="ghost" size="sm">
             View All
             <ChevronRight className="w-4 h-4 ml-1" />
@@ -100,7 +101,7 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
           <p className="text-sm text-muted-foreground mb-4">
             You haven't joined any classrooms yet
           </p>
-          <Link to="/ash-typescript/classrooms">
+          <Link to={ROUTES.classrooms}>
             <Button size="sm">Browse Classrooms</Button>
           </Link>
         </div>
@@ -109,7 +110,7 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
           {displayClassrooms.map((classroom: Classroom) => (
             <Link
               key={classroom.id}
-              to={`/ash-typescript/classrooms/${classroom.id}`}
+              to={ROUTES.classroom(classroom.id)}
               className="block"
             >
               <div className="p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-all">

@@ -28,6 +28,8 @@ import {
 import { MemberList } from "../features/classroom/member-list"
 import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
+import { ROUTES } from "@/lib/routes"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 // Loading state component
 function ClassroomDetailLoadingState() {
@@ -154,6 +156,8 @@ export default function ClassroomDetailPage() {
     enabled: !!id,
   })
 
+  useDocumentTitle(classroomQuery?.data?.name ?? "Classroom")
+
   // Regenerate join code mutation
   const regenerateMutation = useMutation({
     mutationFn: async () => {
@@ -225,7 +229,7 @@ export default function ClassroomDetailPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="text-center py-12">
             <p className="text-destructive">Error: {classroomQuery.error?.message}</p>
-            <Button onClick={() => navigate("/ash-typescript/classrooms")} className="mt-4">
+            <Button onClick={() => navigate(ROUTES.classrooms)} className="mt-4">
               Back to Classrooms
             </Button>
           </div>
@@ -245,7 +249,7 @@ export default function ClassroomDetailPage() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         {/* Back Link */}
         <Link
-          to="/ash-typescript/classrooms"
+          to={ROUTES.classrooms}
           className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -286,7 +290,7 @@ export default function ClassroomDetailPage() {
 
           {isProfessor && (
             <div className="flex items-center gap-2">
-              <Link to={`/ash-typescript/classrooms/${id}/edit`}>
+              <Link to={ROUTES.classroomEdit(id!)}>
                 <Button variant="outline">
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
@@ -329,7 +333,7 @@ export default function ClassroomDetailPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-foreground">Petitions</h2>
               {(classroom?.allowStudentPetitions || isProfessor) && (
-                <Link to={`/ash-typescript/create?classroomId=${id}`}>
+                <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                   <Button>
                     <Plus className="w-4 h-4 mr-2" />
                     New Petition
@@ -352,7 +356,7 @@ export default function ClassroomDetailPage() {
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground mb-4">No petitions in this classroom yet</p>
                 {(classroom?.allowStudentPetitions || isProfessor) && (
-                  <Link to={`/ash-typescript/create?classroomId=${id}`}>
+                  <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                     <Button>
                       <Plus className="w-4 h-4 mr-2" />
                       Create the First Petition

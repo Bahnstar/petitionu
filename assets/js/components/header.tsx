@@ -1,12 +1,13 @@
 import { GraduationCap, User } from "lucide-react"
 import { Link } from "react-router-dom"
+import { ROUTES } from "@/lib/routes"
 
 export function Header() {
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link to={"/ash-typescript/"}>
+          <Link to={ROUTES.home}>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 lg:w-10 lg:h-10 bg-primary rounded-full flex items-center justify-center">
                 <GraduationCap className="w-4 h-4 lg:w-5 lg:h-5 text-primary-foreground" />
@@ -17,19 +18,19 @@ export function Header() {
 
           <nav className="hidden md:flex items-center gap-8">
             <Link
-              to="/ash-typescript/dashboard"
+              to={ROUTES.dashboard}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Dashboard
             </Link>
             <Link
-              to={`/ash-typescript/petitions`}
+              to={ROUTES.petitions}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Browse Petitions
             </Link>
             <Link
-              to={`/ash-typescript/create`}
+              to={ROUTES.createPetition}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Start a Petition
@@ -41,7 +42,7 @@ export function Header() {
               <User className="w-5 h-5" />
             </button>
             <Link
-              to="/ash-typescript/create"
+              to={ROUTES.createPetition}
               className="bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md"
             >
               <span className="hidden sm:inline">Start a Petition</span>
