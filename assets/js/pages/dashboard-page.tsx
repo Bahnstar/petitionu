@@ -12,6 +12,8 @@ import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { CleanResource } from "@/lib/types"
 import { useAuth } from "../contexts/auth-context"
+import { ROUTES } from "@/lib/routes"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 type User = CleanResource<UserResourceSchema>
 
@@ -160,6 +162,8 @@ function DashboardLoadingState() {
 }
 
 export default function Dashboard() {
+  useDocumentTitle("Dashboard")
+
   const { user: currentUser, isLoading: authLoading, isAuthenticated } = useAuth()
 
   const userQuery = useQuery({
@@ -286,7 +290,7 @@ export default function Dashboard() {
                 3
               </span>
             </Button>
-            <Link to={`/ash-typescript/create`}>
+            <Link to={ROUTES.createPetition}>
               <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Start New Petition

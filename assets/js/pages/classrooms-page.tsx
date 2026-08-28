@@ -6,6 +6,8 @@ import { getMyClassrooms, buildCSRFHeaders } from "@/js/ash_rpc"
 import { ClassroomList } from "../features/classroom/classroom-list"
 import { JoinClassroomForm } from "../features/classroom/join-classroom-form"
 import { useAuth } from "../contexts/auth-context"
+import { ROUTES } from "@/lib/routes"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 // Skeleton loading state
 function ClassroomsLoadingState() {
@@ -52,6 +54,8 @@ function ClassroomsLoadingState() {
 }
 
 export default function ClassroomsPage() {
+  useDocumentTitle("Classrooms")
+
   const { user: currentUser } = useAuth()
   const currentUserId = currentUser?.id
 
@@ -119,7 +123,7 @@ export default function ClassroomsPage() {
               View and manage your classrooms or join a new one
             </p>
           </div>
-          <Link to="/ash-typescript/classrooms/new">
+          <Link to={ROUTES.classroomNew}>
             <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
               <Plus className="w-4 h-4 mr-2" />
               Create Classroom

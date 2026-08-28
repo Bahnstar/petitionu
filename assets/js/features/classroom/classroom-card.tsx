@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CleanResource } from "@/lib/types"
 import { ClassroomResourceSchema } from "@/js/ash_rpc"
 import { useState } from "react"
+import { ROUTES } from "@/lib/routes"
 
 export type Classroom = CleanResource<ClassroomResourceSchema>
 
@@ -27,7 +28,7 @@ export function ClassroomCard({ classroom, isOwner = false, showJoinCode = false
   }
 
   return (
-    <Link to={`/ash-typescript/classrooms/${classroom.id}`}>
+    <Link to={ROUTES.classroom(classroom.id)}>
       <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:border-primary/50">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">

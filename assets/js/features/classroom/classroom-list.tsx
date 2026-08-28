@@ -2,6 +2,7 @@ import { ClassroomCard, Classroom } from "./classroom-card"
 import { Plus } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { ROUTES } from "@/lib/routes"
 
 interface ClassroomListProps {
   classrooms: Classroom[]
@@ -21,7 +22,7 @@ export function ClassroomList({
       <div className="text-center py-12 bg-card rounded-lg border border-border">
         <p className="text-muted-foreground mb-4">{emptyMessage}</p>
         {showCreateButton && (
-          <Link to="/ash-typescript/classrooms/new">
+          <Link to={ROUTES.classroomNew}>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Classroom

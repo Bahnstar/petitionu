@@ -8,8 +8,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { createClassroom, buildCSRFHeaders } from "@/js/ash_rpc"
+import { ROUTES } from "@/lib/routes"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 export default function CreateClassroomPage() {
+  useDocumentTitle("New Classroom")
+
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -40,7 +44,7 @@ export default function CreateClassroomPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
-      navigate(`/ash-typescript/classrooms/${data.id}`)
+      navigate(ROUTES.classroom(data.id))
     },
     onError: (err: Error) => {
       setErrors({ general: err.message })
@@ -69,7 +73,7 @@ export default function CreateClassroomPage() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12 max-w-2xl">
         {/* Back Link */}
         <Link
-          to="/ash-typescript/classrooms"
+          to={ROUTES.classrooms}
           className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -146,7 +150,7 @@ export default function CreateClassroomPage() {
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Link to="/ash-typescript/classrooms">
+              <Link to={ROUTES.classrooms}>
                 <Button type="button" variant="outline" disabled={createMutation.isPending}>
                   Cancel
                 </Button>

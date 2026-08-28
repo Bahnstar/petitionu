@@ -3,6 +3,7 @@ import { TrendingUp, User } from "lucide-react"
 import { Link } from "react-router-dom"
 import { PetitionResourceSchema } from "../../ash_rpc"
 import { Button } from "@/components/ui/button"
+import { ROUTES } from "@/lib/routes"
 
 type Petition = CleanResource<PetitionResourceSchema>
 
@@ -10,7 +11,7 @@ export function PetitionCard({ petition }: { petition: Petition }) {
   const progress = ((petition.signaturesCount ?? 0) / (petition.goal ?? 1)) * 100
 
   return (
-    <Link to={`/ash-typescript/petitions/${petition.id}`}>
+    <Link to={ROUTES.petition(petition.id)}>
       <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow duration-300">
         <div className="flex items-start justify-between mb-4">
           <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
@@ -57,7 +58,7 @@ export function PetitionCard({ petition }: { petition: Petition }) {
           </div>
         </div>
 
-        <Link to={`/ash-typescript/petitions/${petition.id}`}>
+        <Link to={ROUTES.petition(petition.id)}>
           <Button className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
             Sign This Petition
           </Button>
