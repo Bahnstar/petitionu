@@ -1,8 +1,42 @@
-import { GraduationCap, User } from "lucide-react"
-import { Link } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { GraduationCap, LogOut, Menu, User, X } from "lucide-react"
+import { Link, NavLink } from "react-router-dom"
+import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "text-sm transition-colors",
+    isActive ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground",
+  )
+
+const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(navLinkClass({ isActive }), "block py-2 px-3 rounded-md text-base")
 
 export function Header() {
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [mobileOpen])
+
+  const closeMobile = () => setMobileOpen(false)
+  const displayName = user?.firstName || user?.email
+
+  const navItems = [
+    { label: "Classrooms", to: ROUTES.classrooms },
+    { label: "Browse Petitions", to: ROUTES.petitions },
+    ...(isAuthenticated ? [{ label: "Dashboard", to: ROUTES.dashboard }] : []),
+  ]
+
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -17,40 +51,114 @@ export function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <Link
-              to={ROUTES.dashboard}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link
-              to={ROUTES.petitions}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Browse Petitions
-            </Link>
-            <Link
-              to={ROUTES.createPetition}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Start a Petition
-            </Link>
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} className={navLinkClass}>
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="text-muted-foreground">
-              <User className="w-5 h-5" />
-            </button>
-            <Link
-              to={ROUTES.createPetition}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md"
+            <div className="hidden md:block">
+              <Button asChild>
+                <Link to={ROUTES.createPetition}>Start a Petition</Link>
+              </Button>
+            </div>
+
+            {isAuthenticated && user ? (
+              <div className="hidden md:flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{displayName}</span>
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <a href="/sign-out">
+                    <LogOut />
+                    Sign out
+                  </a>
+                </Button>
+              </div>
+            ) : !isLoading ? (
+              <div className="hidden md:flex items-center gap-2">
+                <Button asChild variant="ghost">
+                  <Link to="/sign-in">Sign in</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/register">Register</Link>
+                </Button>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-menu"
+              className="md:hidden p-2 -mr-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <span className="hidden sm:inline">Start a Petition</span>
-              <span className="sm:hidden">Create</span>
-            </Link>
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
       </div>
+
+      {mobileOpen && (
+        <div id="mobile-menu" className="md:hidden border-t border-border bg-card/95 backdrop-blur-sm">
+          <nav className="flex flex-col p-4 gap-1">
+            {navItems.map((item, index) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={closeMobile}
+                className={mobileNavLinkClass}
+                autoFocus={index === 0}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+            <NavLink to={ROUTES.createPetition} onClick={closeMobile} className={mobileNavLinkClass}>
+              Start a Petition
+            </NavLink>
+
+            <div className="border-t border-border mt-2 pt-4">
+              {isAuthenticated && user ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
+                  </div>
+                  <a
+                    href="/sign-out"
+                    onClick={closeMobile}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  >
+                    <LogOut />
+                    Sign out
+                  </a>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button asChild variant="outline">
+                    <Link to="/sign-in" onClick={closeMobile}>
+                      Sign in
+                    </Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/register" onClick={closeMobile}>
+                      Register
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }
