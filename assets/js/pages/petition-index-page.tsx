@@ -11,6 +11,7 @@ import { CleanResource } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 type Petition = CleanResource<PetitionResourceSchema>
 // type Petition = InferGetPetitionsResult<>
@@ -278,6 +279,7 @@ export default function PetitionIndexPage() {
   const [commentText, setCommentText] = useState("")
   const [commentError, setCommentError] = useState<string | null>(null)
   const queryClient = useQueryClient()
+  useDocumentTitle(petition?.title ?? "Petition")
 
   const createCommentMutation = useMutation({
     mutationFn: async (petitionId: string) => {

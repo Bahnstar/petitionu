@@ -21,6 +21,7 @@ import {
 } from "../ash_rpc"
 import { CleanResource } from "../../lib/types"
 import { useQuery } from "@tanstack/react-query"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 const SORT_OPTIONS = [
   { value: "trending", label: "Trending" },
@@ -122,6 +123,8 @@ function LoadingState() {
 }
 
 export default function BrowsePetitionsPage() {
+  useDocumentTitle("Browse Petitions")
+
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [sortBy, setSortBy] = useState("trending")

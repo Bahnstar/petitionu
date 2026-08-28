@@ -15,6 +15,7 @@ import { AlertCircle, CheckCircle2, Lightbulb } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { buildCSRFHeaders, createPetition, getCategories } from "../ash_rpc"
 import { useQuery } from "@tanstack/react-query"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 function CreatePetitionLoadingState() {
   return (
@@ -116,6 +117,8 @@ function CreatePetitionLoadingState() {
 }
 
 export default function CreatePetitionPage() {
+  useDocumentTitle("Start a Petition")
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
