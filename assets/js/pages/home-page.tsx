@@ -5,8 +5,11 @@ import { Stats } from "../features/home/stats"
 import { PetitionGrid } from "../features/petition/petition-grid"
 import { CreatePetitionCTA } from "../features/home/create-petition-cta"
 import { useQuery } from "@tanstack/react-query"
+import { useDocumentTitle } from "../hooks/use-document-title"
 
 export const HomePage = () => {
+  useDocumentTitle("Home")
+
   const petitionsQuery = useQuery({
     queryKey: ["homePetitions"],
     queryFn: async () => {
