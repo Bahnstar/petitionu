@@ -1,4 +1,6 @@
 import { CheckCircle2 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { ROUTES } from "@/lib/routes"
 
 export function CreatePetitionCTA() {
   const steps = [
@@ -34,9 +36,12 @@ export function CreatePetitionCTA() {
             ))}
           </div>
 
-          <button className="bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">
+          <Link
+            to={ROUTES.createPetition}
+            className="inline-block bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md"
+          >
             Create Your Petition
-          </button>
+          </Link>
         </div>
       </div>
     </section>

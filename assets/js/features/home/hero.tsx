@@ -1,7 +1,18 @@
-// import { Button } from '@/components/ui/button'
+import { useState } from "react"
 import { Search, Sparkles } from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
+import { ROUTES } from "@/lib/routes"
 
 export function Hero() {
+  const [query, setQuery] = useState("")
+  const navigate = useNavigate()
+
+  const onSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const q = query.trim()
+    navigate(q ? `${ROUTES.petitions}?q=${encodeURIComponent(q)}` : ROUTES.petitions)
+  }
+
   return (
     <section className="relative py-20 lg:py-32 overflow-hidden">
       <div className="absolute inset-0 -z-10 opacity-[0.03]">
@@ -17,7 +28,7 @@ export function Hero() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-3 duration-700">
             <Sparkles className="w-4 h-4" />
-            Join 8,492 students creating change
+            Join students creating change
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-foreground mb-6 text-balance leading-[1.1] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
@@ -33,24 +44,35 @@ export function Hero() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
-            <button className="bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-all w-full sm:w-auto shadow-lg shadow-primary/20 p-2 rounded-md">
+            <Link
+              to={ROUTES.createPetition}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-all w-full sm:w-auto shadow-lg shadow-primary/20 p-2 rounded-md text-center"
+            >
               Start a Petition
-            </button>
-            <button className="w-full sm:w-auto hover:scale-105 transition-all p-2 rounded-md">
+            </Link>
+            <Link
+              to={ROUTES.petitions}
+              className="w-full sm:w-auto hover:scale-105 transition-all p-2 rounded-md text-center border border-input bg-card"
+            >
               View All Petitions
-            </button>
+            </Link>
           </div>
 
-          <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-7 duration-700 delay-500">
+          <form
+            onSubmit={onSearchSubmit}
+            className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-7 duration-700 delay-500"
+          >
             <div className="relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for petitions..."
                 className="w-full pl-12 pr-4 py-4 rounded-lg border border-input bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm hover:shadow-md"
               />
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </section>
