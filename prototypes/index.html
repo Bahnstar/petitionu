@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PetitionU — Design Directions</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>*{font-family:"Geist",system-ui,sans-serif}.mono{font-family:"Geist Mono",monospace}</style>
+</head>
+<body class="bg-[#FAFAFA] text-[#18181B]">
+<div class="max-w-[960px] mx-auto px-6 py-12">
+  <div class="inline-flex items-center gap-2 mono text-[11px] tracking-widest uppercase bg-white border border-[#E4E4E7] px-3 py-1.5 rounded-full">PetitionU · Design exploration · Aug 2026</div>
+  <h1 class="text-[36px] font-bold tracking-tight mt-4">Three directions for the next PetitionU</h1>
+  <p class="text-[15px] leading-relaxed text-[#71717A] mt-2 max-w-[60ch]">We explored the inside pages — petition cards, browsing, detail, dashboard, classrooms, and the shell — through three distinct lenses. Each prototype is a full scroll you can screenshot and compare.</p>
+
+  <div class="grid md:grid-cols-3 gap-4 mt-8">
+    <a href="direction-a-editorial.html" class="bg-white border border-[#E4E4E7] rounded-[14px] overflow-hidden hover:shadow-lg transition-shadow group">
+      <div class="h-28 bg-[#FFFCF5] border-b border-[#F0E6D8] p-4">
+        <div class="mono text-[10px] tracking-widest uppercase text-[#8A7F75]">Direction A</div>
+        <div class="font-bold text-[18px] leading-tight mt-1 group-hover:text-[#C45A3C]">Ivy Editorial</div>
+        <div class="text-[12px] text-[#57534E] mt-1">Warm paper, serif, evidence-first. Credibility for admin delivery.</div>
+      </div>
+      <div class="p-4 mono text-[11px] text-[#71717A]">
+        <div>✓ Cream #FFFCF5 · Ink #1C1917 · Terracotta</div>
+        <div>✓ Instrument Serif headlines</div>
+        <div class="mt-2 font-medium text-[#C45A3C]">Open →</div>
+      </div>
+    </a>
+    <a href="direction-b-civic.html" class="bg-white border border-[#E4E4E7] rounded-[14px] overflow-hidden hover:shadow-lg transition-shadow group">
+      <div class="h-28 bg-[#FAFAFA] border-b border-[#E4E4E7] p-4">
+        <div class="mono text-[10px] tracking-widest uppercase text-[#71717A]">Direction B</div>
+        <div class="font-bold text-[18px] leading-tight mt-1 group-hover:text-[#2563EB]">Civic OS</div>
+        <div class="text-[12px] text-[#71717A] mt-1">Linear-inspired, data-dense, system of record. For power users.</div>
+      </div>
+      <div class="p-4 mono text-[11px] text-[#71717A]">
+        <div>✓ Zinc + electric blue · Mono meta</div>
+        <div>✓ Bento, velocity, pipeline</div>
+        <div class="mt-2 font-medium text-[#2563EB]">Open →</div>
+      </div>
+    </a>
+    <a href="direction-c-pulse.html" class="bg-white border border-[#E4E4E7] rounded-[14px] overflow-hidden hover:shadow-lg transition-shadow group">
+      <div class="h-28 bg-[#FFF7ED] border-b border-[#FFE4CC] p-4">
+        <div class="mono text-[10px] tracking-widest uppercase text-[#9A4A00]">Direction C</div>
+        <div class="font-bold text-[18px] leading-tight mt-1 group-hover:text-[#FF4D00]">Campus Pulse</div>
+        <div class="text-[12px] text-[#6B7280] mt-1">Vibrant, rounded, movement energy. Gen-Z rally fuel.</div>
+      </div>
+      <div class="p-4 mono text-[11px] text-[#71717A]">
+        <div>✓ Gradient, 20–28px radius · Emoji</div>
+        <div>✓ Confetti progress · Floating pill nav</div>
+        <div class="mt-2 font-medium text-[#FF4D00]">Open →</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="mt-10 bg-white border border-[#E4E4E7] rounded-[14px] p-6">
+    <h2 class="font-semibold text-[14px]">What we’re testing</h2>
+    <ul class="mt-3 grid md:grid-cols-2 gap-2 mono text-[12px] text-[#71717A] list-disc pl-5">
+      <li>Petition card: fixes nested &lt;Link&gt; bug, adds urgency color, velocity, milestones</li>
+      <li>Header: active state, search ⌘K, user menu, mobile behavior</li>
+      <li>Browsing: URL-synced filters, category colors, sticky controls</li>
+      <li>Detail: verified signatures, delivery timeline, classroom tie-in</li>
+      <li>Dashboard: removes fake “Impact 89” — uses real pipeline metrics</li>
+      <li>Classrooms: join-code ergonomics, member roles, empty states</li>
+    </ul>
+    <p class="mono text-[11px] text-[#71717A] mt-4">Screenshots are generated via <code>npx playwright screenshot --full-page --viewport-size=1280,900 file:///…</code> and attached to the PR via <code>gh attach --release</code> / <code>gh-agent-screenshot</code>.</p>
+  </div>
+
+  <div class="mt-6 mono text-[11px] text-[#71717A]">
+    Tip: run <code class="bg-white border px-1 py-0.5 rounded">./prototypes/generate-screenshots.sh</code> to regenerate all PNGs.
+  </div>
+</div>
+</body>
+</html>

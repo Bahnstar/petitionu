@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Direction B — Civic OS — PetitionU</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>*{font-family:"Geist",system-ui,sans-serif}.mono{font-family:"Geist Mono",monospace}</style>
+</head>
+<body class="bg-[#FAFAFA] text-[#18181B] antialiased">
+<!-- Header B: Linear-style -->
+<header class="sticky top-0 z-50 bg-white border-b border-[#E4E4E7]">
+  <div class="max-w-[1280px] mx-auto px-4 lg:px-6">
+    <div class="flex items-center justify-between h-[48px] gap-4">
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 bg-[#18181B] rounded-[7px] grid place-items-center text-white">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>
+          </div>
+          <span class="font-semibold tracking-tight text-[15px]">PetitionU</span>
+          <span class="hidden sm:inline mono text-[11px] bg-[#F4F4F5] border border-[#E4E4E7] px-1.5 py-0.5 rounded">BETA</span>
+        </div>
+        <nav class="hidden md:flex items-center gap-1 text-[13px]">
+          <a class="px-2.5 py-1.5 rounded-md bg-[#18181B] text-white font-medium">Home</a>
+          <a class="px-2.5 py-1.5 rounded-md hover:bg-[#F4F4F5] text-[#71717A] hover:text-[#18181B]">Browse</a>
+          <a class="px-2.5 py-1.5 rounded-md hover:bg-[#F4F4F5] text-[#71717A]">Classrooms <span class="mono text-[10px] ml-1 bg-[#2563EB] text-white px-1 rounded">3</span></a>
+          <a class="px-2.5 py-1.5 rounded-md hover:bg-[#F4F4F5] text-[#71717A]">Dashboard</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="hidden lg:flex items-center gap-2 mono text-[12px] text-[#71717A] border border-[#E4E4E7] rounded-[8px] px-3 py-1.5 bg-white hover:border-[#18181B]/20">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          Search or jump to…
+          <span class="ml-6 text-[11px] bg-[#F4F4F5] border border-[#E4E4E7] px-1.5 py-0.5 rounded">⌘K</span>
+        </button>
+        <button class="w-8 h-8 grid place-items-center border border-[#E4E4E7] rounded-[8px] bg-white text-[#71717A]">⧉</button>
+        <img src="https://i.pravatar.cc/100?img=15" class="w-8 h-8 rounded-[8px] object-cover border border-[#E4E4E7]" alt="" />
+        <a class="hidden sm:inline-flex bg-[#2563EB] text-white text-[13px] font-medium px-3.5 py-1.5 rounded-[8px] hover:bg-[#1D4ED8]">New petition</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Command bar hint -->
+<div class="max-w-[1280px] mx-auto px-4 lg:px-6 py-3">
+  <div class="flex items-center gap-2 mono text-[11px] text-[#71717A]">
+    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> All systems operational
+    <span class="opacity-30">·</span> 342 active · 1.2k signatures/hr
+    <span class="ml-auto hidden md:inline-flex items-center gap-2">Updated 4m ago <span class="w-1 h-1 bg-[#71717A] rounded-full"></span> Data: verified .edu only</span>
+  </div>
+</div>
+
+<!-- Hero B: left aligned, utilitarian -->
+<section class="max-w-[1280px] mx-auto px-4 lg:px-6 pb-6">
+  <div class="bg-white border border-[#E4E4E7] rounded-[12px] overflow-hidden">
+    <div class="grid lg:grid-cols-[1.2fr_0.8fr] gap-0">
+      <div class="p-6 lg:p-8">
+        <div class="inline-flex items-center gap-2 mono text-[11px] bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] px-2 py-1 rounded-full">● Civic engagement for modern campuses — Spring ’26</div>
+        <h1 class="text-[32px] lg:text-[40px] font-semibold tracking-[-0.03em] leading-[0.95] mt-4">Your campus, <span class="text-[#2563EB]">versioned.</span><br>Propose. Gather. Ship.</h1>
+        <p class="text-[14px] leading-relaxed text-[#71717A] mt-3 max-w-[52ch]">PetitionU is a system of record: every proposal has a diff, every signature is an approval, every victory ships to stakeholders.</p>
+        <div class="mt-6 flex gap-2">
+          <a class="bg-[#18181B] text-white text-[13px] font-medium px-4 py-2 rounded-[8px]">Create petition</a>
+          <a class="bg-white border border-[#E4E4E7] text-[13px] font-medium px-4 py-2 rounded-[8px]">View changelog →</a>
+        </div>
+        <div class="mt-8 grid grid-cols-3 gap-4 mono text-[11px] border-t border-[#F4F4F5] pt-6">
+          <div><div class="text-[#71717A]">Active</div><div class="text-[22px] font-semibold leading-none mt-1">342</div><div class="text-emerald-600">+23 wk</div></div>
+          <div><div class="text-[#71717A]">Signatures</div><div class="text-[22px] font-semibold leading-none mt-1">48,291</div><div class="text-[#71717A]">12.4k users</div></div>
+          <div><div class="text-[#71717A]">Shipped</div><div class="text-[22px] font-semibold leading-none mt-1">89</div><div class="text-[#2563EB]">3 in review</div></div>
+        </div>
+      </div>
+      <div class="bg-[#F4F4F5] border-t lg:border-t-0 lg:border-l border-[#E4E4E7] p-6">
+        <div class="mono text-[11px] tracking-widest uppercase text-[#71717A] mb-3">On-call — Trending #1</div>
+        <div class="bg-white border border-[#E4E4E7] rounded-[10px] p-4 shadow-sm">
+          <div class="flex items-center gap-2 mono text-[11px] mb-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span> ACADEMIC <span class="opacity-30">·</span> P-342 <span class="ml-auto bg-[#2563EB] text-white px-1.5 py-0.5 rounded">94.9%</span>
+          </div>
+          <h3 class="font-semibold text-[15px] leading-snug">Extend Library Hours During Finals Week</h3>
+          <p class="text-[12px] text-[#71717A] leading-relaxed mt-1">24/7 Moffitt &amp; Doe, Dec 9–20. 2am close forces 4k students to relocate nightly.</p>
+          <div class="mt-3 flex items-center gap-2 mono text-[11px] text-[#71717A]">
+            <span>S. Mitchell</span><span>·</span><span>12d left</span><span class="ml-auto font-medium text-[#18181B]">2,847 / 3,000</span>
+          </div>
+          <div class="mt-2 h-1.5 bg-[#F4F4F5] rounded-full overflow-hidden"><div class="h-full bg-[#2563EB]" style="width:94.9%"></div></div>
+          <div class="mt-2 flex gap-1.5 mono text-[10px]">
+            <span class="bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded">127/day</span>
+            <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">153 to goal</span>
+            <span class="ml-auto text-[#71717A]">est. 1.2 days</span>
+          </div>
+          <button class="w-full mt-3 bg-[#18181B] text-white text-[12px] font-medium py-2 rounded-[8px]">Sign — 10s, .edu required</button>
+        </div>
+        <div class="mt-3 mono text-[11px] text-[#71717A] flex items-center gap-2">
+          <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> 127 signatures in last 24h · Velocity +18%
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Controls B: filter bar like Linear -->
+<section class="max-w-[1280px] mx-auto px-4 lg:px-6">
+  <div class="bg-white border border-[#E4E4E7] rounded-[12px] p-2 flex flex-wrap items-center gap-2">
+    <div class="flex items-center gap-1 bg-[#F4F4F5] rounded-[8px] p-1">
+      <button class="bg-white border border-[#E4E4E7] shadow-sm px-3 py-1.5 rounded-[6px] text-[12px] font-medium">Trending</button>
+      <button class="px-3 py-1.5 text-[12px] text-[#71717A] hover:text-[#18181B]">Newest</button>
+      <button class="px-3 py-1.5 text-[12px] text-[#71717A]">Ending soon</button>
+      <button class="px-3 py-1.5 text-[12px] text-[#71717A]">Most signed</button>
+    </div>
+    <div class="h-6 w-px bg-[#E4E4E7] hidden md:block"></div>
+    <div class="flex items-center gap-1.5 mono text-[11px]">
+      <span class="text-[#71717A]">Filter:</span>
+      <button class="border border-[#E4E4E7] bg-white px-2.5 py-1 rounded-full">Category ▾</button>
+      <button class="border border-[#E4E4E7] bg-white px-2.5 py-1 rounded-full">Status: Open</button>
+      <button class="border border-[#E4E4E7] bg-white px-2.5 py-1 rounded-full">Classroom ▾</button>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <span class="mono text-[11px] text-[#71717A] hidden sm:inline">342 results · Sorted by velocity</span>
+      <button class="border border-[#E4E4E7] bg-white mono text-[11px] px-2.5 py-1.5 rounded-[8px]">View: Grid ⊞</button>
+    </div>
+  </div>
+</section>
+
+<!-- Grid B -->
+<section class="max-w-[1280px] mx-auto px-4 lg:px-6 py-4">
+  <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <!-- Card -->
+    <article class="bg-white border border-[#E4E4E7] rounded-[12px] p-4 hover:border-[#2563EB]/30 hover:shadow-[0_4px_24px_rgba(37,99,235,0.08)] transition-all group">
+      <div class="flex items-center gap-2 mono text-[10px] tracking-widest uppercase">
+        <span class="w-1.5 h-1.5 rounded-full bg-violet-600"></span> Academic
+        <span class="ml-auto flex items-center gap-1 bg-[#2563EB] text-white px-1.5 py-0.5 rounded">● 66% · 847 to go</span>
+      </div>
+      <h3 class="font-semibold text-[14px] leading-snug mt-3 group-hover:text-[#2563EB] transition-colors">Add More Vegetarian Options in Dining Halls</h3>
+      <p class="text-[12px] leading-relaxed text-[#71717A] mt-1 line-clamp-2">Expand plant-based meal choices. 62% report insufficient options.</p>
+      <div class="mt-3 h-1 bg-[#F4F4F5] rounded-full overflow-hidden"><div class="h-full bg-[#2563EB]" style="width:66%"></div></div>
+      <div class="mt-3 flex items-center justify-between mono text-[11px] text-[#71717A]">
+        <span class="flex items-center gap-1.5"><img src="https://i.pravatar.cc/100?img=8" class="w-4 h-4 rounded-full"> J. Chen · 8d left</span>
+        <span class="font-medium text-[#18181B]">1,653</span>
+      </div>
+      <div class="mt-3 flex gap-1.5">
+        <button class="flex-1 bg-[#18181B] text-white text-[12px] py-1.5 rounded-[8px]">Sign</button>
+        <button class="px-3 border border-[#E4E4E7] rounded-[8px] mono text-[11px]">Share</button>
+      </div>
+    </article>
+    <article class="bg-white border border-[#E4E4E7] rounded-[12px] p-4 hover:border-emerald-200 transition-colors">
+      <div class="flex items-center gap-2 mono text-[10px] tracking-widest uppercase">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Housing <span class="ml-auto bg-emerald-600 text-white px-1.5 py-0.5 rounded">Shipped ✓</span>
+      </div>
+      <h3 class="font-semibold text-[14px] leading-snug mt-3">Guarantee Housing for Second-Years</h3>
+      <p class="text-[12px] text-[#71717A] mt-1">Delivered Feb 3 · 3,212 sigs · +200 beds committed.</p>
+      <div class="mt-3 h-1 bg-emerald-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-600" style="width:100%"></div></div>
+      <div class="mt-3 mono text-[11px] text-[#71717A] flex justify-between"><span>A. Jones · Closed</span><span class="font-medium text-emerald-700">107%</span></div>
+      <button class="w-full mt-3 border border-[#E4E4E7] text-[12px] py-1.5 rounded-[8px] mono">Read update →</button>
+    </article>
+    <article class="bg-white border border-[#E4E4E7] rounded-[12px] p-4">
+      <div class="flex items-center gap-2 mono text-[10px] tracking-widest uppercase">
+        <span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span> Campus life
+        <span class="ml-auto bg-zinc-900 text-white px-1.5 py-0.5 rounded mono text-[10px]">52% · 482 needed</span>
+      </div>
+      <h3 class="font-semibold text-[14px] leading-snug mt-3">Install More Bike Racks Near STEM</h3>
+      <p class="text-[12px] text-[#71717A] mt-1">14 racks for 2,300 cyclists · 40 covered by Fall ’26.</p>
+      <div class="mt-3 h-1 bg-[#F4F4F5] rounded-full overflow-hidden"><div class="h-full bg-[#18181B]" style="width:52%"></div></div>
+      <div class="mt-3 mono text-[11px] text-[#71717A] flex justify-between"><span>M. Rivera · 8d</span><span>518 / 1,000</span></div>
+      <div class="mt-3 flex gap-1.5"><button class="flex-1 bg-[#18181B] text-white text-[12px] py-1.5 rounded-[8px]">Sign</button><button class="px-3 border border-[#E4E4E7] rounded-[8px] mono text-[11px]">Share</button></div>
+    </article>
+  </div>
+
+  <!-- Dashboard snippet B -->
+  <div class="mt-6 grid lg:grid-cols-[1.7fr_1fr] gap-4">
+    <div class="bg-white border border-[#E4E4E7] rounded-[12px] p-5">
+      <div class="flex items-center justify-between">
+        <h4 class="font-semibold text-[13px]">Pipeline</h4>
+        <span class="mono text-[11px] text-[#71717A]">Your petitions · 3 active</span>
+      </div>
+      <div class="mt-4 space-y-3">
+        <div class="flex items-center gap-3 p-3 border border-[#E4E4E7] rounded-[10px] hover:border-[#2563EB]/30 transition-colors">
+          <div class="w-8 h-8 rounded-[8px] bg-[#EEF2FF] grid place-items-center text-[#2563EB] mono text-[11px] font-medium">89%</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[13px] font-medium truncate">Extend Library Hours During Finals</div>
+            <div class="mono text-[11px] text-[#71717A]">+127 today · 153 to goal · est. 1.2 days</div>
+          </div>
+          <span class="mono text-[11px] bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded-full hidden sm:inline">Trending</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 border border-[#E4E4E7] rounded-[10px] opacity-70">
+          <div class="w-8 h-8 rounded-[8px] bg-[#F4F4F5] grid place-items-center mono text-[11px]">47%</div>
+          <div class="flex-1">
+            <div class="text-[13px] font-medium">Vegetarian Dining Reform</div>
+            <div class="mono text-[11px] text-[#71717A]">1,653 / 2,500 · 8d left</div>
+          </div>
+          <span class="mono text-[11px] text-[#71717A]">66%</span>
+        </div>
+      </div>
+    </div>
+    <div class="bg-[#18181B] text-white rounded-[12px] p-5">
+      <div class="mono text-[11px] tracking-widest uppercase opacity-60">Classrooms</div>
+      <h4 class="font-semibold text-[14px] mt-1">INFO 232 · 18 members · 4 petitions</h4>
+      <p class="text-[12px] opacity-60 mt-1 leading-relaxed">Studio petitions ship directly to faculty for co-signature.</p>
+      <div class="mt-4 flex items-center gap-2 mono text-[11px]">
+        <span class="bg-white/10 px-2 py-1 rounded-full">Allow student petitions: ON</span>
+      </div>
+      <div class="mt-4 flex gap-2">
+        <button class="flex-1 bg-white text-[#18181B] text-[12px] font-medium py-2 rounded-[8px]">Open classroom</button>
+        <button class="border border-white/20 px-3 rounded-[8px] mono text-[11px]">Copy code</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="max-w-[1280px] mx-auto px-4 lg:px-6 py-6 mono text-[11px] text-[#71717A] flex justify-between border-t border-[#E4E4E7] mt-6">
+  <span>© 2026 PetitionU · System of record · SOC 2 · berkeley.edu verified</span>
+  <span class="flex gap-4"><a>API</a><a>Guides</a><a>Support</a></span>
+</footer>
+</body>
+</html>
