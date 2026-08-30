@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { GraduationCap, LogOut, Menu, User, X } from "lucide-react"
 import { Link, NavLink } from "react-router-dom"
 import { useAuth } from "../contexts/auth-context"
@@ -18,15 +18,19 @@ const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function Header() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const mobileOpenRef = useRef(mobileOpen)
 
   useEffect(() => {
-    if (!mobileOpen) return
+    mobileOpenRef.current = mobileOpen
+  }, [mobileOpen])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false)
+      if (event.key === "Escape" && mobileOpenRef.current) setMobileOpen(false)
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [mobileOpen])
+  }, [])
 
   const closeMobile = () => setMobileOpen(false)
   const displayName = user?.firstName || user?.email
@@ -93,7 +97,7 @@ export function Header() {
 
             <button
               type="button"
-              onClick={() => setMobileOpen(!mobileOpen)}
+              onClick={() => setMobileOpen((open) => !open)}
               aria-label="Toggle navigation menu"
               aria-expanded={mobileOpen}
               aria-controls="mobile-menu"
