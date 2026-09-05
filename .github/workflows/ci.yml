@@ -63,6 +63,10 @@ jobs:
           BASE_URL: http://localhost:4001
           PLAYWRIGHT_MODULE: /tmp/petitionu-playwright/node_modules/playwright
         run: |
+          mix help deps.get
+          mix deps.get
+          mix help compile
+          mix compile --warnings-as-errors
           mix help ash.setup
           mix ash.setup
           mix help run
