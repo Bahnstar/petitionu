@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
-import { ArrowLeft, GraduationCap, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,12 +10,14 @@ import { Card } from "@/components/ui/card"
 import { createClassroom, buildCSRFHeaders } from "@/js/ash_rpc"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { useAuth } from "../contexts/auth-context"
 
 export default function CreateClassroomPage() {
   useDocumentTitle("New Classroom")
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
 
   const [formData, setFormData] = useState({
     name: "",
@@ -28,8 +30,8 @@ export default function CreateClassroomPage() {
     mutationFn: async () => {
       const result = await createClassroom({
         input: {
-          name: formData.name,
-          description: formData.description || undefined,
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
           allowStudentPetitions: formData.allowStudentPetitions,
         },
         fields: ["id", "name", "joinCode"],
@@ -68,67 +70,91 @@ export default function CreateClassroomPage() {
     createMutation.mutate()
   }
 
+  if (authLoading) {
+    return (
+      <main className="app-page" aria-busy="true">
+        <p role="status" className="app-page-description">Getting your classroom ready…</p>
+      </main>
+    )
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="app-page">
+        <section id="create-classroom-sign-in" className="app-empty-state">
+          <h1 className="app-page-heading">Make room for your class.</h1>
+          <p className="app-page-description">Sign in to create a classroom and invite your students to share their ideas.</p>
+          <Button asChild className="mt-6"><a href="/sign-in">Sign in</a></Button>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12 max-w-2xl">
+      <div className="app-page !max-w-3xl">
         {/* Back Link */}
         <Link
           to={ROUTES.classrooms}
-          className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Classrooms
+          Back to classrooms
         </Link>
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-            <GraduationCap className="w-8 h-8 lg:w-10 lg:h-10" />
-            Create Classroom
+          <h1 className="app-page-heading mb-3">
+            Create classroom
           </h1>
-          <p className="text-muted-foreground">
-            Create a new classroom for your students to collaborate on petitions
+          <p className="app-page-description">
+            Give your students a place to turn shared ideas into change.
           </p>
         </div>
 
         {/* Form */}
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="gap-0 rounded-2xl p-6 shadow-none">
+          <form id="create-classroom-form" onSubmit={handleSubmit} className="space-y-7">
             {errors.general && (
-              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div role="alert" className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <p className="text-sm text-destructive">{errors.general}</p>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">Classroom Name *</Label>
+              <Label htmlFor="name">Classroom name <span className="text-muted-foreground">(required)</span></Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="e.g., POLS 101 - Fall 2024"
+                placeholder="e.g., Introduction to Political Science"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? "classroom-name-error" : undefined}
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value })
+                  setErrors((current) => ({ ...current, name: "" }))
+                }}
                 disabled={createMutation.isPending}
               />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+              {errors.name && <p id="classroom-name-error" role="alert" className="text-sm text-destructive">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description <span className="text-muted-foreground">(optional)</span></Label>
               <Textarea
                 id="description"
-                placeholder="Describe what this classroom is about..."
+                placeholder="What will your class explore together?"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
                 disabled={createMutation.isPending}
               />
               <p className="text-xs text-muted-foreground">
-                Optional. This will be visible to students who join the classroom.
+                Students will see this when they join your classroom.
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3 rounded-xl bg-muted/60 p-4">
               <input
                 type="checkbox"
                 id="allowStudentPetitions"
@@ -137,7 +163,7 @@ export default function CreateClassroomPage() {
                   setFormData({ ...formData, allowStudentPetitions: e.target.checked })
                 }
                 disabled={createMutation.isPending}
-                className="w-4 h-4 rounded border-border"
+                className="mt-1 size-4 shrink-0 rounded border-border accent-primary"
               />
               <div>
                 <Label htmlFor="allowStudentPetitions" className="cursor-pointer">
@@ -149,12 +175,9 @@ export default function CreateClassroomPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Link to={ROUTES.classrooms}>
-                <Button type="button" variant="outline" disabled={createMutation.isPending}>
-                  Cancel
-                </Button>
-              </Link>
+            <p className="text-sm text-muted-foreground">We’ll give you a join code to share with your students after you create the classroom.</p>
+            <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+              <Button type="button" variant="outline" onClick={() => navigate(ROUTES.classrooms)} disabled={createMutation.isPending}>Cancel</Button>
               <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending ? (
                   <>
@@ -162,7 +185,7 @@ export default function CreateClassroomPage() {
                     Creating...
                   </>
                 ) : (
-                  "Create Classroom"
+                  "Create classroom"
                 )}
               </Button>
             </div>
