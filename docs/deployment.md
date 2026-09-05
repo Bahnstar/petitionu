@@ -1,6 +1,6 @@
 # Deploy PetitionU
 
-Build the release on the same operating system and architecture as the production host. CI builds on Ubuntu 24.04 with Elixir 1.18.4, Erlang/OTP 27.3, and Node 22. Use PostgreSQL 16 or later. Native dependencies require a C compiler and make during the build.
+Build the release on the same operating system and architecture as the production host. CI builds on Ubuntu 24.04 with Elixir 1.18.4, Erlang/OTP 27.3, Node 22, and Bun 1.4.0. Use PostgreSQL 16 or later. Native dependencies require a C compiler and make during the build.
 
 ## Build a release
 

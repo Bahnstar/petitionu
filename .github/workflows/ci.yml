@@ -2,7 +2,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 permissions:
   contents: read
 jobs:
@@ -30,8 +30,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: assets/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
       - uses: actions/cache@v4
         with:
           path: |
@@ -39,7 +40,8 @@ jobs:
             _build
           key: ${{ runner.os }}-otp27-elixir1.18-${{ hashFiles('mix.lock') }}
       - run: mix help deps.get && mix deps.get
-      - run: npm ci --prefix assets
+      - run: bun install --frozen-lockfile
+        working-directory: assets
       - run: mix help precommit && mix precommit
       - run: git diff --exit-code
       - run: ./node_modules/.bin/tsc --noEmit

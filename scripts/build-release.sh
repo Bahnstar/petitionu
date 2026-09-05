@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 export MIX_ENV=prod
 mix help deps.get >/dev/null
 mix deps.get --only prod
-npm ci --prefix assets
+(cd assets && bun install --frozen-lockfile)
 mix help compile >/dev/null
 mix compile --warnings-as-errors
 mix help assets.setup >/dev/null
