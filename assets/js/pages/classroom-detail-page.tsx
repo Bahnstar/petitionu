@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
-  Settings,
   Users,
   FileText,
   Copy,
@@ -35,14 +34,14 @@ import { useDocumentTitle } from "../hooks/use-document-title"
 function ClassroomDetailLoadingState() {
   return (
     <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <div className="app-page">
         <div className="h-6 bg-muted rounded-lg w-32 mb-6 animate-pulse" />
         <div className="h-10 bg-muted rounded-lg w-64 mb-2 animate-pulse" />
-        <div className="h-4 bg-muted rounded-lg w-96 mb-8 animate-pulse" />
+        <div className="h-4 bg-muted rounded-lg w-full max-w-96 mb-8 animate-pulse" />
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-card rounded-lg border p-6">
+              <div key={i} className="bg-card rounded-2xl border p-6">
                 <div className="h-6 bg-muted rounded-lg w-48 mb-4 animate-pulse" />
                 <div className="h-4 bg-muted rounded-lg w-full mb-2 animate-pulse" />
                 <div className="h-4 bg-muted rounded-lg w-3/4 animate-pulse" />
@@ -50,7 +49,7 @@ function ClassroomDetailLoadingState() {
             ))}
           </div>
           <div className="space-y-6">
-            <div className="bg-card rounded-lg border p-6">
+            <div className="bg-card rounded-2xl border p-6">
               <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse" />
               <div className="h-10 bg-muted rounded-lg w-full animate-pulse" />
             </div>
@@ -66,6 +65,7 @@ export default function ClassroomDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState(false)
   const { user: currentUser } = useAuth()
 
   const currentUserId = currentUser?.id
@@ -172,7 +172,9 @@ export default function ClassroomDetailPage() {
       return result.data
     },
     onSuccess: () => {
+      setCopied(false)
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
+      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
 
@@ -213,9 +215,14 @@ export default function ClassroomDetailPage() {
 
   const copyJoinCode = async () => {
     if (classroom?.joinCode) {
-      await navigator.clipboard.writeText(classroom.joinCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      try {
+        await navigator.clipboard.writeText(classroom.joinCode)
+        setCopied(true)
+        setCopyError(false)
+      } catch {
+        setCopied(false)
+        setCopyError(true)
+      }
     }
   }
 
@@ -226,11 +233,12 @@ export default function ClassroomDetailPage() {
   if (classroomQuery.isError) {
     return (
       <main className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-          <div className="text-center py-12">
+        <div className="app-page">
+          <div className="app-empty-state" role="alert">
+            <h1 className="font-display text-3xl mb-3">This classroom couldn’t load</h1>
             <p className="text-destructive">Error: {classroomQuery.error?.message}</p>
             <Button onClick={() => navigate(ROUTES.classrooms)} className="mt-4">
-              Back to Classrooms
+              Back to classrooms
             </Button>
           </div>
         </div>
@@ -246,21 +254,21 @@ export default function ClassroomDetailPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <div className="app-page">
         {/* Back Link */}
         <Link
           to={ROUTES.classrooms}
-          className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Classrooms
+          Back to classrooms
         </Link>
 
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-8">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl lg:text-4xl font-bold text-foreground">
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <h1 className="app-page-heading">
                 {classroom?.name}
               </h1>
               {classroom?.archived && (
@@ -271,9 +279,9 @@ export default function ClassroomDetailPage() {
               )}
             </div>
             {classroom?.description && (
-              <p className="text-muted-foreground max-w-2xl">{classroom.description}</p>
+              <p className="app-page-description max-w-2xl">{classroom.description}</p>
             )}
-            <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-5 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
                 {classroom?.memberCount ?? 0} members
@@ -290,12 +298,6 @@ export default function ClassroomDetailPage() {
 
           {isProfessor && (
             <div className="flex items-center gap-2">
-              <Link to={ROUTES.classroomEdit(id!)}>
-                <Button variant="outline">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </Button>
-              </Link>
               {classroom?.archived ? (
                 <Button
                   onClick={() => unarchiveMutation.mutate()}
@@ -326,42 +328,55 @@ export default function ClassroomDetailPage() {
           )}
         </div>
 
+        {(archiveMutation.error || unarchiveMutation.error) && (
+          <p role="alert" className="mb-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+            {archiveMutation.error?.message || unarchiveMutation.error?.message}
+          </p>
+        )}
+        {classroom?.archived && <p className="mb-6 rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">This classroom is archived. You can still browse its petitions and members.</p>}
+
         {/* Main Content */}
         <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Left Column - Petitions */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-foreground">Petitions</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-3xl font-normal text-foreground">Petitions</h2>
               {(classroom?.allowStudentPetitions || isProfessor) && (
-                <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                  <Button>
+                  <Button asChild>
+                    <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                     <Plus className="w-4 h-4 mr-2" />
-                    New Petition
+                    Start a petition
+                    </Link>
                   </Button>
-                </Link>
               )}
             </div>
 
             {petitionsQuery.isPending ? (
               <div className="space-y-4">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="bg-card rounded-lg border p-6 animate-pulse">
+                  <div key={i} className="bg-card rounded-2xl border p-6 animate-pulse">
                     <div className="h-6 bg-muted rounded w-3/4 mb-4" />
                     <div className="h-4 bg-muted rounded w-full mb-2" />
                     <div className="h-4 bg-muted rounded w-2/3" />
                   </div>
                 ))}
               </div>
+            ) : petitionsQuery.isError ? (
+              <div className="app-empty-state" role="alert">
+                <p className="text-sm text-destructive mb-4">Petitions couldn’t load. {petitionsQuery.error.message}</p>
+                <Button variant="outline" onClick={() => petitionsQuery.refetch()}>Try again</Button>
+              </div>
             ) : petitions.length === 0 ? (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground mb-4">No petitions in this classroom yet</p>
+              <Card className="gap-0 rounded-2xl p-8 text-center shadow-none">
+                <h3 className="font-display text-3xl mb-3">What could your class change?</h3>
+                <p className="text-sm text-muted-foreground mb-6">No petitions here yet. Every shared idea starts with one voice.</p>
                 {(classroom?.allowStudentPetitions || isProfessor) && (
-                  <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                    <Button>
+                    <Button asChild>
+                      <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Create the First Petition
+                      Start the first petition
+                      </Link>
                     </Button>
-                  </Link>
                 )}
               </Card>
             ) : (
@@ -375,15 +390,15 @@ export default function ClassroomDetailPage() {
 
           {/* Right Column - Info & Members */}
           <div className="space-y-6">
-            {/* Join Code (Professor only) */}
+            {/* Join code (Professor only) */}
             {isProfessor && (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Join Code</h3>
+              <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
+                <h3 className="font-display text-2xl font-normal text-foreground mb-4">Join code</h3>
                 <p className="text-sm text-muted-foreground mb-3">
                   Share this code with students to let them join the classroom.
                 </p>
-                <div className="bg-muted rounded-lg p-3 mb-3">
-                  <code className="text-xs font-mono break-all">{classroom?.joinCode}</code>
+                <div className="bg-white/70 rounded-xl p-4 mb-4">
+                  <code className="select-all text-sm break-all">{classroom?.joinCode}</code>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -391,6 +406,7 @@ export default function ClassroomDetailPage() {
                     size="sm"
                     onClick={copyJoinCode}
                     className="flex-1"
+                    aria-live="polite"
                   >
                     {copied ? (
                       <>
@@ -409,6 +425,8 @@ export default function ClassroomDetailPage() {
                     size="sm"
                     onClick={() => regenerateMutation.mutate()}
                     disabled={regenerateMutation.isPending}
+                    aria-label="Generate a new join code"
+                    title="Generate a new join code"
                   >
                     {regenerateMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -417,12 +435,15 @@ export default function ClassroomDetailPage() {
                     )}
                   </Button>
                 </div>
+                <p className="mt-3 text-xs leading-relaxed text-[#685649]">Generating a new code replaces this one. Share the new code with anyone who hasn’t joined yet.</p>
+                {copyError && <p role="alert" className="mt-3 text-xs text-destructive">Couldn’t copy. Select the code above to copy it manually.</p>}
+                {regenerateMutation.error && <p role="alert" className="mt-3 text-xs text-destructive">{regenerateMutation.error.message}</p>}
               </Card>
             )}
 
             {/* Members */}
             {membershipsQuery.isPending ? (
-              <Card className="p-6">
+              <Card className="gap-0 rounded-2xl p-6 shadow-none">
                 <div className="h-6 bg-muted rounded w-32 mb-4 animate-pulse" />
                 <div className="space-y-3">
                   {[...Array(5)].map((_, i) => (
@@ -435,6 +456,11 @@ export default function ClassroomDetailPage() {
                     </div>
                   ))}
                 </div>
+              </Card>
+            ) : membershipsQuery.isError ? (
+              <Card className="gap-0 rounded-2xl p-6 shadow-none" role="alert">
+                <p className="mb-4 text-sm text-destructive">Members couldn’t load. {membershipsQuery.error.message}</p>
+                <Button variant="outline" onClick={() => membershipsQuery.refetch()}>Try again</Button>
               </Card>
             ) : (
               <MemberList

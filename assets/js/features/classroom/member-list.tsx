@@ -43,6 +43,8 @@ export function MemberList({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
       queryClient.invalidateQueries({ queryKey: ["pendingMemberships", classroomId] })
     },
   })
@@ -60,6 +62,8 @@ export function MemberList({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
 
@@ -76,6 +80,8 @@ export function MemberList({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
 
@@ -92,6 +98,8 @@ export function MemberList({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
+      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
 
@@ -104,34 +112,38 @@ export function MemberList({
     promoteMutation.isPending ||
     demoteMutation.isPending
 
+  const actionError = approveMutation.error || removeMutation.error || promoteMutation.error || demoteMutation.error
+
   return (
     <div className="space-y-6">
+      {actionError && <p role="alert" className="rounded-xl border border-destructive/20 p-4 text-sm text-destructive">{actionError.message}</p>}
       {pendingMembers.length > 0 && canManage && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-amber-500" />
-            Pending Requests ({pendingMembers.length})
+        <Card className="gap-0 rounded-2xl p-6 shadow-none">
+          <h3 className="font-display text-2xl font-normal text-foreground mb-4 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#685649]" />
+            Join requests ({pendingMembers.length})
           </h3>
           <div className="space-y-3">
             {pendingMembers.map((membership) => (
               <div
                 key={membership.id}
-                className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <div className="size-8 shrink-0 bg-secondary rounded-full flex items-center justify-center">
                     <User className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
                       {membership.user?.firstName} {membership.user?.lastName}
                     </p>
-                    <p className="text-sm text-muted-foreground">{membership.user?.email}</p>
+                    <p className="break-all text-xs text-muted-foreground">{membership.user?.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
+                    aria-label={`Approve ${membership.user?.firstName || "member"}`}
                     onClick={() => approveMutation.mutate(membership.id)}
                     disabled={isLoading}
                   >
@@ -143,7 +155,8 @@ export function MemberList({
                   </Button>
                   <Button
                     size="sm"
-                    variant="destructive"
+                    aria-label={`Decline ${membership.user?.firstName || "member"}’s request`}
+                    variant="outline"
                     onClick={() => removeMutation.mutate(membership.id)}
                     disabled={isLoading}
                   >
@@ -160,29 +173,29 @@ export function MemberList({
         </Card>
       )}
 
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+      <Card className="gap-0 rounded-2xl p-6 shadow-none">
+        <h3 className="font-display text-2xl font-normal text-foreground mb-4 flex items-center gap-2">
           <User className="w-5 h-5" />
-          Active Members ({activeMembers.length})
+          Members ({activeMembers.length})
         </h3>
         {activeMembers.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">No active members yet</p>
+          <p className="text-muted-foreground text-center py-4">No members yet. Share the classroom code to invite your students.</p>
         ) : (
           <div className="space-y-3">
             {activeMembers.map((membership) => (
               <div
                 key={membership.id}
-                className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <div className="size-8 shrink-0 bg-secondary rounded-full flex items-center justify-center">
                     <User className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
                       {membership.user?.firstName} {membership.user?.lastName}
                     </p>
-                    <p className="text-sm text-muted-foreground">{membership.user?.email}</p>
+                    <p className="break-all text-xs text-muted-foreground">{membership.user?.email}</p>
                   </div>
                   <Badge variant={membership.role === "ta" ? "default" : "secondary"}>
                     {membership.role === "ta" ? "TA" : "Student"}
@@ -197,6 +210,7 @@ export function MemberList({
                         onClick={() => promoteMutation.mutate(membership.id)}
                         disabled={isLoading}
                         title="Promote to TA"
+                        aria-label={`Promote ${membership.user?.firstName || "member"} to TA`}
                       >
                         {promoteMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -210,7 +224,8 @@ export function MemberList({
                         variant="outline"
                         onClick={() => demoteMutation.mutate(membership.id)}
                         disabled={isLoading}
-                        title="Demote to Student"
+                        title="Demote to student"
+                        aria-label={`Demote ${membership.user?.firstName || "member"} to student`}
                       >
                         {demoteMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -221,10 +236,11 @@ export function MemberList({
                     )}
                     <Button
                       size="sm"
-                      variant="destructive"
+                      variant="ghost"
                       onClick={() => removeMutation.mutate(membership.id)}
                       disabled={isLoading}
                       title="Remove member"
+                      aria-label={`Remove ${membership.user?.firstName || "member"} from classroom`}
                     >
                       {removeMutation.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
