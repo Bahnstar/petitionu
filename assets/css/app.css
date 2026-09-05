@@ -10,6 +10,7 @@
 @import "./home-prototype.css";
 @import "./landing-prototype.css";
 @import "./landing-page.css";
+@import "./application.css";
 @source "../../deps/ash_authentication_phoenix";
 @source "../css";
 @source "../js";
@@ -120,31 +121,32 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.98 0.005 85);
-  --foreground: oklch(0.25 0.02 160);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 160);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 160);
-  --primary: oklch(0.35 0.08 160);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.95 0.01 85);
-  --secondary-foreground: oklch(0.25 0.02 160);
-  --muted: oklch(0.96 0.005 85);
-  --muted-foreground: oklch(0.55 0.02 160);
-  --accent: oklch(0.92 0.015 85);
-  --accent-foreground: oklch(0.25 0.02 160);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.88 0.01 85);
-  --input: oklch(0.88 0.01 85);
-  --ring: oklch(0.35 0.08 160);
-  --chart-1: oklch(0.45 0.12 160);
-  --chart-2: oklch(0.65 0.15 140);
-  --chart-3: oklch(0.55 0.08 180);
-  --chart-4: oklch(0.75 0.1 120);
-  --chart-5: oklch(0.35 0.08 160);
-  --radius: 0.5rem;
+  color-scheme: light;
+  --background: #f1f8f7;
+  --foreground: #204c48;
+  --card: #ffffff;
+  --card-foreground: #204c48;
+  --popover: #ffffff;
+  --popover-foreground: #204c48;
+  --primary: #204c48;
+  --primary-foreground: #ffffff;
+  --secondary: #e4efeb;
+  --secondary-foreground: #204c48;
+  --muted: #eaf2ef;
+  --muted-foreground: #567269;
+  --accent: #e4efeb;
+  --accent-foreground: #204c48;
+  --destructive: #a1374e;
+  --destructive-foreground: #ffffff;
+  --border: #d7e5df;
+  --input: #b8cec5;
+  --ring: #204c48;
+  --chart-1: #204c48;
+  --chart-2: #567269;
+  --chart-3: #a67076;
+  --chart-4: #f7e8d2;
+  --chart-5: #f5cfdc;
+  --radius: 0.875rem;
 }
 
 /* shadcn/ui vars drive the React SPA via the `.dark` class. The daisyUI
@@ -178,7 +180,8 @@
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
+  --font-sans: "Geist", "Helvetica Neue", sans-serif;
+  --font-display: "Newsreader", Georgia, serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -212,10 +215,13 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: var(--ring);
   }
   body {
-    @apply bg-background text-foreground;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "Geist", "Helvetica Neue", sans-serif;
   }
 }
 

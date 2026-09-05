@@ -10,9 +10,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-orange-50">
+    <div className="app-shell">
+      <a href="#main-content" className="app-skip-link">Skip to content</a>
       <Header />
-      <div className="flex-1">{children}</div>
+      <div id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">{children}</div>
       <Footer />
     </div>
   )
