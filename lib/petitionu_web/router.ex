@@ -68,25 +68,25 @@ defmodule PetitionuWeb.Router do
                   on_mount: [{PetitionuWeb.LiveUserAuth, :live_no_user}],
                   overrides: [
                     PetitionuWeb.AuthOverrides,
-                    Elixir.AshAuthentication.Phoenix.Overrides.DaisyUI
+                    Elixir.AshAuthentication.Phoenix.Overrides.Default
                   ]
 
     # Remove this if you do not want to use the reset password feature
     reset_route auth_routes_prefix: "/auth",
                 overrides: [
                   PetitionuWeb.AuthOverrides,
-                  Elixir.AshAuthentication.Phoenix.Overrides.DaisyUI
+                  Elixir.AshAuthentication.Phoenix.Overrides.Default
                 ]
 
     # Remove this if you do not use the confirmation strategy
     confirm_route Petitionu.Accounts.User, :confirm_new_user,
       auth_routes_prefix: "/auth",
-      overrides: [PetitionuWeb.AuthOverrides, Elixir.AshAuthentication.Phoenix.Overrides.DaisyUI]
+      overrides: [PetitionuWeb.AuthOverrides, Elixir.AshAuthentication.Phoenix.Overrides.Default]
 
     # Remove this if you do not use the magic link strategy.
     magic_sign_in_route(Petitionu.Accounts.User, :magic_link,
       auth_routes_prefix: "/auth",
-      overrides: [PetitionuWeb.AuthOverrides, Elixir.AshAuthentication.Phoenix.Overrides.DaisyUI]
+      overrides: [PetitionuWeb.AuthOverrides, Elixir.AshAuthentication.Phoenix.Overrides.Default]
     )
   end
 
