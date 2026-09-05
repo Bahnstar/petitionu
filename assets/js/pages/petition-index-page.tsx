@@ -1,205 +1,143 @@
 import { useState } from "react"
-import { User, Calendar, TrendingUp, Share2, Flag, CheckCircle2, Clock } from "lucide-react"
-import { useParams } from "react-router-dom"
-import {
-  buildCSRFHeaders,
-  createComment,
-  getPetitions,
-  PetitionResourceSchema,
-} from "../ash_rpc"
+import { Link, useParams } from "react-router-dom"
+import { buildCSRFHeaders, createComment, createSignature, getPetitions, PetitionResourceSchema } from "../ash_rpc"
 import { CleanResource } from "@/lib/types"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { useAuth } from "../contexts/auth-context"
+import { ROUTES } from "@/lib/routes"
 
 type Petition = CleanResource<PetitionResourceSchema>
-// type Petition = InferGetPetitionsResult<>
 
-function PetitionIndexLoadingState() {
+function PetitionContent({ petition }: { petition: Petition }) {
+  const { user, isLoading: authLoading } = useAuth()
+  const queryClient = useQueryClient()
+  const [commentText, setCommentText] = useState("")
+  const [signatureReason, setSignatureReason] = useState("")
+  const [shareMessage, setShareMessage] = useState("")
+  const [sharePending, setSharePending] = useState(false)
+  const invalidatePetition = () => {
+    void queryClient.invalidateQueries({ queryKey: ["petition", petition.id] })
+    void queryClient.invalidateQueries({ queryKey: ["petitions"] })
+    void queryClient.invalidateQueries({ queryKey: ["dashboardUser"] })
+  }
+  const commentMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const result = await createComment({ input: { text, petitionId: petition.id }, headers: buildCSRFHeaders() })
+      if (result.success === false) throw new Error(result.errors[0]?.message || "Your comment couldn't be posted. Please try again.")
+      return result.data
+    },
+    onSuccess: () => { setCommentText(""); invalidatePetition() },
+  })
+  const signatureMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Sign in to add your signature.")
+      const result = await createSignature({ input: { petitionId: petition.id, userId: user.id, reason: signatureReason.trim() || null }, fields: ["id"], headers: buildCSRFHeaders() })
+      if (result.success === false) throw new Error(result.errors[0]?.message || "Your signature couldn't be added. Please try again.")
+      return result.data
+    },
+    onSuccess: () => { setSignatureReason(""); invalidatePetition() },
+  })
+  const sharePetition = async () => {
+    setShareMessage("")
+    setSharePending(true)
+    try {
+      const url = window.location.href
+      if (navigator.share) {
+        await navigator.share({ title: petition.title ?? "Support this petition", url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        setShareMessage("Link copied. Share it with your people.")
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) setShareMessage("Copy the link from your browser's address bar to share this petition.")
+    } finally {
+      setSharePending(false)
+    }
+  }
+  const signatures = petition.signatures ?? []
+  const comments = petition.comments ?? []
+  const updates = petition.updates ?? []
+  const signatureCount = petition.signaturesCount ?? 0
+  const goal = petition.goal ?? 0
+  const progress = goal > 0 ? Math.min(100, Math.max(0, signatureCount / goal * 100)) : 0
+  const daysLeft = petition.deadline ? Math.max(0, Math.ceil((new Date(petition.deadline).getTime() - Date.now()) / 86_400_000)) : null
+  const closed = petition.status !== "open" || !!(petition.deadline && new Date(petition.deadline) <= new Date())
+  const signed = signatureMutation.isSuccess || signatures.some((signature) => signature.userId === user?.id)
+
   return (
-    <main className="min-h-screen">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Breadcrumb Skeleton */}
-        <div className="text-sm text-muted-foreground mb-6">
-          <div className="h-4 bg-muted rounded-lg w-16 inline animate-pulse"></div>
-          <span className="mx-2">/</span>
-          <div className="h-4 bg-muted rounded-lg w-20 inline animate-pulse"></div>
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content Skeleton */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Header Skeleton */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-6 bg-muted rounded-full w-20 animate-pulse"></div>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 bg-muted rounded-lg w-16 animate-pulse"></div>
-                </div>
-              </div>
-
-              <div className="h-12 bg-muted rounded-lg w-full mb-4 animate-pulse"></div>
-
-              <div className="flex flex-wrap items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 bg-muted rounded-lg w-32 animate-pulse"></div>
-                </div>
-              </div>
+    <main id="petition-detail-page" className="app-page">
+      <Link to={ROUTES.petitions} className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><span className="hero-arrow-left size-4" aria-hidden="true" />Browse petitions</Link>
+      <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12">
+        <article className="min-w-0 space-y-9">
+          <header>
+            <div className="mb-5 flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-secondary px-3 py-1.5">{petition.category?.name ?? "General"}</span>
+              {petition.status === "victory" ? <span className="rounded-full bg-[#f5cfdc] px-3 py-1.5 text-[#663e51]">Victory</span> : closed ? <span className="rounded-full border border-border px-3 py-1.5">Closed</span> : petition.trending ? <span className="rounded-full bg-[#f7e8d2] px-3 py-1.5 text-[#685649]">Gathering support</span> : null}
             </div>
-
-            {/* Description Skeleton */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-4/5 animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-              </div>
+            <h1 className="app-page-heading break-words">{petition.title}</h1>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs leading-6 text-muted-foreground">
+              <span>Started by {petition.isAnonymous ? "Anonymous" : petition.author || "a campus community member"}</span>
+              {petition.insertedAt ? <span>{new Date(petition.insertedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span> : null}
             </div>
-
-            {/* Updates Skeleton */}
-            <div>
-              <div className="h-8 bg-muted rounded-lg w-24 mb-4 animate-pulse"></div>
-              <div className="space-y-4">
-                {[...Array(2)].map((_, i) => (
-                  <div key={i} className="bg-card border border-border rounded-lg p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
-                      <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
-                    </div>
-                    <div className="h-6 bg-muted rounded-lg w-3/4 mb-2 animate-pulse"></div>
-                    <div className="space-y-1">
-                      <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                      <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          </header>
+          <section aria-labelledby="petition-story-heading" className="border-y border-border py-8">
+            <h2 id="petition-story-heading" className="mb-4 font-display text-3xl tracking-tight">The change we're asking for.</h2>
+            <p className="whitespace-pre-wrap break-words text-sm leading-8 text-muted-foreground">{petition.description}</p>
+          </section>
+          {updates.length > 0 ? <section aria-labelledby="petition-updates-heading">
+            <h2 id="petition-updates-heading" className="mb-5 font-display text-3xl tracking-tight">Along the way.</h2>
+            <div className="space-y-4">{updates.map((update) => <div key={update.id} className="app-panel">
+              {update.insertedAt ? <p className="mb-2 text-xs text-muted-foreground">{new Date(update.insertedAt).toLocaleDateString()}</p> : null}
+              <h3 className="mb-2 font-medium">{update.title}</h3><p className="whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{update.body}</p>
+            </div>)}</div>
+          </section> : null}
+          <section aria-labelledby="petition-supporters-heading">
+            <h2 id="petition-supporters-heading" className="mb-5 font-display text-3xl tracking-tight">Voices behind the idea.</h2>
+            {signatures.length > 0 ? <div className="divide-y divide-border">{[...signatures].sort((a, b) => (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")).slice(0, 5).map((signature) => <div key={signature.id} className="py-5 first:pt-0">
+              <div className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-medium">A campus supporter</span>{signature.insertedAt ? <span className="text-muted-foreground">{new Date(signature.insertedAt).toLocaleDateString()}</span> : null}</div>
+              {signature.reason ? <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">“{signature.reason}”</p> : null}
+            </div>)}</div> : <p className="text-sm leading-7 text-muted-foreground">{closed ? "This petition closed without signatures." : "Be the first to stand behind this idea."}</p>}
+          </section>
+          <section id="petition-comments" aria-labelledby="petition-comments-heading">
+            <h2 id="petition-comments-heading" className="mb-5 font-display text-3xl tracking-tight">The conversation <span className="font-sans text-sm text-muted-foreground">({comments.length})</span></h2>
+            {petition.allowComments ? user ? <form id="petition-comment-form" onSubmit={(event) => { event.preventDefault(); if (commentText.trim() && !commentMutation.isPending) commentMutation.mutate(commentText.trim()) }} className="app-panel mb-6 space-y-4">
+              <Label htmlFor="petition-comment">Add to the conversation</Label>
+              <Textarea id="petition-comment" placeholder="Share a thought, a question, or why this matters to you." rows={4} value={commentText} onChange={(event) => setCommentText(event.target.value)} required className="resize-y" />
+              {commentMutation.isError ? <p role="alert" className="text-sm text-destructive">{commentMutation.error.message}</p> : null}
+              {commentMutation.isSuccess ? <p role="status" className="text-sm text-muted-foreground">Your comment has been posted.</p> : null}
+              <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Keep it respectful and constructive.</p><Button id="post-comment" type="submit" disabled={!commentText.trim() || commentMutation.isPending}>{commentMutation.isPending ? "Posting…" : "Post comment"}</Button></div>
+            </form> : <p className="mb-6 text-sm text-muted-foreground"><a href="/sign-in" className="font-medium text-primary underline underline-offset-4">Sign in</a> to join the conversation.</p> : <p className="mb-6 text-sm text-muted-foreground">Comments are turned off for this petition.</p>}
+            <div className="divide-y divide-border">{comments.map((comment) => <div key={comment.id} className="py-5">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-medium">{[comment.user?.firstName, comment.user?.lastName].filter(Boolean).join(" ") || "A campus community member"}</span>{comment.insertedAt ? <span className="text-muted-foreground">{new Date(comment.insertedAt).toLocaleDateString()}</span> : null}</div>
+              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{comment.text}</p>
+            </div>)}</div>
+          </section>
+        </article>
+        <aside className="lg:sticky lg:top-8">
+          <section id="petition-signature-panel" className="app-panel">
+            <h2 className="mb-5 font-display text-3xl tracking-tight">{signed ? "You're part of this." : closed ? "A shared idea." : "Add your voice."}</h2>
+            <p className="text-sm text-muted-foreground"><strong className="mr-2 font-display text-5xl font-normal tracking-tight text-foreground">{signatureCount.toLocaleString()}</strong> signatures</p>
+            <div role={goal > 0 ? "progressbar" : undefined} aria-label={goal > 0 ? "Signature goal" : undefined} aria-valuenow={goal > 0 ? Math.round(progress) : undefined} aria-valuemin={goal > 0 ? 0 : undefined} aria-valuemax={goal > 0 ? 100 : undefined} className="mb-3 mt-5 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div>
+            <p className="text-xs text-muted-foreground">{goal > 0 ? `of ${goal.toLocaleString()} signatures` : "Every voice counts"}{petition.deadline && !closed ? ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : ""}</p>
+            <div className="mt-6 border-t border-border pt-6">
+              {signed ? <div role="status" className="text-sm leading-7"><span className="hero-check-circle mr-2 size-5 align-middle text-primary" aria-hidden="true" />Your signature is counted. Help this idea reach more people by sharing it.</div> : closed ? <p className="text-sm leading-7 text-muted-foreground">{petition.status === "victory" ? "This petition has been marked as a victory. Thank you to everyone who spoke up." : "This petition is no longer accepting signatures."}</p> : authLoading ? <p role="status" className="text-sm text-muted-foreground">Loading your account…</p> : user ? <form id="sign-petition-form" className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (!signatureMutation.isPending) signatureMutation.mutate() }}>
+                <p className="text-sm text-muted-foreground">Signing as <span className="font-medium text-foreground">{user.firstName || user.email}</span></p>
+                <Label htmlFor="signature-reason">Why are you signing? <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Textarea id="signature-reason" rows={3} value={signatureReason} onChange={(event) => setSignatureReason(event.target.value)} placeholder="Tell your community why this matters." />
+                {signatureMutation.isError ? <p role="alert" className="text-sm text-destructive">{signatureMutation.error.message}</p> : null}
+                <Button id="sign-petition" type="submit" className="w-full" disabled={signatureMutation.isPending}>{signatureMutation.isPending ? "Adding your signature…" : "Sign this petition"}</Button>
+                <p className="text-xs leading-6 text-muted-foreground">Your reason for signing will appear on this petition.</p>
+              </form> : <div className="space-y-4"><p className="text-sm leading-7 text-muted-foreground">Sign in to stand behind this idea and add your signature.</p><Button className="w-full" asChild><a href="/sign-in">Sign in to support</a></Button></div>}
             </div>
-
-            {/* Recent Signatures Skeleton */}
-            <div>
-              <div className="h-8 bg-muted rounded-lg w-40 mb-4 animate-pulse"></div>
-              <div className="bg-card border border-border rounded-lg divide-y divide-border">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="h-4 bg-muted rounded-lg w-32 mb-2 animate-pulse"></div>
-                        <div className="h-3 bg-muted rounded-lg w-48 animate-pulse"></div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-muted rounded animate-pulse"></div>
-                        <div className="h-3 bg-muted rounded-lg w-20 animate-pulse"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Comments Section Skeleton */}
-            <div>
-              <div className="h-8 bg-muted rounded-lg w-32 mb-4 animate-pulse"></div>
-
-              {/* Comment Form Skeleton */}
-              <div className="bg-card border border-border rounded-lg p-6 mb-6">
-                <div className="h-6 bg-muted rounded-lg w-40 mb-4 animate-pulse"></div>
-                <div className="space-y-4">
-                  <div className="h-24 bg-muted rounded-lg w-full animate-pulse"></div>
-                  <div className="flex items-center justify-between">
-                    <div className="h-3 bg-muted rounded-lg w-48 animate-pulse"></div>
-                    <div className="h-8 bg-muted rounded-lg w-24 animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Comments List Skeleton */}
-              <div className="space-y-4">
-                {[...Array(2)].map((_, i) => (
-                  <div key={i} className="bg-card border border-border rounded-lg p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
-                          <div className="h-3 bg-muted rounded-lg w-16 animate-pulse"></div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 bg-muted rounded animate-pulse"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-1 mb-4">
-                      <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                      <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
-                        <div className="h-3 bg-muted rounded-lg w-8 animate-pulse"></div>
-                      </div>
-                      <div className="h-3 bg-muted rounded-lg w-12 animate-pulse"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar Skeleton */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6 space-y-6">
-              {/* Sign Card Skeleton */}
-              <div className="bg-card border border-border rounded-lg p-6">
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center justify-between">
-                    <div className="h-8 bg-muted rounded-lg w-16 animate-pulse"></div>
-                    <div className="h-4 bg-muted rounded-lg w-20 animate-pulse"></div>
-                  </div>
-
-                  <div className="h-3 bg-muted rounded-full w-full animate-pulse"></div>
-
-                  <div className="h-4 bg-muted rounded-lg w-32 animate-pulse"></div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <div className="h-4 bg-muted rounded-lg w-20 mb-1 animate-pulse"></div>
-                    <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-                  </div>
-
-                  <div>
-                    <div className="h-4 bg-muted rounded-lg w-16 mb-1 animate-pulse"></div>
-                    <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-                  </div>
-
-                  <div>
-                    <div className="h-4 bg-muted rounded-lg w-28 mb-1 animate-pulse"></div>
-                    <div className="h-20 bg-muted rounded-lg w-full animate-pulse"></div>
-                  </div>
-
-                  <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-
-                  <div className="h-3 bg-muted rounded-lg w-48 mx-auto animate-pulse"></div>
-                </div>
-              </div>
-
-              {/* Share & Report Skeleton */}
-              <div className="flex gap-3">
-                <div className="flex-1 h-10 bg-muted rounded-lg animate-pulse"></div>
-                <div className="h-10 w-10 bg-muted rounded-lg animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-        </div>
+          </section>
+          <Button id="share-petition" variant="outline" className="mt-4 w-full" disabled={sharePending} onClick={sharePetition}><span className="hero-arrow-up-tray size-4" aria-hidden="true" />Share this petition</Button>
+          {shareMessage ? <p role="status" className="mt-3 text-center text-xs leading-6 text-muted-foreground">{shareMessage}</p> : null}
+          <p className="px-5 pt-6 text-center font-display text-2xl leading-tight text-muted-foreground">One idea. A little support.<br />A place to begin.</p>
+        </aside>
       </div>
     </main>
   )
@@ -207,388 +145,20 @@ function PetitionIndexLoadingState() {
 
 export default function PetitionIndexPage() {
   const { id } = useParams()
-
-  async function getAuthToken(): Promise<string> {
-    // Get token from storage, refresh if needed
-    // const token = localStorage.getItem("authToken")
-    const token = localStorage.getItem("_petitionu_key")
-    if (!token) {
-      throw new Error("Not authenticated")
-    }
-    return token
-  }
-
-  const authenticatedFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
-    const token = await getAuthToken()
-
-    return fetch(url, {
-      ...init,
-      headers: {
-        ...init?.headers,
-        Authorization: `Bearer ${token}`,
-      },
-    })
-  }
-
-  const {
-    status,
-    data: petition,
-    error,
-  } = useQuery({
+  const petitionQuery = useQuery({
     queryKey: ["petition", id],
     queryFn: async () => {
       const result = await getPetitions({
-        fields: [
-          "id",
-          "title",
-          "description",
-          "status",
-          "goal",
-          "signaturesCount",
-          "daysLeft",
-          "trending",
-          "author",
-          "categoryId",
-          "allowComments",
-          "isAnonymous",
-          "deadline",
-          // { user: ["firstName", "lastName", "email"] },
-          { category: ["id", "name", "description"] },
-          { comments: ["id", "sentiment", "text", { user: ["firstName", "lastName"] }] },
-          { signatures: ["reason", "userAgent"] },
-          { updates: ["id", "title", "body"] },
-        ],
+        fields: ["id", "title", "description", "status", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", { user: ["firstName", "lastName"] }] }, { signatures: ["id", "reason", "userId", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }],
         filter: { id: { eq: id } },
         headers: buildCSRFHeaders(),
-        // customFetch: authenticatedFetch,
       })
-
-      if (!result.success) {
-        // @ts-ignore
-        result.errors.forEach((error) => {
-          console.log(error.message, error.field, error.code)
-        })
-        throw new Error("Failed to fetch petitions")
-      }
-
-      const fetchedPetition: Petition = result.data[0]
-      return fetchedPetition
+      if (result.success === false) throw new Error("This petition couldn't be loaded. Please try again.")
+      return (result.data[0] as Petition | undefined) ?? null
     },
   })
-
-  const [commentText, setCommentText] = useState("")
-  const [commentError, setCommentError] = useState<string | null>(null)
-  const queryClient = useQueryClient()
-  useDocumentTitle(petition?.title ?? "Petition")
-
-  const createCommentMutation = useMutation({
-    mutationFn: async (petitionId: string) => {
-      const result = await createComment({
-        input: { text: commentText.trim(), petitionId },
-        headers: buildCSRFHeaders(),
-      })
-
-      if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to post comment")
-      }
-
-      return result.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["petition", id] })
-      setCommentText("")
-      setCommentError(null)
-    },
-    onError: (error: Error) => {
-      setCommentError(error.message)
-    },
-  })
-
-  const handleCommentSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!petition || !commentText.trim()) return
-    setCommentError(null)
-    createCommentMutation.mutate(petition.id)
-  }
-
-  switch (status) {
-    case "pending":
-      return <PetitionIndexLoadingState />
-    case "error":
-      return <div>Error: {error.message}</div>
-    case "success":
-    default:
-      break
-  }
-
-  const progress = (petition.signaturesCount / petition.goal) * 100
-
-  return (
-    <main className="min-h-screen">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Breadcrumb */}
-        <div className="text-sm text-muted-foreground mb-6">
-          <a href="/" className="hover:text-foreground transition-colors">
-            Home
-          </a>
-          <span className="mx-2">/</span>
-          <span className="text-foreground">Petition</span>
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Header */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                  {petition.category.name ?? "General"}
-                </span>
-                {petition.trending && (
-                  <div className="flex items-center gap-1 text-primary">
-                    <TrendingUp className="w-4 h-4" />
-                    <span className="text-xs font-medium">Trending</span>
-                  </div>
-                )}
-              </div>
-
-              <h1 className="text-4xl font-bold text-foreground mb-4 text-balance leading-tight">
-                {petition.title}
-              </h1>
-
-              <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  <div>
-                    <span className="font-medium text-foreground">{petition.author}</span>
-                    <span className="mx-1">•</span>
-                    {/*<span>{petition.authorRole}</span>*/}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>Started {new Date(petition.deadline).toLocaleDateString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="prose prose-sm max-w-none">
-              <div className="bg-card border border-border rounded-lg p-6">
-                <div className="whitespace-pre-line text-foreground leading-relaxed">
-                  {petition.description}
-                </div>
-              </div>
-            </div>
-
-            {/* Updates */}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Updates</h2>
-              <div className="space-y-4">
-                {petition.updates.map((update, index) => (
-                  <div key={index} className="bg-card border border-border rounded-lg p-6">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      <span>{new Date().toLocaleDateString()}</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">{update.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{update.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Signatures */}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">Recent Signatures</h2>
-              <div className="bg-card border border-border rounded-lg divide-y divide-border">
-                {petition.signatures
-                  .filter((_, index) => index < 5)
-                  .map((signature, index) => (
-                    <div key={index} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium text-foreground">{signature.userAgent}</p>
-                          {signature.reason && (
-                            <p className="text-sm text-muted-foreground mt-1 italic">
-                              "{signature.reason}"
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          {/*<span>{signature.time}</span>*/}
-                          <span>{new Date().toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            {/* Comments Section */}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">
-                Comments ({petition.comments.length})
-              </h2>
-
-              {/* Comment Form */}
-              <div className="bg-card border border-border rounded-lg p-6 mb-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Leave a Comment</h3>
-                <form onSubmit={handleCommentSubmit} className="space-y-4">
-                  <div>
-                    <Textarea
-                      placeholder="Share your thoughts on this petition..."
-                      rows={4}
-                      className="resize-none"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                    />
-                  </div>
-                  {commentError && <p className="text-sm text-destructive">{commentError}</p>}
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      Be respectful and constructive in your comments
-                    </p>
-                    <button type="submit" disabled={createCommentMutation.isPending}>
-                      {createCommentMutation.isPending ? "Posting..." : "Post Comment"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Comments List */}
-              <div className="space-y-4">
-                {petition.comments.map((comment) => (
-                  <div key={comment.id} className="bg-card border border-border rounded-lg p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-foreground">
-                            {comment.user
-                              ? `${comment.user.firstName ?? ""} ${comment.user.lastName ?? ""}`.trim() ||
-                                "Anon User"
-                              : "Anon User"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">•</span>
-                          <span className="text-xs text-muted-foreground">{"Student"}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          {/*<span>{comment.time}</span>*/}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-foreground leading-relaxed mb-4">{comment.text}</p>
-                    <div className="flex items-center gap-4">
-                      <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                          />
-                        </svg>
-                        {/*<span>{comment.likes}</span>*/}
-                      </button>
-                      <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        Reply
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6 space-y-6">
-              {/* Sign Card */}
-              <div className="bg-card border border-border rounded-lg p-6">
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-3xl font-bold text-foreground">
-                      {petition.signatures.length}
-                    </span>
-                    <span className="text-muted-foreground">{petition.daysLeft} days left</span>
-                  </div>
-
-                  <div className="relative h-3 bg-secondary rounded-full overflow-hidden">
-                    <div
-                      className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(progress, 100)}%` }}
-                    />
-                  </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground">{Math.round(progress)}%</span>{" "}
-                    of {petition.goal.toLocaleString()} goal
-                  </div>
-                </div>
-
-                <form className="space-y-4">
-                  <div>
-                    <label htmlFor="name" className="text-sm font-medium">
-                      Full Name
-                    </label>
-                    <Input id="name" type="text" placeholder="Enter your name" className="mt-1" />
-                  </div>
-
-                  <div>
-                    <label htmlFor="email" className="text-sm font-medium">
-                      Email
-                    </label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your.email@university.edu"
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="comment" className="text-sm font-medium">
-                      Comment (Optional)
-                    </label>
-                    <Textarea
-                      id="comment"
-                      placeholder="Why are you signing this petition?"
-                      rows={3}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                    Sign This Petition
-                  </button>
-
-                  <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                    By signing, you agree to receive updates about this petition
-                  </p>
-                </form>
-              </div>
-
-              {/* Share & Report */}
-              <div className="flex gap-3">
-                <button className="flex-1">
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </button>
-                <button>
-                  <Flag className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-  )
+  useDocumentTitle(petitionQuery.data?.title ?? "Petition")
+  if (petitionQuery.isPending) return <main className="app-page" role="status" aria-label="Loading petition"><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]"><div className="space-y-6 motion-safe:animate-pulse"><div className="h-10 w-2/3 rounded bg-muted" /><div className="h-20 rounded bg-muted" /><div className="h-64 rounded-2xl bg-muted" /></div><div className="h-96 rounded-2xl bg-muted motion-safe:animate-pulse" /></div></main>
+  if (petitionQuery.isError || !petitionQuery.data) return <main className="app-page"><section className="app-empty-state"><h1 className="font-display text-4xl">{petitionQuery.isError ? "This petition couldn't load." : "We couldn't find that petition."}</h1><p className="mb-6 mt-3 text-sm text-muted-foreground">{petitionQuery.isError ? "Try again in a moment, or explore other campus ideas." : "It may have been removed, or the link may be incomplete."}</p><div className="flex flex-wrap justify-center gap-3">{petitionQuery.isError ? <Button onClick={() => petitionQuery.refetch()}>Try again</Button> : null}<Button variant="outline" asChild><Link to={ROUTES.petitions}>Browse petitions</Link></Button></div></section></main>
+  return <PetitionContent key={petitionQuery.data.id} petition={petitionQuery.data} />
 }
