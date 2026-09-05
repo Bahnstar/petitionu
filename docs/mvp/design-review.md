@@ -21,3 +21,7 @@ Graft these parts from Candidate B:
 - Derive organization from confirmed email server-side. Do not accept arbitrary `organizationId` from profile input.
 
 Reject Candidate B's unsafe migration instructions. Never delete ownerless petitions as “fixtures,” assign them to guessed users, silently infer historical authors, automatically attach confirmed users to campuses without a reviewed mapping, or drop signature audit columns before retention requirements and production data are inventoried. Keep nullable historical ownership and private legacy signature fields until an operator-approved migration proves every row's treatment. Add new constraints only after a dry-run report is clean.
+
+## Implementation decision
+
+The deployment implementation uses an OTP release archive built on the production host's operating system and architecture. CI produces the Linux archive. This replaces the proposed Docker artifact and avoids introducing an unverified container image. The migration, runtime configuration, health, backup, and browser checks remain part of the accepted plan. See [deployment instructions](../deployment.md).

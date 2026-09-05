@@ -48,12 +48,50 @@ jobs:
         working-directory: assets
       - run: mix help assets.setup && mix assets.setup
       - run: mix help assets.build && mix assets.build
+      - name: Install browser acceptance tools
+        run: |
+          npm install --prefix /tmp/petitionu-playwright playwright@1.63.0
+          /tmp/petitionu-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Verify real browser workflows
+        env:
+          MIX_ENV: dev
+          PORT: '4001'
+          BASE_URL: http://localhost:4001
+          PLAYWRIGHT_MODULE: /tmp/petitionu-playwright/node_modules/playwright
+        run: |
+          mix help ash.setup
+          mix ash.setup
+          mix help run
+          mix run scripts/mvp-seed.exs
+          mix help phx.server
+          mix phx.server > /tmp/petitionu-mvp-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:4001/healthz > /dev/null; then break; fi
+            sleep 2
+          done
+          node assets/tests/mvp.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: petitionu-browser-acceptance
+          path: |
+            docs/mvp/screenshots/
+            /tmp/petitionu-mvp-browser-report.json
+            /tmp/petitionu-mvp-server.log
+          retention-days: 7
       - run: scripts/backup-smoke.sh
         env:
           PGHOST: localhost
           PGUSER: postgres
           PGPASSWORD: postgres
       - run: scripts/build-release.sh
+      - run: python3 scripts/release-smoke.py
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
       - uses: actions/upload-artifact@v4
         with:
           name: petitionu-linux-release
