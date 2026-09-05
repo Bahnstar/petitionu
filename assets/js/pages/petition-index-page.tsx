@@ -1,8 +1,8 @@
 import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { buildCSRFHeaders, createComment, createSignature, getPetitions, PetitionResourceSchema } from "../ash_rpc"
-import { CleanResource } from "@/lib/types"
+import { buildCSRFHeaders, createComment, createSignature, getPetitions } from "../ash_rpc"
+import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -11,7 +11,17 @@ import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 
-type Petition = CleanResource<PetitionResourceSchema>
+async function loadPetition(id: string | undefined) {
+  const result = await getPetitions({
+    fields: ["id", "title", "description", "status", "classroomId", "organizationId", "hasSigned", "canManage", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", "author"] }, { signatures: ["id", "reason", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }],
+    filter: { id: { eq: id } },
+    headers: buildCSRFHeaders(),
+  })
+  if (result.success === false) throw new Error("This petition couldn't be loaded. Please try again.")
+  return result.data[0] ?? null
+}
+
+type Petition = NonNullable<Awaited<ReturnType<typeof loadPetition>>>
 
 function PetitionContent({ petition }: { petition: Petition }) {
   const { user, isLoading: authLoading } = useAuth()
@@ -28,6 +38,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
   }
   const commentMutation = useMutation({
     mutationFn: async (text: string) => {
+      if (!user?.emailVerified || !user.profileComplete) throw new Error("Complete your profile before commenting.")
       const result = await createComment({ input: { text, petitionId: petition.id }, headers: buildCSRFHeaders() })
       if (result.success === false) throw new Error(result.errors[0]?.message || "Your comment couldn't be posted. Please try again.")
       return result.data
@@ -36,8 +47,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
   })
   const signatureMutation = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error("Sign in to add your signature.")
-      const result = await createSignature({ input: { petitionId: petition.id, userId: user.id, reason: signatureReason.trim() || null }, fields: ["id"], headers: buildCSRFHeaders() })
+      if (!user?.emailVerified || !user.profileComplete) throw new Error("Complete your profile before signing.")
+      const result = await createSignature({ input: { petitionId: petition.id, reason: signatureReason.trim() || null }, fields: ["id"], headers: buildCSRFHeaders() })
       if (result.success === false) throw new Error(result.errors[0]?.message || "Your signature couldn't be added. Please try again.")
       return result.data
     },
@@ -68,7 +79,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
   const progress = goal > 0 ? Math.min(100, Math.max(0, signatureCount / goal * 100)) : 0
   const daysLeft = petition.deadline ? Math.max(0, Math.ceil((new Date(petition.deadline).getTime() - Date.now()) / 86_400_000)) : null
   const closed = petition.status !== "open" || !!(petition.deadline && new Date(petition.deadline) <= new Date())
-  const signed = signatureMutation.isSuccess || signatures.some((signature) => signature.userId === user?.id)
+  const canParticipate = !!(user?.emailVerified && user.profileComplete)
+  const signed = signatureMutation.isSuccess || petition.hasSigned
 
   return (
     <main id="petition-detail-page" className="app-page">
@@ -86,6 +98,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               {petition.insertedAt ? <span>{new Date(petition.insertedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span> : null}
             </div>
           </header>
+          {petition.canManage ? <PetitionOwnerControls petition={petition} canPublishUpdate={canParticipate} /> : null}
           <section aria-labelledby="petition-story-heading" className="border-y border-border py-8">
             <h2 id="petition-story-heading" className="mb-4 font-display text-3xl tracking-tight">The change we're asking for.</h2>
             <p className="whitespace-pre-wrap break-words text-sm leading-8 text-muted-foreground">{petition.description}</p>
@@ -106,7 +119,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
           </section>
           <section id="petition-comments" aria-labelledby="petition-comments-heading">
             <h2 id="petition-comments-heading" className="mb-5 font-display text-3xl tracking-tight">The conversation <span className="font-sans text-sm text-muted-foreground">({comments.length})</span></h2>
-            {petition.allowComments ? user ? <form id="petition-comment-form" onSubmit={(event) => { event.preventDefault(); if (commentText.trim() && !commentMutation.isPending) commentMutation.mutate(commentText.trim()) }} className="app-panel mb-6 space-y-4">
+            {petition.allowComments ? closed ? <p className="mb-6 text-sm text-muted-foreground">This petition is no longer accepting comments.</p> : user ? !canParticipate ? <p className="mb-6 text-sm text-muted-foreground">Confirm your email and <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">complete your profile</Link> to comment.</p> : <form id="petition-comment-form" onSubmit={(event) => { event.preventDefault(); if (commentText.trim() && !commentMutation.isPending) commentMutation.mutate(commentText.trim()) }} className="app-panel mb-6 space-y-4">
               <Label htmlFor="petition-comment">Add to the conversation</Label>
               <Textarea id="petition-comment" placeholder="Share a thought, a question, or why this matters to you." rows={4} value={commentText} onChange={(event) => setCommentText(event.target.value)} required className="resize-y" />
               {commentMutation.isError ? <p role="alert" className="text-sm text-destructive">{commentMutation.error.message}</p> : null}
@@ -114,7 +127,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Keep it respectful and constructive.</p><Button id="post-comment" type="submit" disabled={!commentText.trim() || commentMutation.isPending}>{commentMutation.isPending ? "Posting…" : "Post comment"}</Button></div>
             </form> : <p className="mb-6 text-sm text-muted-foreground"><AuthLink className="font-medium text-primary underline underline-offset-4">Sign in</AuthLink> to join the conversation.</p> : <p className="mb-6 text-sm text-muted-foreground">Comments are turned off for this petition.</p>}
             <div className="divide-y divide-border">{comments.map((comment) => <div key={comment.id} className="py-5">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-medium">{[comment.user?.firstName, comment.user?.lastName].filter(Boolean).join(" ") || "A campus community member"}</span>{comment.insertedAt ? <span className="text-muted-foreground">{new Date(comment.insertedAt).toLocaleDateString()}</span> : null}</div>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-medium">{comment.author || "A campus community member"}</span>{comment.insertedAt ? <span className="text-muted-foreground">{new Date(comment.insertedAt).toLocaleDateString()}</span> : null}</div>
               <p className="whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{comment.text}</p>
             </div>)}</div>
           </section>
@@ -126,7 +139,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
             <div role={goal > 0 ? "progressbar" : undefined} aria-label={goal > 0 ? "Signature goal" : undefined} aria-valuenow={goal > 0 ? Math.round(progress) : undefined} aria-valuemin={goal > 0 ? 0 : undefined} aria-valuemax={goal > 0 ? 100 : undefined} className="mb-3 mt-5 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div>
             <p className="text-xs text-muted-foreground">{goal > 0 ? `of ${goal.toLocaleString()} signatures` : "Every voice counts"}{petition.deadline && !closed ? ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : ""}</p>
             <div className="mt-6 border-t border-border pt-6">
-              {signed ? <div role="status" className="text-sm leading-7"><span className="hero-check-circle mr-2 size-5 align-middle text-primary" aria-hidden="true" />Your signature is counted. Help this idea reach more people by sharing it.</div> : closed ? <p className="text-sm leading-7 text-muted-foreground">{petition.status === "victory" ? "This petition has been marked as a victory. Thank you to everyone who spoke up." : "This petition is no longer accepting signatures."}</p> : authLoading ? <p role="status" className="text-sm text-muted-foreground">Loading your account…</p> : user ? <form id="sign-petition-form" className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (!signatureMutation.isPending) signatureMutation.mutate() }}>
+              {signed ? <div role="status" className="text-sm leading-7"><span className="hero-check-circle mr-2 size-5 align-middle text-primary" aria-hidden="true" />Your signature is counted. Help this idea reach more people by sharing it.</div> : closed ? <p className="text-sm leading-7 text-muted-foreground">{petition.status === "victory" ? "This petition has been marked as a victory. Thank you to everyone who spoke up." : "This petition is no longer accepting signatures."}</p> : authLoading ? <p role="status" className="text-sm text-muted-foreground">Loading your account…</p> : user ? !canParticipate ? <p className="text-sm leading-7 text-muted-foreground">Confirm your email and <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">complete your profile</Link> to sign this petition.</p> : <form id="sign-petition-form" className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (!signatureMutation.isPending) signatureMutation.mutate() }}>
                 <p className="text-sm text-muted-foreground">Signing as <span className="font-medium text-foreground">{user.firstName || user.email}</span></p>
                 <Label htmlFor="signature-reason">Why are you signing? <span className="font-normal text-muted-foreground">(optional)</span></Label>
                 <Textarea id="signature-reason" rows={3} value={signatureReason} onChange={(event) => setSignatureReason(event.target.value)} placeholder="Tell your community why this matters." />
@@ -149,15 +162,7 @@ export default function PetitionIndexPage() {
   const { id } = useParams()
   const petitionQuery = useQuery({
     queryKey: ["petition", id],
-    queryFn: async () => {
-      const result = await getPetitions({
-        fields: ["id", "title", "description", "status", "classroomId", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", { user: ["firstName", "lastName"] }] }, { signatures: ["id", "reason", "userId", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }],
-        filter: { id: { eq: id } },
-        headers: buildCSRFHeaders(),
-      })
-      if (result.success === false) throw new Error("This petition couldn't be loaded. Please try again.")
-      return (result.data[0] as Petition | undefined) ?? null
-    },
+    queryFn: () => loadPetition(id),
   })
   useDocumentTitle(petitionQuery.data?.title ?? "Petition")
   if (petitionQuery.isPending) return <main className="app-page" role="status" aria-label="Loading petition"><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]"><div className="space-y-6 motion-safe:animate-pulse"><div className="h-10 w-2/3 rounded bg-muted" /><div className="h-20 rounded bg-muted" /><div className="h-64 rounded-2xl bg-muted" /></div><div className="h-96 rounded-2xl bg-muted motion-safe:animate-pulse" /></div></main>

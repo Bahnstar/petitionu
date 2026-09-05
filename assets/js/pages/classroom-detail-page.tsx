@@ -86,7 +86,6 @@ export default function ClassroomDetailPage() {
           "memberCount",
           "petitionCount",
           "professorId",
-          { professor: ["id", "firstName", "lastName", "email"] },
         ],
         headers: buildCSRFHeaders(),
       })
@@ -119,7 +118,6 @@ export default function ClassroomDetailPage() {
           "isAnonymous",
           "deadline",
           { category: ["id", "name", "color"] },
-          { user: ["id", "firstName", "lastName"] },
         ],
         headers: buildCSRFHeaders(),
       })
@@ -144,7 +142,8 @@ export default function ClassroomDetailPage() {
           "role",
           "status",
           "joinedAt",
-          { user: ["id", "firstName", "lastName", "email"] },
+          "memberName",
+          { user: ["id"] },
         ],
         headers: buildCSRFHeaders(),
       })
@@ -276,7 +275,8 @@ export default function ClassroomDetailPage() {
               <h1 className="app-page-heading">
                 {classroom?.name}
               </h1>
-              {classroom?.archived && (
+              {currentUser && (!currentUser.emailVerified || !currentUser.profileComplete) ? <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">Confirm your email and <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">complete your profile</Link> to participate.</p> : null}
+        {classroom?.archived && (
                 <Badge variant="secondary">
                   <Archive className="w-3 h-3 mr-1" />
                   Archived
@@ -296,7 +296,7 @@ export default function ClassroomDetailPage() {
                 {classroom?.petitionCount ?? 0} petitions
               </span>
               <span>
-                Professor: {classroom?.professor?.firstName} {classroom?.professor?.lastName}
+                Led by your professor
               </span>
             </div>
           </div>
@@ -338,6 +338,7 @@ export default function ClassroomDetailPage() {
             {archiveMutation.error?.message || unarchiveMutation.error?.message}
           </p>
         )}
+        {currentUser && (!currentUser.emailVerified || !currentUser.profileComplete) ? <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">Confirm your email and <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">complete your profile</Link> to participate.</p> : null}
         {classroom?.archived && <p className="mb-6 rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">This classroom is archived. You can still browse its petitions and members.</p>}
 
         {/* Main Content */}
@@ -346,7 +347,7 @@ export default function ClassroomDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-3xl font-normal text-foreground">Petitions</h2>
-              {(classroom?.allowStudentPetitions || isProfessor) && (
+              {(!classroom?.archived && currentUser?.emailVerified && currentUser.profileComplete && (classroom?.allowStudentPetitions || isProfessor)) && (
                   <Button asChild>
                     <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                     <Plus className="w-4 h-4 mr-2" />
@@ -375,7 +376,7 @@ export default function ClassroomDetailPage() {
               <Card className="gap-0 rounded-2xl p-8 text-center shadow-none">
                 <h3 className="font-display text-3xl mb-3">What could your class change?</h3>
                 <p className="text-sm text-muted-foreground mb-6">No petitions here yet. Every shared idea starts with one voice.</p>
-                {(classroom?.allowStudentPetitions || isProfessor) && (
+                {(!classroom?.archived && currentUser?.emailVerified && currentUser.profileComplete && (classroom?.allowStudentPetitions || isProfessor)) && (
                     <Button asChild>
                       <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                       <Plus className="w-4 h-4 mr-2" />
@@ -472,6 +473,7 @@ export default function ClassroomDetailPage() {
                 memberships={memberships}
                 classroomId={id!}
                 canManage={canManage}
+                canChangeRoles={isProfessor}
               />
             )}
           </div>

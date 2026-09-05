@@ -19,12 +19,14 @@ interface MemberListProps {
   memberships: Membership[]
   classroomId: string
   canManage?: boolean
+  canChangeRoles?: boolean
 }
 
 export function MemberList({
   memberships,
   classroomId,
   canManage = false,
+  canChangeRoles = false,
 }: MemberListProps) {
   const queryClient = useQueryClient()
 
@@ -133,15 +135,14 @@ export function MemberList({
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
-                      {membership.user?.firstName} {membership.user?.lastName}
+                      {membership.memberName || "Campus member"}
                     </p>
-                    <p className="break-all text-xs text-muted-foreground">{membership.user?.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
-                    aria-label={`Approve ${membership.user?.firstName || "member"}`}
+                    aria-label={`Approve ${membership.memberName || "member"}`}
                     onClick={() => approveMutation.mutate(membership.id)}
                     disabled={isLoading}
                   >
@@ -153,7 +154,7 @@ export function MemberList({
                   </Button>
                   <Button
                     size="sm"
-                    aria-label={`Decline ${membership.user?.firstName || "member"}’s request`}
+                    aria-label={`Decline ${membership.memberName || "member"}’s request`}
                     variant="outline"
                     onClick={() => removeMutation.mutate(membership.id)}
                     disabled={isLoading}
@@ -191,9 +192,8 @@ export function MemberList({
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
-                      {membership.user?.firstName} {membership.user?.lastName}
+                      {membership.memberName || "Campus member"}
                     </p>
-                    <p className="break-all text-xs text-muted-foreground">{membership.user?.email}</p>
                   </div>
                   <Badge variant={membership.role === "ta" ? "default" : "secondary"}>
                     {membership.role === "ta" ? "TA" : "Student"}
@@ -201,14 +201,14 @@ export function MemberList({
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-2">
-                    {membership.role === "student" ? (
+                    {canChangeRoles ? membership.role === "student" ? (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => promoteMutation.mutate(membership.id)}
                         disabled={isLoading}
                         title="Promote to TA"
-                        aria-label={`Promote ${membership.user?.firstName || "member"} to TA`}
+                        aria-label={`Promote ${membership.memberName || "member"} to TA`}
                       >
                         {promoteMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -223,7 +223,7 @@ export function MemberList({
                         onClick={() => demoteMutation.mutate(membership.id)}
                         disabled={isLoading}
                         title="Demote to student"
-                        aria-label={`Demote ${membership.user?.firstName || "member"} to student`}
+                        aria-label={`Demote ${membership.memberName || "member"} to student`}
                       >
                         {demoteMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -231,14 +231,14 @@ export function MemberList({
                           <ChevronDown className="w-4 h-4" />
                         )}
                       </Button>
-                    )}
+                    ) : null}
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => removeMutation.mutate(membership.id)}
                       disabled={isLoading}
                       title="Remove member"
-                      aria-label={`Remove ${membership.user?.firstName || "member"} from classroom`}
+                      aria-label={`Remove ${membership.memberName || "member"} from classroom`}
                     >
                       {removeMutation.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />

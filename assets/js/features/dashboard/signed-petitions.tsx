@@ -28,7 +28,7 @@ export function SignedPetitions({ signedPetitions }: { signedPetitions: Signatur
             const signatures = petition.signaturesCount ?? 0
             const goal = petition.goal ?? 0
             const progress = goal > 0 ? Math.min(100, Math.max(0, (signatures / goal) * 100)) : 0
-            const author = petition.isAnonymous ? "Anonymous" : [petition.user?.firstName, petition.user?.lastName].filter(Boolean).join(" ")
+            const author = petition.isAnonymous ? "Anonymous" : petition.author
             return (
               <article key={id} className="flex flex-col rounded-2xl border border-border p-5">
                 {petition.category?.name ? <Badge variant="secondary" className="mb-3 self-start">{petition.category.name}</Badge> : null}

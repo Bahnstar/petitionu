@@ -17,7 +17,7 @@ async function capture(page, filename) {
   })
 }
 const home = "/ash-typescript"
-const user = { id: "user-1", firstName: "Alex", lastName: "Morgan", email: "alex@example.edu", role: "student", petitions: [], signatures: [], numPetitions: 0, numSigned: 0, totalPetitionSignatures: 0 }
+const user = { id: "user-1", firstName: "Alex", lastName: "Morgan", email: "alex@example.edu", role: "student", emailVerified: true, profileComplete: true, organizationId: "campus-1", organization: { name: "Example University" }, petitions: [], signatures: [], numPetitions: 0, numSigned: 0, totalPetitionSignatures: 0 }
 const classroom = { id: "class-1", name: "Campus ideas", professorId: "professor-1", professor: { firstName: "Pat", lastName: "Lee" }, allowStudentPetitions: true, archived: false, memberCount: 2, petitionCount: 1 }
 const petition = { id: "petition-1", title: "Library hours", description: "Keep the library open later.", status: "open", goal: 100, signaturesCount: 3, isAnonymous: true, author: "Private Author", deadline: "2020-01-01T00:00:00Z", classroomId: classroom.id, category: { id: "category-1", name: "Campus" }, allowComments: true, comments: [], updates: [], signatures: [] }
 function select(value, fields) {
@@ -37,11 +37,19 @@ async function check(name, options, run) {
   let signatures = 3
   let petitionCount = 1
   const calls = []
+  const changes = {}
+  const updates = []
+  let rejectOwnerChange = !!options.rejectOwnerChange
   await page.route("**/rpc/run", async (route) => {
     const request = route.request().postDataJSON()
     calls.push(request)
-    const currentUser = signedIn ? { ...user, role: options.role || "student" } : null
-    const currentPetition = { ...petition, deadline: options.open ? null : petition.deadline, signaturesCount: signatures }
+    const currentUser = signedIn ? { ...user, role: options.role || "student", emailVerified: !options.incomplete, profileComplete: !options.incomplete } : null
+    const currentPetition = { ...petition, deadline: options.open ? null : petition.deadline, signaturesCount: signatures, hasSigned: signatures > 3, canManage: !!options.owner, ...changes, updates }
+    if (request.action === "update_petition" && rejectOwnerChange) {
+      rejectOwnerChange = false
+      await route.fulfill({ json: { success: false, errors: [{ message: "Please choose a future deadline." }] } })
+      return
+    }
     let data
     switch (request.action) {
       case "get_me": data = currentUser; break
@@ -52,9 +60,13 @@ async function check(name, options, run) {
       case "get_classroom_petitions": case "get_petitions": data = [currentPetition]; break
       case "get_memberships_for_classroom": data = [
         { id: "self", user, role: options.ta ? "ta" : "student", status: options.status || "active" },
-        { id: "pending", user: { id: "other", firstName: "Sam" }, role: "student", status: "pending" },
-        { id: "active", user: { id: "active-user", firstName: "Jo" }, role: "student", status: "active" },
+        { id: "pending", memberName: "Sam", user: { id: "other", firstName: "Sam" }, role: "student", status: "pending" },
+        { id: "active", memberName: "Jo", user: { id: "active-user", firstName: "Jo" }, role: "student", status: "active" },
       ]; break
+      case "update_petition": Object.assign(changes, request.input); data = { id: petition.id }; break
+      case "create_update": updates.push({ id: "update-1", ...request.input }); data = { id: "update-1" }; break
+      case "close_petition": changes.status = "closed"; data = { id: petition.id }; break
+      case "mark_petition_victory": changes.status = "victory"; data = { id: petition.id }; break
       case "create_signature": signatures++; data = { id: "signature-1" }; break
       case "create_classroom_petition": case "create_petition": petitionCount++; data = { id: "new-petition" }; break
       case "approve_membership": case "remove_from_classroom": data = { id: request.identity }; break
@@ -71,6 +83,65 @@ async function check(name, options, run) {
   } finally { await context.close() }
 }
 try {
+  await check("owner edits, posts updates, and confirms closure", { owner: true, open: true }, async (page, calls) => {
+    await page.goto(`${home}/petitions/petition-1`, { waitUntil: "domcontentloaded" })
+    await page.locator("#edit-petition").click()
+    await page.locator("#edit-petition-title").fill("Later library hours")
+    await page.locator("#confirm-petition-edit").click()
+    await page.getByRole("heading", { level: 1, name: "Later library hours" }).waitFor()
+    assert.equal(calls.find((call) => call.action === "update_petition").input.status, undefined)
+    await page.locator("#add-petition-update").click()
+    await page.locator("#petition-update-title").fill("Meeting scheduled")
+    await page.locator("#petition-update-body").fill("We will meet the library team this week.")
+    await page.locator("#confirm-petition-update").click()
+    await page.getByRole("heading", { name: "Meeting scheduled" }).waitFor()
+    await page.locator("#close-petition").click()
+    assert.equal(calls.filter((call) => call.action === "close_petition").length, 0)
+    await page.locator("#confirm-petition-close").click()
+    await page.getByText("Your petition is closed.", { exact: true }).waitFor()
+    assert.equal(await page.locator("#sign-petition").count(), 0)
+    assert.equal(await page.locator("#post-comment").count(), 0)
+    await page.locator("#mark-petition-victory").click()
+    await page.locator("#confirm-petition-victory").click()
+    await page.getByText("Your petition has been marked as a victory.", { exact: true }).waitFor()
+    assert.equal(await page.locator("#mark-petition-victory").count(), 0)
+  })
+  await check("owner can correct a rejected edit", { owner: true, open: true, rejectOwnerChange: true }, async (page) => {
+    await page.goto(`${home}/petitions/petition-1`, { waitUntil: "domcontentloaded" })
+    await page.locator("#edit-petition").click()
+    await page.locator("#edit-petition-title").fill("A revised petition")
+    await page.locator("#confirm-petition-edit").click()
+    await page.getByRole("alert").filter({ hasText: "Please choose a future deadline." }).waitFor()
+    assert.equal(await page.locator("#edit-petition-title").inputValue(), "A revised petition")
+    await page.locator("#confirm-petition-edit").click()
+    await page.getByRole("heading", { level: 1, name: "A revised petition" }).waitFor()
+  })
+  await check("non-owners have no creator controls", { open: true }, async (page, calls) => {
+    await page.goto(`${home}/petitions/petition-1`, { waitUntil: "domcontentloaded" })
+    await page.locator("#petition-detail-page").waitFor()
+    assert.equal(await page.locator("#petition-owner-controls").count(), 0)
+    const request = calls.find((call) => call.action === "get_petitions")
+    assert.doesNotMatch(JSON.stringify(request.fields), /userId|"user"/)
+  })
+  await check("incomplete accounts cannot participate", { open: true, incomplete: true }, async (page) => {
+    await page.goto(`${home}/petitions/petition-1`, { waitUntil: "domcontentloaded" })
+    await page.locator("#petition-detail-page").waitFor()
+    assert.equal(await page.locator("#sign-petition").count(), 0)
+    assert.equal(await page.locator("#post-comment").count(), 0)
+    assert.ok(await page.locator(`a[href="${home}/profile"]`).count() > 0)
+    await page.goto(`${home}/create`, { waitUntil: "domcontentloaded" })
+    assert.equal(await page.locator("#publish-petition").isDisabled(), true)
+  })
+  await check("campus browse defaults to actor campus", {}, async (page, calls) => {
+    await page.goto(`${home}/petitions`, { waitUntil: "domcontentloaded" })
+    await page.locator("#petition-petition-1").waitFor()
+    assert.deepEqual(calls.find((call) => call.action === "get_petitions").filter, { organizationId: { eq: "campus-1" } })
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith("/rpc/run") && response.request().postDataJSON()?.action === "get_petitions"),
+      page.locator("#all-campuses").click(),
+    ])
+    assert.equal(calls.filter((call) => call.action === "get_petitions").at(-1).filter, undefined)
+  })
   await check("anonymous classroom authors", {}, async (page) => {
     await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
     const card = page.locator("#petition-petition-1")
@@ -99,6 +170,7 @@ try {
   await check("active TAs can approve and remove", { ta: true }, async (page, calls) => {
     await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
     await page.getByRole("button", { name: "Approve Sam", exact: true }).waitFor()
+    assert.equal(await page.getByRole("button", { name: /Promote .* to TA/ }).count(), 0)
     await capture(page, "classroom-ta-and-anonymous-petition.png")
     await page.getByRole("button", { name: "Approve Sam", exact: true }).click()
     await page.getByRole("button", { name: "Remove Jo from classroom", exact: true }).click()
@@ -129,6 +201,9 @@ try {
     await page.getByRole("option", { name: "Campus", exact: true }).click()
     await page.locator("#goal").click()
     await page.getByRole("option", { name: "250 signatures", exact: true }).click()
+    await page.locator("#petition-deadline").fill("2027-06-15T17:00")
+    await page.locator("#petition-allow-comments").uncheck()
+    await page.locator("#petition-anonymous").check()
     await page.locator('#create-petition-page a[href^="/sign-in"]').click({ noWaitAfter: true })
     await page.waitForURL("**/sign-in?**", { waitUntil: "domcontentloaded" })
     const destination = new URL(page.url()).searchParams.get("return_to")
@@ -138,12 +213,19 @@ try {
     assert.equal(await page.locator("#title").inputValue(), "Save our library")
     assert.equal(await page.locator("#description").inputValue(), "Keep the library open during finals.")
     await page.locator("#publish-petition:enabled").waitFor()
+    assert.equal(await page.locator("#petition-deadline").inputValue(), "2027-06-15T17:00")
+    assert.equal(await page.locator("#petition-allow-comments").isChecked(), false)
+    assert.equal(await page.locator("#petition-anonymous").isChecked(), true)
     await capture(page, "restored-petition-draft.png")
     await page.locator("#publish-petition").click()
     await page.locator("#petition-created").waitFor()
     const creation = calls.find((call) => call.action === "create_classroom_petition")
     assert.equal(creation.input.categoryId, "category-1")
     assert.equal(creation.input.goal, 250)
+    assert.equal(creation.input.status, undefined)
+    assert.equal(creation.input.allowComments, false)
+    assert.equal(creation.input.isAnonymous, true)
+    assert.ok(creation.input.deadline)
     await page.goto(destination, { waitUntil: "domcontentloaded" })
     assert.equal(await page.locator("#title").inputValue(), "")
   })
@@ -178,11 +260,12 @@ try {
     assert.equal(await page.evaluate(() => scrollY), 0)
     assert.equal(await page.evaluate(() => document.activeElement?.id), "main-content")
   })
-  await check("signing refreshes cached classroom cards", { open: true }, async (page) => {
+  await check("signing refreshes cached classroom cards", { open: true }, async (page, calls) => {
     await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
     await page.locator("#petition-petition-1").click()
     await page.locator("#sign-petition").click()
     await page.getByText("Your signature is counted.", { exact: false }).waitFor()
+    assert.equal(calls.find((call) => call.action === "create_signature").input.userId, undefined)
     await page.goBack()
     await page.waitForFunction(() => document.querySelector("#petition-petition-1 strong")?.textContent === "4", { timeout: 4000 })
   })
