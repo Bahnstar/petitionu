@@ -7,6 +7,9 @@ defmodule Petitionu.Post do
       rpc_action :get_petitions, :read
       rpc_action :get_petition_by_id, :get_by_id
       rpc_action :create_petition, :create
+      rpc_action :update_petition, :update
+      rpc_action :close_petition, :close
+      rpc_action :mark_petition_victory, :mark_victory
       rpc_action :create_classroom_petition, :create_classroom_petition
       rpc_action :get_classroom_petitions, :for_classroom
       rpc_action :get_public_petitions, :public_petitions

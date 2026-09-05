@@ -91,7 +91,7 @@ export type PreferenceAttributesOnlySchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt" | "organizationId" | "numPetitions" | "numSigned" | "numPetitionSignees" | "emailVerified" | "profileComplete" | "totalPetitionSignatures";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
@@ -100,10 +100,14 @@ export type UserResourceSchema = {
   role: "admin" | "professor" | "student" | "superadmin";
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
+  organizationId: UUID | null;
   numPetitions: number;
   numSigned: number;
   numPetitionSignees: number;
+  emailVerified: boolean | null;
+  profileComplete: boolean | null;
   totalPetitionSignatures: number | null;
+  organization: { __type: "Relationship"; __resource: OrganizationResourceSchema | null; };
   petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; };
   signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
   classroomMemberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; };
@@ -114,7 +118,7 @@ export type UserResourceSchema = {
 
 export type UserAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt";
+  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt" | "organizationId";
   id: UUID;
   firstName: string | null;
   lastName: string | null;
@@ -123,6 +127,7 @@ export type UserAttributesOnlySchema = {
   role: "admin" | "professor" | "student" | "superadmin";
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
+  organizationId: UUID | null;
 };
 
 
@@ -195,7 +200,7 @@ export type ClassroomAttributesOnlySchema = {
 // ClassroomMembership Schema
 export type ClassroomMembershipResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "role" | "status" | "joinedAt" | "insertedAt" | "updatedAt" | "classroomId" | "userId" | "invitedById";
+  __primitiveFields: "id" | "role" | "status" | "joinedAt" | "insertedAt" | "updatedAt" | "classroomId" | "userId" | "invitedById" | "memberName";
   id: UUIDv7;
   role: "student" | "ta";
   status: "active" | "pending" | "removed";
@@ -205,6 +210,7 @@ export type ClassroomMembershipResourceSchema = {
   classroomId: UUID;
   userId: UUID;
   invitedById: UUID | null;
+  memberName: string | null;
   classroom: { __type: "Relationship"; __resource: ClassroomResourceSchema; };
   user: { __type: "Relationship"; __resource: UserResourceSchema; };
   invitedBy: { __type: "Relationship"; __resource: UserResourceSchema | null; };
@@ -230,7 +236,7 @@ export type ClassroomMembershipAttributesOnlySchema = {
 // Comment Schema
 export type CommentResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId" | "petitionId";
+  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId" | "petitionId" | "author";
   id: UUIDv7;
   text: string | null;
   sentiment: string | null;
@@ -238,6 +244,7 @@ export type CommentResourceSchema = {
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
   petitionId: UUID | null;
+  author: string | null;
   user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
   petition: { __type: "Relationship"; __resource: PetitionResourceSchema | null; };
 };
@@ -260,7 +267,7 @@ export type CommentAttributesOnlySchema = {
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "classroomId" | "signaturesCount" | "isClassroomPetition" | "daysLeft" | "author" | "trending";
+  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "organizationId" | "categoryId" | "classroomId" | "canManage" | "hasSigned" | "signaturesCount" | "isClassroomPetition" | "daysLeft" | "author" | "trending";
   id: UUIDv7;
   title: string | null;
   description: string | null;
@@ -271,15 +278,17 @@ export type PetitionResourceSchema = {
   deadline: UtcDateTime | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
-  userId: UUID | null;
+  organizationId: UUID | null;
   categoryId: UUID | null;
   classroomId: UUID | null;
+  canManage: boolean | null;
+  hasSigned: boolean | null;
   signaturesCount: number | null;
   isClassroomPetition: boolean | null;
   daysLeft: number | null;
   author: string | null;
   trending: boolean | null;
-  user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
+  organization: { __type: "Relationship"; __resource: OrganizationResourceSchema | null; };
   category: { __type: "Relationship"; __resource: CategoryResourceSchema | null; };
   classroom: { __type: "Relationship"; __resource: ClassroomResourceSchema | null; };
   updates: { __type: "Relationship"; __array: true; __resource: UpdateResourceSchema; };
@@ -291,7 +300,7 @@ export type PetitionResourceSchema = {
 
 export type PetitionAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "classroomId";
+  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "organizationId" | "categoryId" | "classroomId";
   id: UUIDv7;
   title: string | null;
   description: string | null;
@@ -302,7 +311,7 @@ export type PetitionAttributesOnlySchema = {
   deadline: UtcDateTime | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
-  userId: UUID | null;
+  organizationId: UUID | null;
   categoryId: UUID | null;
   classroomId: UUID | null;
 };
@@ -311,34 +320,27 @@ export type PetitionAttributesOnlySchema = {
 // Signature Schema
 export type SignatureResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId" | "userId";
+  __primitiveFields: "id" | "reason" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId";
   id: UUIDv7;
   reason: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
   isVerified: boolean | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
   petitionId: UUID;
-  userId: UUID;
   petition: { __type: "Relationship"; __resource: PetitionResourceSchema; };
-  user: { __type: "Relationship"; __resource: UserResourceSchema; };
 };
 
 
 
 export type SignatureAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId" | "userId";
+  __primitiveFields: "id" | "reason" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId";
   id: UUIDv7;
   reason: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
   isVerified: boolean | null;
   insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
   petitionId: UUID;
-  userId: UUID;
 };
 
 
@@ -606,6 +608,25 @@ export type UserFilterInput = {
     in?: Array<UtcDateTimeUsec>;
   };
 
+  organizationId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    isNil?: boolean;
+  };
+
+  emailVerified?: {
+    eq?: boolean;
+    notEq?: boolean;
+    isNil?: boolean;
+  };
+
+  profileComplete?: {
+    eq?: boolean;
+    notEq?: boolean;
+    isNil?: boolean;
+  };
+
   totalPetitionSignatures?: {
     eq?: number;
     notEq?: number;
@@ -649,6 +670,8 @@ export type UserFilterInput = {
     in?: Array<number>;
     isNil?: boolean;
   };
+
+  organization?: OrganizationFilterInput;
 
   petitions?: PetitionFilterInput;
 
@@ -892,6 +915,13 @@ export type ClassroomMembershipFilterInput = {
     isNil?: boolean;
   };
 
+  memberName?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    isNil?: boolean;
+  };
+
 
   classroom?: ClassroomFilterInput;
 
@@ -956,6 +986,13 @@ export type CommentFilterInput = {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    isNil?: boolean;
+  };
+
+  author?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
     isNil?: boolean;
   };
 
@@ -1051,7 +1088,7 @@ export type PetitionFilterInput = {
     in?: Array<UtcDateTimeUsec>;
   };
 
-  userId?: {
+  organizationId?: {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
@@ -1069,6 +1106,18 @@ export type PetitionFilterInput = {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    isNil?: boolean;
+  };
+
+  canManage?: {
+    eq?: boolean;
+    notEq?: boolean;
+    isNil?: boolean;
+  };
+
+  hasSigned?: {
+    eq?: boolean;
+    notEq?: boolean;
     isNil?: boolean;
   };
 
@@ -1114,7 +1163,7 @@ export type PetitionFilterInput = {
   };
 
 
-  user?: UserFilterInput;
+  organization?: OrganizationFilterInput;
 
   category?: CategoryFilterInput;
 
@@ -1139,20 +1188,6 @@ export type SignatureFilterInput = {
   };
 
   reason?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  ipAddress?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  userAgent?: {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
@@ -1191,16 +1226,8 @@ export type SignatureFilterInput = {
     in?: Array<UUID>;
   };
 
-  userId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-  };
-
 
   petition?: PetitionFilterInput;
-
-  user?: UserFilterInput;
 
 };
 export type UpdateFilterInput = {
@@ -1268,7 +1295,7 @@ export type OrganizationFilterField = (typeof organizationFilterFields)[number];
 export const preferenceFilterFields = ["id", "name", "value", "insertedAt", "updatedAt"] as const;
 export type PreferenceFilterField = (typeof preferenceFilterFields)[number];
 
-export const userFilterFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees", "petitions", "signatures", "classroomMemberships", "ownedClassrooms"] as const;
+export const userFilterFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "organizationId", "emailVerified", "profileComplete", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees", "organization", "petitions", "signatures", "classroomMemberships", "ownedClassrooms"] as const;
 export type UserFilterField = (typeof userFilterFields)[number];
 
 export const categoryFilterFields = ["id", "name", "description", "color", "insertedAt", "updatedAt"] as const;
@@ -1277,16 +1304,16 @@ export type CategoryFilterField = (typeof categoryFilterFields)[number];
 export const classroomFilterFields = ["id", "name", "description", "joinCode", "archived", "allowStudentPetitions", "insertedAt", "updatedAt", "professorId", "organizationId", "memberCount", "petitionCount", "professor", "organization", "memberships", "petitions"] as const;
 export type ClassroomFilterField = (typeof classroomFilterFields)[number];
 
-export const classroomMembershipFilterFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById", "classroom", "user", "invitedBy"] as const;
+export const classroomMembershipFilterFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById", "memberName", "classroom", "user", "invitedBy"] as const;
 export type ClassroomMembershipFilterField = (typeof classroomMembershipFilterFields)[number];
 
-export const commentFilterFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "user", "petition"] as const;
+export const commentFilterFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "author", "user", "petition"] as const;
 export type CommentFilterField = (typeof commentFilterFields)[number];
 
-export const petitionFilterFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "userId", "categoryId", "classroomId", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending", "user", "category", "classroom", "updates", "comments", "signatures"] as const;
+export const petitionFilterFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "organizationId", "categoryId", "classroomId", "canManage", "hasSigned", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending", "organization", "category", "classroom", "updates", "comments", "signatures"] as const;
 export type PetitionFilterField = (typeof petitionFilterFields)[number];
 
-export const signatureFilterFields = ["id", "reason", "ipAddress", "userAgent", "isVerified", "insertedAt", "updatedAt", "petitionId", "userId", "petition", "user"] as const;
+export const signatureFilterFields = ["id", "reason", "isVerified", "insertedAt", "updatedAt", "petitionId", "petition"] as const;
 export type SignatureFilterField = (typeof signatureFilterFields)[number];
 
 export const updateFilterFields = ["id", "title", "body", "insertedAt", "updatedAt", "petitionId", "petition"] as const;
@@ -1302,7 +1329,7 @@ export type OrganizationSortField = (typeof organizationSortFields)[number];
 export const preferenceSortFields = ["id", "name", "value", "insertedAt", "updatedAt"] as const;
 export type PreferenceSortField = (typeof preferenceSortFields)[number];
 
-export const userSortFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees"] as const;
+export const userSortFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "organizationId", "emailVerified", "profileComplete", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees"] as const;
 export type UserSortField = (typeof userSortFields)[number];
 
 export const categorySortFields = ["id", "name", "description", "color", "insertedAt", "updatedAt"] as const;
@@ -1311,16 +1338,16 @@ export type CategorySortField = (typeof categorySortFields)[number];
 export const classroomSortFields = ["id", "name", "description", "joinCode", "archived", "allowStudentPetitions", "insertedAt", "updatedAt", "professorId", "organizationId", "memberCount", "petitionCount"] as const;
 export type ClassroomSortField = (typeof classroomSortFields)[number];
 
-export const classroomMembershipSortFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById"] as const;
+export const classroomMembershipSortFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById", "memberName"] as const;
 export type ClassroomMembershipSortField = (typeof classroomMembershipSortFields)[number];
 
-export const commentSortFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId"] as const;
+export const commentSortFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "author"] as const;
 export type CommentSortField = (typeof commentSortFields)[number];
 
-export const petitionSortFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "userId", "categoryId", "classroomId", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending"] as const;
+export const petitionSortFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "organizationId", "categoryId", "classroomId", "canManage", "hasSigned", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending"] as const;
 export type PetitionSortField = (typeof petitionSortFields)[number];
 
-export const signatureSortFields = ["id", "reason", "ipAddress", "userAgent", "isVerified", "insertedAt", "updatedAt", "petitionId", "userId"] as const;
+export const signatureSortFields = ["id", "reason", "isVerified", "insertedAt", "updatedAt", "petitionId"] as const;
 export type SignatureSortField = (typeof signatureSortFields)[number];
 
 export const updateSortFields = ["id", "title", "body", "insertedAt", "updatedAt", "petitionId"] as const;

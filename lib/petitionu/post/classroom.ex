@@ -27,11 +27,8 @@ defmodule Petitionu.Post.Classroom do
       primary? true
       accept [:name, :description, :allow_student_petitions]
 
-      argument :organization_id, :uuid do
-        allow_nil? true
-      end
-
-      change set_attribute(:organization_id, arg(:organization_id))
+      validate Petitionu.Post.Validations.Participant
+      change set_attribute(:organization_id, actor(:organization_id))
       change relate_actor(:professor)
       change {Petitionu.Post.Classroom.Changes.GenerateJoinCode, []}
     end

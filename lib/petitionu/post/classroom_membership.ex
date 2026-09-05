@@ -85,26 +85,23 @@ defmodule Petitionu.Post.ClassroomMembership do
         default :student
       end
 
-      change fn changeset, context ->
-        email = Ash.Changeset.get_argument(changeset, :email)
-        role = Ash.Changeset.get_argument(changeset, :role) || :student
-        classroom_id = Ash.Changeset.get_argument(changeset, :classroom_id)
+      change set_attribute(:classroom_id, arg(:classroom_id))
+      change set_attribute(:status, :pending)
+      change set_attribute(:role, arg(:role))
+      change relate_actor(:invited_by)
 
-        case Petitionu.Accounts.get_user_by_email(email, actor: context.actor) do
-          {:ok, %Petitionu.Accounts.User{} = user} ->
-            changeset
-            |> Ash.Changeset.force_change_attribute(:user_id, user.id)
-            |> Ash.Changeset.force_change_attribute(:classroom_id, classroom_id)
-            |> Ash.Changeset.force_change_attribute(:status, :pending)
-            |> Ash.Changeset.force_change_attribute(:role, role)
-            |> Ash.Changeset.force_change_attribute(
-              :invited_by_id,
-              context.actor && context.actor.id
-            )
+      change fn changeset, _context ->
+        Ash.Changeset.before_action(changeset, fn changeset ->
+          email = Ash.Changeset.get_argument(changeset, :email)
 
-          _ ->
-            Ash.Changeset.add_error(changeset, field: :email, message: "User not found")
-        end
+          case Petitionu.Accounts.get_user_by_email(email, authorize?: false) do
+            {:ok, %Petitionu.Accounts.User{} = user} ->
+              Ash.Changeset.force_change_attribute(changeset, :user_id, user.id)
+
+            _ ->
+              Ash.Changeset.add_error(changeset, field: :email, message: "User not found")
+          end
+        end)
       end
 
       change {Petitionu.Post.ClassroomMembership.Changes.SendInviteEmail, []}
@@ -263,6 +260,14 @@ defmodule Petitionu.Post.ClassroomMembership do
     belongs_to :invited_by, Petitionu.Accounts.User do
       allow_nil? true
       public? true
+    end
+  end
+
+  calculations do
+    calculate :member_name, :string, Petitionu.Post.Calculations.Author do
+      public? true
+      filterable? false
+      sortable? false
     end
   end
 

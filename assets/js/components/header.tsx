@@ -45,7 +45,7 @@ export function Header() {
           <div className="hidden xl:flex items-center gap-3">
             {isAuthenticated && user ? (
               <>
-                <Link to={ROUTES.dashboard} className="max-w-28 truncate text-sm text-muted-foreground" title={user.firstName || user.email}>{user.firstName || user.email}</Link>
+                <Link to={ROUTES.profile} className="max-w-28 truncate text-sm text-muted-foreground" title={user.firstName || user.email}>{user.firstName || user.email}</Link>
                 <Button asChild variant="ghost" size="sm"><a href="/sign-out"><LogOut aria-hidden="true" />Sign out</a></Button>
               </>
             ) : !isLoading ? <AuthLink className="app-nav-link">Sign in</AuthLink> : null}
@@ -67,7 +67,7 @@ export function Header() {
           {navItems.map((item) => <NavLink key={item.to} to={item.to} className="app-nav-link" onClick={() => setMobileOpen(false)}>{item.label}</NavLink>)}
           <NavLink to={ROUTES.createPetition} className="app-nav-link" onClick={() => setMobileOpen(false)}>Start a petition</NavLink>
           {!isLoading && <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-            {isAuthenticated && user ? <><span className="min-w-0 truncate px-3 text-sm text-muted-foreground">{user.firstName || user.email}</span><a href="/sign-out" className="app-nav-link">Sign out</a></> : <><AuthLink className="app-nav-link">Sign in</AuthLink><Button asChild size="sm"><AuthLink page="/register">Create an account</AuthLink></Button></>}
+            {isAuthenticated && user ? <><Link to={ROUTES.profile} className="app-nav-link">Your profile</Link><a href="/sign-out" className="app-nav-link">Sign out</a></> : <><AuthLink className="app-nav-link">Sign in</AuthLink><Button asChild size="sm"><AuthLink page="/register">Create an account</AuthLink></Button></>}
           </div>}
         </nav>
       )}

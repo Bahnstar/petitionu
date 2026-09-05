@@ -782,6 +782,80 @@ export async function validateSetUserRole(
 }
 
 
+export type UpdateMyProfileInput = {
+  firstName?: string | null;
+  lastName?: string | null;
+  graduationYear?: number | null;
+};
+
+export type UpdateMyProfileFields = UnifiedFieldSelection<UserResourceSchema>[];
+
+export type InferUpdateMyProfileResult<
+  Fields extends UpdateMyProfileFields | undefined,
+> = InferResult<UserResourceSchema, Fields>;
+
+export type UpdateMyProfileResult<Fields extends UpdateMyProfileFields | undefined = undefined> = | { success: true; data: InferUpdateMyProfileResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Update an existing User
+ *
+ * @ashActionType :update
+ */
+export async function updateMyProfile<Fields extends UpdateMyProfileFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  input?: UpdateMyProfileInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<UpdateMyProfileResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "update_my_profile",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<UpdateMyProfileResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Update an existing User
+ *
+ * @ashActionType :update
+ * @validation true
+ */
+export async function validateUpdateMyProfile(
+  config: {
+  tenant?: string;
+  input?: UpdateMyProfileInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "update_my_profile",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type GetCategoriesFields = UnifiedFieldSelection<CategoryResourceSchema>[];
 
 
@@ -955,7 +1029,6 @@ export type CreateClassroomInput = {
   name: string;
   description?: string | null;
   allowStudentPetitions?: boolean;
-  organizationId?: UUID | null;
 };
 
 export type CreateClassroomFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
@@ -2223,7 +2296,7 @@ export async function validateRequestToJoinClassroom(
 export type CreateCommentInput = {
   text?: string | null;
   parentCommentId?: UUIDv7 | null;
-  petitionId: UUIDv7;
+  petitionId?: UUID | null;
 };
 
 export type CreateCommentFields = UnifiedFieldSelection<CommentResourceSchema>[];
@@ -2245,7 +2318,7 @@ export type CreateCommentResult<Fields extends CreateCommentFields | undefined =
 export async function createComment<Fields extends CreateCommentFields | undefined = undefined>(
   config: {
   tenant?: string;
-  input: CreateCommentInput;
+  input?: CreateCommentInput;
   fields?: Fields;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
@@ -2275,7 +2348,7 @@ export async function createComment<Fields extends CreateCommentFields | undefin
 export async function validateCreateComment(
   config: {
   tenant?: string;
-  input: CreateCommentInput;
+  input?: CreateCommentInput;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -2395,10 +2468,77 @@ export async function validateGetComments(
 }
 
 
+export type ClosePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+export type InferClosePetitionResult<
+  Fields extends ClosePetitionFields | undefined,
+> = InferResult<PetitionResourceSchema, Fields>;
+
+export type ClosePetitionResult<Fields extends ClosePetitionFields | undefined = undefined> = | { success: true; data: InferClosePetitionResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Update an existing Petition
+ *
+ * @ashActionType :update
+ */
+export async function closePetition<Fields extends ClosePetitionFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ClosePetitionResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "close_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<ClosePetitionResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Update an existing Petition
+ *
+ * @ashActionType :update
+ * @validation true
+ */
+export async function validateClosePetition(
+  config: {
+  tenant?: string;
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "close_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type CreateClassroomPetitionInput = {
   title?: string | null;
   description?: string | null;
-  status?: "closed" | "open" | "victory" | null;
   goal?: number | null;
   deadline?: UtcDateTime | null;
   allowComments?: boolean | null;
@@ -2478,7 +2618,6 @@ export async function validateCreateClassroomPetition(
 export type CreatePetitionInput = {
   title?: string | null;
   description?: string | null;
-  status?: "closed" | "open" | "victory" | null;
   goal?: number | null;
   deadline?: UtcDateTime | null;
   allowComments?: boolean | null;
@@ -2868,13 +3007,158 @@ export async function validateGetPublicPetitions(
 }
 
 
+export type MarkPetitionVictoryFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+export type InferMarkPetitionVictoryResult<
+  Fields extends MarkPetitionVictoryFields | undefined,
+> = InferResult<PetitionResourceSchema, Fields>;
+
+export type MarkPetitionVictoryResult<Fields extends MarkPetitionVictoryFields | undefined = undefined> = | { success: true; data: InferMarkPetitionVictoryResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Update an existing Petition
+ *
+ * @ashActionType :update
+ */
+export async function markPetitionVictory<Fields extends MarkPetitionVictoryFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  identity: UUIDv7;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<MarkPetitionVictoryResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "mark_petition_victory",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<MarkPetitionVictoryResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Update an existing Petition
+ *
+ * @ashActionType :update
+ * @validation true
+ */
+export async function validateMarkPetitionVictory(
+  config: {
+  tenant?: string;
+  identity: UUIDv7 | string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "mark_petition_victory",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type UpdatePetitionInput = {
+  title?: string | null;
+  description?: string | null;
+  goal?: number | null;
+  deadline?: UtcDateTime | null;
+  allowComments?: boolean | null;
+  isAnonymous?: boolean | null;
+};
+
+export type UpdatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+export type InferUpdatePetitionResult<
+  Fields extends UpdatePetitionFields | undefined,
+> = InferResult<PetitionResourceSchema, Fields>;
+
+export type UpdatePetitionResult<Fields extends UpdatePetitionFields | undefined = undefined> = | { success: true; data: InferUpdatePetitionResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Update an existing Petition
+ *
+ * @ashActionType :update
+ */
+export async function updatePetition<Fields extends UpdatePetitionFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  identity: UUIDv7;
+  input?: UpdatePetitionInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<UpdatePetitionResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "update_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity,
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<UpdatePetitionResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Update an existing Petition
+ *
+ * @ashActionType :update
+ * @validation true
+ */
+export async function validateUpdatePetition(
+  config: {
+  tenant?: string;
+  identity: UUIDv7 | string;
+  input?: UpdatePetitionInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "update_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity,
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type CreateSignatureInput = {
   reason?: string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-  isVerified?: boolean | null;
   petitionId: UUID;
-  userId: UUID;
 };
 
 export type CreateSignatureFields = UnifiedFieldSelection<SignatureResourceSchema>[];

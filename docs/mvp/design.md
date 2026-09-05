@@ -14,7 +14,7 @@ User.update_my_profile accepts firstName, lastName, graduationYear. Derive organ
 
 Petition receives nullable organization_id for historical compatibility. New public petitions use the actor's campus. Classroom petitions use classroom organization where present. Historical ownerless or campus-less records are not assigned arbitrary values. Require profile/verification for new participation; never silently verify historical signatures.
 
-Classroom membership remains pending, active, or removed. A verified actor can join by a valid unarchived code through a narrow lookup. Active joins are repeatable. Removed membership cannot reactivate through the old code.
+Classroom membership remains pending, active, or removed. A verified actor can join by a valid unarchived code through a narrow lookup. Repeated joins return the existing membership state without creating another row. Removed membership cannot reactivate through the old code.
 
 Moderation uses ContentReport with required petition_id and optional comment_id. A comment report derives its petition from the visible comment. States are open, resolved, dismissed. Reporters see their own submissions. Superadmins and same-campus admins resolve reports. Hidden petition/comment state is separate from open/closed/victory lifecycle and ordinary queries exclude hidden content. Hiding petition blocks its child content and interactions.
 
