@@ -33,8 +33,8 @@ export function PetitionOwnerControls({ petition, canPublishUpdate }: { petition
       const shared = { identity: petition.id, fields: ["id"] satisfies ["id"], headers: buildCSRFHeaders() }
       const result = command.kind === "edit" ? await updatePetition({ ...shared, input: command.input })
         : command.kind === "update" ? await createUpdate({ input: command.input, fields: ["id"], headers: buildCSRFHeaders() })
-        : command.kind === "close" ? await closePetition({ ...shared, input: {} })
-        : await markPetitionVictory({ ...shared, input: {} })
+        : command.kind === "close" ? await closePetition(shared)
+        : await markPetitionVictory(shared)
       if (result.success === false) throw new Error(result.errors.map((error) => error.message).join(" ") || "Your change couldn't be saved. Please try again.")
       return command.kind
     },
