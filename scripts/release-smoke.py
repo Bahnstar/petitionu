@@ -55,6 +55,10 @@ def check_health(expected, log):
             except (urllib.error.URLError, TimeoutError):
                 time.sleep(0.2)
                 continue
+            if expected == 200 and status == 503:
+                assert json.loads(body) == {"status": "unavailable"}, body
+                time.sleep(0.2)
+                continue
             assert status == expected, (status, body)
             assert json.loads(body) == {"status": "ok" if expected == 200 else "unavailable"}, body
             print(f"Release /healthz returned {expected}", flush=True)
@@ -82,7 +86,7 @@ try:
                     )
                 print("Release migrations succeeded twice", flush=True)
                 check_health(200, log)
-                environment["PGPORT"] = "1"
+                environment["DATABASE_URL"] = f"postgresql://localhost:1/{database}"
                 check_health(503, log)
             except Exception:
                 log.flush()
