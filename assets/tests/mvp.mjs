@@ -230,8 +230,13 @@ try {
     await guest.getByRole("heading", { name: editedTitle, exact: true }).waitFor()
     assert.match(await guest.locator("#petition-detail-page").innerText(), /Started by Anonymous/)
     assert.doesNotMatch(await guest.locator("#petition-detail-page").innerText(), /Alex Morgan/)
-    const users = await read(guest, "get_users", { fields: ["id", { petitions: ["id"] }], filter: { id: { eq: ownerUser.id } } })
+    const users = await read(guest, "get_users", { fields: ["id", { petitions: ["id"] }] })
     assert.deepEqual(users, [])
+    const ownerActivity = await rpc(guest, "get_user_by_id", {
+      input: { id: ownerUser.id, includeStats: true },
+      fields: ["id", "numPetitions", "numSigned", { petitions: ["id"] }, { signatures: ["id"] }],
+    })
+    assert.equal(ownerActivity.data ?? null, null)
     await capture(guest, "petition-anonymous-desktop.png")
   })
 
