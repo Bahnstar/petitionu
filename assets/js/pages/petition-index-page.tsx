@@ -1,3 +1,4 @@
+import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { buildCSRFHeaders, createComment, createSignature, getPetitions, PetitionResourceSchema } from "../ash_rpc"
@@ -23,6 +24,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
     void queryClient.invalidateQueries({ queryKey: ["petition", petition.id] })
     void queryClient.invalidateQueries({ queryKey: ["petitions"] })
     void queryClient.invalidateQueries({ queryKey: ["dashboardUser"] })
+    if (petition.classroomId) void queryClient.invalidateQueries({ queryKey: ["classroomPetitions", petition.classroomId] })
   }
   const commentMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -110,7 +112,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               {commentMutation.isError ? <p role="alert" className="text-sm text-destructive">{commentMutation.error.message}</p> : null}
               {commentMutation.isSuccess ? <p role="status" className="text-sm text-muted-foreground">Your comment has been posted.</p> : null}
               <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Keep it respectful and constructive.</p><Button id="post-comment" type="submit" disabled={!commentText.trim() || commentMutation.isPending}>{commentMutation.isPending ? "Posting…" : "Post comment"}</Button></div>
-            </form> : <p className="mb-6 text-sm text-muted-foreground"><a href="/sign-in" className="font-medium text-primary underline underline-offset-4">Sign in</a> to join the conversation.</p> : <p className="mb-6 text-sm text-muted-foreground">Comments are turned off for this petition.</p>}
+            </form> : <p className="mb-6 text-sm text-muted-foreground"><AuthLink className="font-medium text-primary underline underline-offset-4">Sign in</AuthLink> to join the conversation.</p> : <p className="mb-6 text-sm text-muted-foreground">Comments are turned off for this petition.</p>}
             <div className="divide-y divide-border">{comments.map((comment) => <div key={comment.id} className="py-5">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-medium">{[comment.user?.firstName, comment.user?.lastName].filter(Boolean).join(" ") || "A campus community member"}</span>{comment.insertedAt ? <span className="text-muted-foreground">{new Date(comment.insertedAt).toLocaleDateString()}</span> : null}</div>
               <p className="whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{comment.text}</p>
@@ -131,7 +133,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
                 {signatureMutation.isError ? <p role="alert" className="text-sm text-destructive">{signatureMutation.error.message}</p> : null}
                 <Button id="sign-petition" type="submit" className="w-full" disabled={signatureMutation.isPending}>{signatureMutation.isPending ? "Adding your signature…" : "Sign this petition"}</Button>
                 <p className="text-xs leading-6 text-muted-foreground">Your reason for signing will appear on this petition.</p>
-              </form> : <div className="space-y-4"><p className="text-sm leading-7 text-muted-foreground">Sign in to stand behind this idea and add your signature.</p><Button className="w-full" asChild><a href="/sign-in">Sign in to support</a></Button></div>}
+              </form> : <div className="space-y-4"><p className="text-sm leading-7 text-muted-foreground">Sign in to stand behind this idea and add your signature.</p><Button className="w-full" asChild><AuthLink>Sign in to support</AuthLink></Button></div>}
             </div>
           </section>
           <Button id="share-petition" variant="outline" className="mt-4 w-full" disabled={sharePending} onClick={sharePetition}><span className="hero-arrow-up-tray size-4" aria-hidden="true" />Share this petition</Button>
@@ -149,7 +151,7 @@ export default function PetitionIndexPage() {
     queryKey: ["petition", id],
     queryFn: async () => {
       const result = await getPetitions({
-        fields: ["id", "title", "description", "status", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", { user: ["firstName", "lastName"] }] }, { signatures: ["id", "reason", "userId", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }],
+        fields: ["id", "title", "description", "status", "classroomId", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", { user: ["firstName", "lastName"] }] }, { signatures: ["id", "reason", "userId", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }],
         filter: { id: { eq: id } },
         headers: buildCSRFHeaders(),
       })

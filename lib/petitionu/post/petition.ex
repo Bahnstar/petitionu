@@ -34,6 +34,8 @@ defmodule Petitionu.Post.Petition do
                on_lookup: :relate
                # on_no_match: :errror
              )
+
+      change relate_actor(:user)
     end
 
     create :create_classroom_petition do

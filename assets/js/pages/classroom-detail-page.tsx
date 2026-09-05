@@ -116,6 +116,8 @@ export default function ClassroomDetailPage() {
           "daysLeft",
           "trending",
           "author",
+          "isAnonymous",
+          "deadline",
           { category: ["id", "name", "color"] },
           { user: ["id", "firstName", "lastName"] },
         ],
@@ -250,7 +252,10 @@ export default function ClassroomDetailPage() {
   const petitions = petitionsQuery.data || []
   const memberships = membershipsQuery.data || []
   const isProfessor = classroom?.professorId === currentUserId
-  const canManage = isProfessor // TODO: Add TA check
+  const isActiveTa = !!currentUserId && memberships.some((membership) =>
+    membership.user?.id === currentUserId && membership.role === "ta" && membership.status === "active"
+  )
+  const canManage = isProfessor || isActiveTa
 
   return (
     <main className="min-h-screen bg-background">
@@ -467,7 +472,6 @@ export default function ClassroomDetailPage() {
                 memberships={memberships}
                 classroomId={id!}
                 canManage={canManage}
-                isProfessor={isProfessor}
               />
             )}
           </div>

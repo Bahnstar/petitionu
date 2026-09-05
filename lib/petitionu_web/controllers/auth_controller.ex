@@ -3,7 +3,7 @@ defmodule PetitionuWeb.AuthController do
   use AshAuthentication.Phoenix.Controller
 
   def success(conn, activity, user, _token) do
-    return_to = get_session(conn, :return_to) || ~p"/"
+    return_to = PetitionuWeb.AuthReturnTo.safe_destination(get_session(conn, :return_to)) || ~p"/"
 
     message =
       case activity do
@@ -45,11 +45,9 @@ defmodule PetitionuWeb.AuthController do
   end
 
   def sign_out(conn, _params) do
-    return_to = get_session(conn, :return_to) || ~p"/"
-
     conn
     |> clear_session(:petitionu)
     |> put_flash(:info, "You are now signed out")
-    |> redirect(to: return_to)
+    |> redirect(to: ~p"/")
   end
 end

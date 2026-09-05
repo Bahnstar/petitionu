@@ -1,3 +1,4 @@
+import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
@@ -84,7 +85,19 @@ export default function CreateClassroomPage() {
         <section id="create-classroom-sign-in" className="app-empty-state">
           <h1 className="app-page-heading">Make room for your class.</h1>
           <p className="app-page-description">Sign in to create a classroom and invite your students to share their ideas.</p>
-          <Button asChild className="mt-6"><a href="/sign-in">Sign in</a></Button>
+          <Button asChild className="mt-6"><AuthLink>Sign in</AuthLink></Button>
+        </section>
+      </main>
+    )
+  }
+
+  if (currentUser.role !== "professor" && currentUser.role !== "admin") {
+    return (
+      <main className="app-page">
+        <section id="create-classroom-role-required" className="app-empty-state">
+          <h1 className="app-page-heading">Join your classroom.</h1>
+          <p className="app-page-description">Professors and administrators can create classrooms. Ask your professor for a join code to get started.</p>
+          <Button asChild className="mt-6"><Link to={ROUTES.classrooms}>Find your class</Link></Button>
         </section>
       </main>
     )

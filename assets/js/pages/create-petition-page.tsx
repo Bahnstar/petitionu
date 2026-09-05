@@ -1,4 +1,6 @@
-import { useState } from "react"
+import { readPetitionDraft, savePetitionDraft, clearPetitionDraft } from "../lib/petition-draft"
+import { AuthLink } from "../components/auth-link"
+import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,11 +14,15 @@ import { ROUTES } from "@/lib/routes"
 import { useAuth } from "../contexts/auth-context"
 
 export default function CreatePetitionPage() {
+  const [searchParams] = useSearchParams()
+  const classroomId = searchParams.get("classroomId")
+  return <PetitionForm key={classroomId ?? "public"} classroomId={classroomId} />
+}
+
+function PetitionForm({ classroomId }: { classroomId: string | null }) {
   useDocumentTitle("Start a Petition")
   const { user, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
-  const [searchParams] = useSearchParams()
-  const classroomId = searchParams.get("classroomId")
   const returnPath = classroomId ? ROUTES.classroom(classroomId) : ROUTES.petitions
   const classroomQuery = useQuery({
     queryKey: ["classroomContext", classroomId],
@@ -27,8 +33,12 @@ export default function CreatePetitionPage() {
       return result.data
     },
   })
-  const [formData, setFormData] = useState({ title: "", description: "", categoryId: "", goal: "1000" })
+  const [formData, setFormData] = useState(() => readPetitionDraft(classroomId))
   const [createdId, setCreatedId] = useState<string | null>(null)
+  useEffect(() => {
+    if (createdId) clearPetitionDraft(classroomId)
+    else savePetitionDraft(classroomId, formData)
+  }, [classroomId, formData, createdId])
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const categoryQuery = useQuery({
@@ -60,7 +70,7 @@ export default function CreatePetitionPage() {
         if (classroomId) {
           void queryClient.invalidateQueries({ queryKey: ["classroomPetitions", classroomId] })
           void queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
-          void queryClient.invalidateQueries({ queryKey: ["classrooms"] })
+          void queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
         }
         window.scrollTo({ top: 0 })
       }
@@ -94,7 +104,7 @@ export default function CreatePetitionPage() {
           <h2 id="petition-details-heading" className="mb-2 font-display text-3xl tracking-tight">Put your idea into words.</h2>
           <p className="mb-8 text-sm text-muted-foreground">All fields are required. You can start with a small signature goal.</p>
           {classroomId ? <p id="petition-classroom-context" className="mb-6 rounded-xl bg-secondary p-4 text-sm">{classroomQuery.isSuccess ? `This petition will be shared with ${classroomQuery.data.name}.` : classroomQuery.isError ? classroomQuery.error.message : "Creating a classroom petition."}</p> : null}
-          {!authLoading && !user ? <div className="mb-6 rounded-xl border border-border bg-secondary p-4 text-sm">Sign in to publish your petition. <a href="/sign-in" className="font-medium underline underline-offset-4">Sign in</a></div> : null}
+          {!authLoading && !user ? <div className="mb-6 rounded-xl border border-border bg-secondary p-4 text-sm">Sign in to publish your petition. <AuthLink className="font-medium underline underline-offset-4">Sign in</AuthLink></div> : null}
           {categoryQuery.isError ? <div role="alert" className="mb-6 text-sm text-destructive">{categoryQuery.error.message} <button type="button" className="underline" onClick={() => categoryQuery.refetch()}>Try again</button></div> : null}
           {submitError ? <p id="petition-submit-error" role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{submitError}</p> : null}
           <form id="create-petition-form" onSubmit={handleSubmit} className="space-y-7">

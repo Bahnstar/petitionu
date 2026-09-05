@@ -1,3 +1,4 @@
+import { AuthLink } from "../components/auth-link"
 import { Plus } from "lucide-react"
 import { DashboardStats } from "../features/dashboard/dashboard-stats"
 import { UserPetitions } from "../features/dashboard/user-petitions"
@@ -115,7 +116,7 @@ export default function Dashboard() {
         <div className="app-empty-state">
           <h1 className="app-page-heading">Your next chapter starts here.</h1>
           <p className="app-page-description">Sign in to see your petitions, the ideas you support, and your classrooms.</p>
-          <Button asChild className="mt-6"><a href="/sign-in">Sign in</a></Button>
+          <Button asChild className="mt-6"><AuthLink>Sign in</AuthLink></Button>
         </div>
       </main>
     )
