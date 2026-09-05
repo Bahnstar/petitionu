@@ -17,37 +17,69 @@ defmodule Petitionu.Post.Comment do
   actions do
     defaults [:read, :destroy]
 
+    update :moderator_hide do
+      accept []
+      change set_attribute(:hidden_at, &DateTime.utc_now/0)
+    end
+
     create :create do
       primary? true
-      accept [:text, :parent_comment_id]
+      accept [:text, :parent_comment_id, :petition_id]
 
-      argument :petition_id, :uuid_v7 do
-        allow_nil? false
-      end
-
-      change relate_actor(:user, allow_nil?: true)
-      change manage_relationship(:petition_id, :petition, type: :append_and_remove)
+      validate present([:text, :petition_id])
+      validate Petitionu.Post.Validations.Participant
+      change relate_actor(:user)
+      change {Petitionu.Post.Changes.CheckPetition, mode: :comment}
+      change Petitionu.Post.Changes.CommentParent
     end
 
     update :update do
       primary? true
       accept [:text]
+      validate present(:text)
     end
   end
 
   policies do
-    # Comments are public content
-    policy action_type(:read) do
-      authorize_if always()
+    policy action(:moderator_hide) do
+      authorize_if actor_attribute_equals(:role, :superadmin)
+
+      authorize_if expr(
+                     not is_nil(petition.organization_id) and
+                       petition.organization_id == ^actor(:organization_id) and
+                       ^actor(:role) == :admin
+                   )
     end
 
-    # Only authenticated users can create comments
+    policy action_type(:read) do
+      forbid_unless expr(is_nil(hidden_at) and is_nil(petition.hidden_at))
+      authorize_if expr(is_nil(petition.classroom_id))
+      authorize_if expr(petition.classroom.professor_id == ^actor(:id))
+
+      authorize_if expr(
+                     exists(
+                       petition.classroom.memberships,
+                       user_id == ^actor(:id) and status == :active
+                     )
+                   )
+    end
+
     policy action(:create) do
       authorize_if actor_present()
     end
 
-    # Only the author can update or destroy their comment
     policy action([:update, :destroy]) do
+      forbid_unless expr(is_nil(hidden_at) and is_nil(petition.hidden_at))
+
+      forbid_unless expr(
+                      is_nil(petition.classroom_id) or
+                        petition.classroom.professor_id == ^actor(:id) or
+                        exists(
+                          petition.classroom.memberships,
+                          user_id == ^actor(:id) and status == :active
+                        )
+                    )
+
       authorize_if relates_to_actor_via(:user)
     end
   end
@@ -57,6 +89,7 @@ defmodule Petitionu.Post.Comment do
 
     attribute :text, :string do
       public? true
+      constraints min_length: 1, max_length: 5000, trim?: true
     end
 
     attribute :sentiment, :string do
@@ -64,6 +97,8 @@ defmodule Petitionu.Post.Comment do
     end
 
     attribute :parent_comment_id, :uuid_v7, allow_nil?: true
+
+    attribute :hidden_at, :utc_datetime_usec
 
     timestamps public?: true
   end
@@ -75,6 +110,14 @@ defmodule Petitionu.Post.Comment do
 
     belongs_to :petition, Petitionu.Post.Petition do
       public? true
+    end
+  end
+
+  calculations do
+    calculate :author, :string, {Petitionu.Post.Calculations.Author, anonymous?: false} do
+      public? true
+      filterable? false
+      sortable? false
     end
   end
 end

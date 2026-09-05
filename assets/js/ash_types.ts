@@ -11,12 +11,12 @@ export type UtcDateTimeUsec = string;
 // Notification Schema
 export type NotificationResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body" | "status" | "insertedAt" | "updatedAt";
-  id: UUIDv7;
-  title: string;
+  __primitiveFields: "body" | "id" | "insertedAt" | "status" | "title" | "updatedAt";
   body: string | null;
-  status: "archived" | "read" | "unread";
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
+  status: "archived" | "read" | "unread";
+  title: string;
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -24,12 +24,12 @@ export type NotificationResourceSchema = {
 
 export type NotificationAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body" | "status" | "insertedAt" | "updatedAt";
-  id: UUIDv7;
-  title: string;
+  __primitiveFields: "body" | "id" | "insertedAt" | "status" | "title" | "updatedAt";
   body: string | null;
-  status: "archived" | "read" | "unread";
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
+  status: "archived" | "read" | "unread";
+  title: string;
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -37,14 +37,14 @@ export type NotificationAttributesOnlySchema = {
 // Organization Schema
 export type OrganizationResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "domain" | "logoUrl" | "allowPublicSignatures" | "insertedAt" | "updatedAt";
-  id: UUIDv7;
-  name: string | null;
+  __primitiveFields: "allowPublicSignatures" | "description" | "domain" | "id" | "insertedAt" | "logoUrl" | "name" | "updatedAt";
+  allowPublicSignatures: boolean | null;
   description: string | null;
   domain: string | null;
-  logoUrl: string | null;
-  allowPublicSignatures: boolean | null;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
+  logoUrl: string | null;
+  name: string | null;
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -52,14 +52,14 @@ export type OrganizationResourceSchema = {
 
 export type OrganizationAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "domain" | "logoUrl" | "allowPublicSignatures" | "insertedAt" | "updatedAt";
-  id: UUIDv7;
-  name: string | null;
+  __primitiveFields: "allowPublicSignatures" | "description" | "domain" | "id" | "insertedAt" | "logoUrl" | "name" | "updatedAt";
+  allowPublicSignatures: boolean | null;
   description: string | null;
   domain: string | null;
-  logoUrl: string | null;
-  allowPublicSignatures: boolean | null;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
+  logoUrl: string | null;
+  name: string | null;
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -67,23 +67,55 @@ export type OrganizationAttributesOnlySchema = {
 // Preference Schema
 export type PreferenceResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "value" | "insertedAt" | "updatedAt";
+  __primitiveFields: "id" | "insertedAt" | "name" | "updatedAt" | "value";
   id: UUIDv7;
-  name: string | null;
-  value: string | null;
   insertedAt: UtcDateTimeUsec;
+  name: string | null;
   updatedAt: UtcDateTimeUsec;
+  value: string | null;
 };
 
 
 
 export type PreferenceAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "value" | "insertedAt" | "updatedAt";
+  __primitiveFields: "id" | "insertedAt" | "name" | "updatedAt" | "value";
   id: UUIDv7;
-  name: string | null;
-  value: string | null;
   insertedAt: UtcDateTimeUsec;
+  name: string | null;
+  updatedAt: UtcDateTimeUsec;
+  value: string | null;
+};
+
+
+// SupportRequest Schema
+export type SupportRequestResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "insertedAt" | "kind" | "message" | "requesterEmail" | "resolutionNote" | "resolvedAt" | "state" | "updatedAt";
+  id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  kind: "account_deletion" | "support";
+  message: string;
+  requesterEmail: string;
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  state: "open" | "resolved";
+  updatedAt: UtcDateTimeUsec;
+};
+
+
+
+export type SupportRequestAttributesOnlySchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "insertedAt" | "kind" | "message" | "requesterEmail" | "resolutionNote" | "resolvedAt" | "state" | "updatedAt";
+  id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  kind: "account_deletion" | "support";
+  message: string;
+  requesterEmail: string;
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  state: "open" | "resolved";
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -91,37 +123,42 @@ export type PreferenceAttributesOnlySchema = {
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt" | "numPetitions" | "numSigned" | "numPetitionSignees" | "totalPetitionSignatures";
-  id: UUID;
-  firstName: string | null;
-  lastName: string | null;
+  __primitiveFields: "email" | "emailVerified" | "firstName" | "graduationYear" | "id" | "insertedAt" | "lastName" | "numPetitionSignees" | "numPetitions" | "numSigned" | "organizationId" | "profileComplete" | "role" | "totalPetitionSignatures" | "updatedAt";
   email: string;
+  emailVerified: boolean | null;
+  firstName: string | null;
   graduationYear: number | null;
-  role: "admin" | "professor" | "student" | "superadmin";
+  id: UUID;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
+  lastName: string | null;
+  numPetitionSignees: number;
   numPetitions: number;
   numSigned: number;
-  numPetitionSignees: number;
+  organizationId: UUID | null;
+  profileComplete: boolean | null;
+  role: "admin" | "professor" | "student" | "superadmin";
   totalPetitionSignatures: number | null;
-  petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; };
-  signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
-  classroomMemberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; };
-  ownedClassrooms: { __type: "Relationship"; __array: true; __resource: ClassroomResourceSchema; };
+  updatedAt: UtcDateTimeUsec;
+  classroomMemberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; __pagination: "mixed"; __filterInput: ClassroomMembershipFilterInput; __sortField: ClassroomMembershipSortField; };
+  organization: { __type: "Relationship"; __resource: OrganizationResourceSchema | null; };
+  ownedClassrooms: { __type: "Relationship"; __array: true; __resource: ClassroomResourceSchema; __pagination: "mixed"; __filterInput: ClassroomFilterInput; __sortField: ClassroomSortField; };
+  petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; __pagination: "mixed"; __sortField: PetitionSortField; };
+  signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; __pagination: "mixed"; __sortField: SignatureSortField; };
 };
 
 
 
 export type UserAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "firstName" | "lastName" | "email" | "graduationYear" | "role" | "insertedAt" | "updatedAt";
-  id: UUID;
-  firstName: string | null;
-  lastName: string | null;
+  __primitiveFields: "email" | "firstName" | "graduationYear" | "id" | "insertedAt" | "lastName" | "organizationId" | "role" | "updatedAt";
   email: string;
+  firstName: string | null;
   graduationYear: number | null;
-  role: "admin" | "professor" | "student" | "superadmin";
+  id: UUID;
   insertedAt: UtcDateTimeUsec;
+  lastName: string | null;
+  organizationId: UUID | null;
+  role: "admin" | "professor" | "student" | "superadmin";
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -129,12 +166,12 @@ export type UserAttributesOnlySchema = {
 // Category Schema
 export type CategoryResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "color" | "insertedAt" | "updatedAt";
-  id: UUIDv7;
-  name: string | null;
-  description: string | null;
+  __primitiveFields: "color" | "description" | "id" | "insertedAt" | "name" | "updatedAt";
   color: string | null;
+  description: string | null;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
+  name: string | null;
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -142,12 +179,12 @@ export type CategoryResourceSchema = {
 
 export type CategoryAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "color" | "insertedAt" | "updatedAt";
-  id: UUIDv7;
-  name: string | null;
-  description: string | null;
+  __primitiveFields: "color" | "description" | "id" | "insertedAt" | "name" | "updatedAt";
   color: string | null;
+  description: string | null;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
+  name: string | null;
   updatedAt: UtcDateTimeUsec;
 };
 
@@ -155,203 +192,238 @@ export type CategoryAttributesOnlySchema = {
 // Classroom Schema
 export type ClassroomResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "joinCode" | "archived" | "allowStudentPetitions" | "insertedAt" | "updatedAt" | "professorId" | "organizationId" | "memberCount" | "petitionCount";
-  id: UUIDv7;
-  name: string;
-  description: string | null;
-  joinCode: UUID;
-  archived: boolean;
+  __primitiveFields: "allowStudentPetitions" | "archived" | "description" | "id" | "insertedAt" | "joinCode" | "memberCount" | "name" | "organizationId" | "petitionCount" | "professorId" | "updatedAt";
   allowStudentPetitions: boolean;
+  archived: boolean;
+  description: string | null;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
-  professorId: UUID;
-  organizationId: UUID | null;
+  joinCode: UUID;
   memberCount: number | null;
+  name: string;
+  organizationId: UUID | null;
   petitionCount: number | null;
-  professor: { __type: "Relationship"; __resource: UserResourceSchema; };
+  professorId: UUID;
+  updatedAt: UtcDateTimeUsec;
+  memberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; __pagination: "mixed"; __filterInput: ClassroomMembershipFilterInput; __sortField: ClassroomMembershipSortField; };
   organization: { __type: "Relationship"; __resource: OrganizationResourceSchema | null; };
-  memberships: { __type: "Relationship"; __array: true; __resource: ClassroomMembershipResourceSchema; };
-  petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; };
+  petitions: { __type: "Relationship"; __array: true; __resource: PetitionResourceSchema; __pagination: "mixed"; __filterInput: PetitionFilterInput; __sortField: PetitionSortField; };
+  professor: { __type: "Relationship"; __resource: UserResourceSchema; };
 };
 
 
 
 export type ClassroomAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "name" | "description" | "joinCode" | "archived" | "allowStudentPetitions" | "insertedAt" | "updatedAt" | "professorId" | "organizationId";
-  id: UUIDv7;
-  name: string;
-  description: string | null;
-  joinCode: UUID;
-  archived: boolean;
+  __primitiveFields: "allowStudentPetitions" | "archived" | "description" | "id" | "insertedAt" | "joinCode" | "name" | "organizationId" | "professorId" | "updatedAt";
   allowStudentPetitions: boolean;
+  archived: boolean;
+  description: string | null;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
-  professorId: UUID;
+  joinCode: UUID;
+  name: string;
   organizationId: UUID | null;
+  professorId: UUID;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
 // ClassroomMembership Schema
 export type ClassroomMembershipResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "role" | "status" | "joinedAt" | "insertedAt" | "updatedAt" | "classroomId" | "userId" | "invitedById";
+  __primitiveFields: "classroomId" | "id" | "insertedAt" | "invitedById" | "joinedAt" | "memberName" | "role" | "status" | "updatedAt" | "userId";
+  classroomId: UUID;
   id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  invitedById: UUID | null;
+  joinedAt: UtcDateTimeUsec | null;
+  memberName: string | null;
   role: "student" | "ta";
   status: "active" | "pending" | "removed";
-  joinedAt: UtcDateTimeUsec | null;
-  insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
-  classroomId: UUID;
   userId: UUID;
-  invitedById: UUID | null;
   classroom: { __type: "Relationship"; __resource: ClassroomResourceSchema; };
-  user: { __type: "Relationship"; __resource: UserResourceSchema; };
   invitedBy: { __type: "Relationship"; __resource: UserResourceSchema | null; };
+  user: { __type: "Relationship"; __resource: UserResourceSchema; };
 };
 
 
 
 export type ClassroomMembershipAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "role" | "status" | "joinedAt" | "insertedAt" | "updatedAt" | "classroomId" | "userId" | "invitedById";
+  __primitiveFields: "classroomId" | "id" | "insertedAt" | "invitedById" | "joinedAt" | "role" | "status" | "updatedAt" | "userId";
+  classroomId: UUID;
   id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  invitedById: UUID | null;
+  joinedAt: UtcDateTimeUsec | null;
   role: "student" | "ta";
   status: "active" | "pending" | "removed";
-  joinedAt: UtcDateTimeUsec | null;
-  insertedAt: UtcDateTimeUsec;
   updatedAt: UtcDateTimeUsec;
-  classroomId: UUID;
   userId: UUID;
-  invitedById: UUID | null;
 };
 
 
 // Comment Schema
 export type CommentResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId" | "petitionId";
+  __primitiveFields: "author" | "id" | "insertedAt" | "petitionId" | "sentiment" | "text" | "updatedAt" | "userId";
+  author: string | null;
   id: UUIDv7;
-  text: string | null;
-  sentiment: string | null;
   insertedAt: UtcDateTimeUsec;
+  petitionId: UUID | null;
+  sentiment: string | null;
+  text: string | null;
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
-  petitionId: UUID | null;
-  user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
   petition: { __type: "Relationship"; __resource: PetitionResourceSchema | null; };
+  user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
 };
 
 
 
 export type CommentAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "text" | "sentiment" | "insertedAt" | "updatedAt" | "userId" | "petitionId";
+  __primitiveFields: "id" | "insertedAt" | "petitionId" | "sentiment" | "text" | "updatedAt" | "userId";
   id: UUIDv7;
-  text: string | null;
-  sentiment: string | null;
   insertedAt: UtcDateTimeUsec;
+  petitionId: UUID | null;
+  sentiment: string | null;
+  text: string | null;
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
-  petitionId: UUID | null;
+};
+
+
+// ContentReport Schema
+export type ContentReportResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "commentId" | "details" | "id" | "insertedAt" | "petitionId" | "reason" | "resolutionNote" | "resolvedAt" | "state" | "targetText" | "targetTitle" | "updatedAt";
+  commentId: UUID | null;
+  details: string | null;
+  id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  petitionId: UUID;
+  reason: "harassment" | "other" | "privacy" | "spam";
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  state: "dismissed" | "open" | "resolved";
+  targetText: string;
+  targetTitle: string;
+  updatedAt: UtcDateTimeUsec;
+};
+
+
+
+export type ContentReportAttributesOnlySchema = {
+  __type: "Resource";
+  __primitiveFields: "commentId" | "details" | "id" | "insertedAt" | "petitionId" | "reason" | "resolutionNote" | "resolvedAt" | "state" | "targetText" | "targetTitle" | "updatedAt";
+  commentId: UUID | null;
+  details: string | null;
+  id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  petitionId: UUID;
+  reason: "harassment" | "other" | "privacy" | "spam";
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  state: "dismissed" | "open" | "resolved";
+  targetText: string;
+  targetTitle: string;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
 // Petition Schema
 export type PetitionResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "classroomId" | "signaturesCount" | "isClassroomPetition" | "daysLeft" | "author" | "trending";
-  id: UUIDv7;
-  title: string | null;
-  description: string | null;
-  status: "closed" | "open" | "victory" | null;
-  goal: number | null;
+  __primitiveFields: "allowComments" | "author" | "canManage" | "categoryId" | "classroomId" | "daysLeft" | "deadline" | "description" | "goal" | "hasSigned" | "id" | "insertedAt" | "isAnonymous" | "isClassroomPetition" | "organizationId" | "signaturesCount" | "status" | "title" | "trending" | "updatedAt";
   allowComments: boolean | null;
-  isAnonymous: boolean | null;
-  deadline: UtcDateTime | null;
-  insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
-  userId: UUID | null;
+  author: string | null;
+  canManage: boolean | null;
   categoryId: UUID | null;
   classroomId: UUID | null;
-  signaturesCount: number | null;
-  isClassroomPetition: boolean | null;
   daysLeft: number | null;
-  author: string | null;
+  deadline: UtcDateTime | null;
+  description: string | null;
+  goal: number | null;
+  hasSigned: boolean | null;
+  id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  isAnonymous: boolean | null;
+  isClassroomPetition: boolean | null;
+  organizationId: UUID | null;
+  signaturesCount: number | null;
+  status: "closed" | "open" | "victory" | null;
+  title: string | null;
   trending: boolean | null;
-  user: { __type: "Relationship"; __resource: UserResourceSchema | null; };
+  updatedAt: UtcDateTimeUsec;
   category: { __type: "Relationship"; __resource: CategoryResourceSchema | null; };
   classroom: { __type: "Relationship"; __resource: ClassroomResourceSchema | null; };
-  updates: { __type: "Relationship"; __array: true; __resource: UpdateResourceSchema; };
-  comments: { __type: "Relationship"; __array: true; __resource: CommentResourceSchema; };
-  signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; };
+  comments: { __type: "Relationship"; __array: true; __resource: CommentResourceSchema; __pagination: "mixed"; __filterInput: CommentFilterInput; __sortField: CommentSortField; };
+  organization: { __type: "Relationship"; __resource: OrganizationResourceSchema | null; };
+  signatures: { __type: "Relationship"; __array: true; __resource: SignatureResourceSchema; __pagination: "mixed"; __filterInput: SignatureFilterInput; __sortField: SignatureSortField; };
+  updates: { __type: "Relationship"; __array: true; __resource: UpdateResourceSchema; __pagination: "mixed"; __filterInput: UpdateFilterInput; __sortField: UpdateSortField; };
 };
 
 
 
 export type PetitionAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "description" | "status" | "goal" | "allowComments" | "isAnonymous" | "deadline" | "insertedAt" | "updatedAt" | "userId" | "categoryId" | "classroomId";
-  id: UUIDv7;
-  title: string | null;
-  description: string | null;
-  status: "closed" | "open" | "victory" | null;
-  goal: number | null;
+  __primitiveFields: "allowComments" | "categoryId" | "classroomId" | "deadline" | "description" | "goal" | "id" | "insertedAt" | "isAnonymous" | "organizationId" | "status" | "title" | "updatedAt";
   allowComments: boolean | null;
-  isAnonymous: boolean | null;
-  deadline: UtcDateTime | null;
-  insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
-  userId: UUID | null;
   categoryId: UUID | null;
   classroomId: UUID | null;
+  deadline: UtcDateTime | null;
+  description: string | null;
+  goal: number | null;
+  id: UUIDv7;
+  insertedAt: UtcDateTimeUsec;
+  isAnonymous: boolean | null;
+  organizationId: UUID | null;
+  status: "closed" | "open" | "victory" | null;
+  title: string | null;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
 // Signature Schema
 export type SignatureResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId" | "userId";
+  __primitiveFields: "id" | "insertedAt" | "isVerified" | "petitionId" | "reason" | "updatedAt";
   id: UUIDv7;
-  reason: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  isVerified: boolean | null;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
+  isVerified: boolean | null;
   petitionId: UUID;
-  userId: UUID;
+  reason: string | null;
+  updatedAt: UtcDateTimeUsec;
   petition: { __type: "Relationship"; __resource: PetitionResourceSchema; };
-  user: { __type: "Relationship"; __resource: UserResourceSchema; };
 };
 
 
 
 export type SignatureAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "reason" | "ipAddress" | "userAgent" | "isVerified" | "insertedAt" | "updatedAt" | "petitionId" | "userId";
+  __primitiveFields: "id" | "insertedAt" | "isVerified" | "petitionId" | "reason" | "updatedAt";
   id: UUIDv7;
-  reason: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  isVerified: boolean | null;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
+  isVerified: boolean | null;
   petitionId: UUID;
-  userId: UUID;
+  reason: string | null;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
 // Update Schema
 export type UpdateResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body" | "insertedAt" | "updatedAt" | "petitionId";
-  id: UUIDv7;
-  title: string;
+  __primitiveFields: "body" | "id" | "insertedAt" | "petitionId" | "title" | "updatedAt";
   body: string;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
   petitionId: UUID | null;
+  title: string;
+  updatedAt: UtcDateTimeUsec;
   petition: { __type: "Relationship"; __resource: PetitionResourceSchema | null; };
 };
 
@@ -359,13 +431,13 @@ export type UpdateResourceSchema = {
 
 export type UpdateAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "id" | "title" | "body" | "insertedAt" | "updatedAt" | "petitionId";
-  id: UUIDv7;
-  title: string;
+  __primitiveFields: "body" | "id" | "insertedAt" | "petitionId" | "title" | "updatedAt";
   body: string;
+  id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
-  updatedAt: UtcDateTimeUsec;
   petitionId: UUID | null;
+  title: string;
+  updatedAt: UtcDateTimeUsec;
 };
 
 
@@ -374,51 +446,72 @@ export type NotificationFilterInput = {
   or?: Array<NotificationFilterInput>;
   not?: Array<NotificationFilterInput>;
 
+  body?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
-  title?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-  };
-
-  body?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
   status?: {
     eq?: "archived" | "read" | "unread";
     notEq?: "archived" | "read" | "unread";
     in?: Array<"archived" | "read" | "unread">;
+    lessThan?: "archived" | "read" | "unread";
+    greaterThan?: "archived" | "read" | "unread";
+    lessThanOrEqual?: "archived" | "read" | "unread";
+    greaterThanOrEqual?: "archived" | "read" | "unread";
   };
 
-  insertedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+  title?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
 
 
 };
@@ -427,66 +520,98 @@ export type OrganizationFilterInput = {
   or?: Array<OrganizationFilterInput>;
   not?: Array<OrganizationFilterInput>;
 
+  allowPublicSignatures?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  description?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  domain?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
-  };
-
-  name?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  description?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  domain?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  logoUrl?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  allowPublicSignatures?: {
-    eq?: boolean;
-    notEq?: boolean;
-    isNil?: boolean;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  logoUrl?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  name?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
 
 
 };
@@ -499,42 +624,167 @@ export type PreferenceFilterInput = {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
-  };
-
-  name?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  value?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  name?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
+  value?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+
+};
+export type SupportRequestFilterInput = {
+  and?: Array<SupportRequestFilterInput>;
+  or?: Array<SupportRequestFilterInput>;
+  not?: Array<SupportRequestFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  kind?: {
+    eq?: "account_deletion" | "support";
+    notEq?: "account_deletion" | "support";
+    in?: Array<"account_deletion" | "support">;
+    lessThan?: "account_deletion" | "support";
+    greaterThan?: "account_deletion" | "support";
+    lessThanOrEqual?: "account_deletion" | "support";
+    greaterThanOrEqual?: "account_deletion" | "support";
+  };
+
+  message?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  requesterEmail?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  resolutionNote?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  resolvedAt?: {
+    isNil?: boolean;
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  state?: {
+    eq?: "open" | "resolved";
+    notEq?: "open" | "resolved";
+    in?: Array<"open" | "resolved">;
+    lessThan?: "open" | "resolved";
+    greaterThan?: "open" | "resolved";
+    lessThanOrEqual?: "open" | "resolved";
+    greaterThanOrEqual?: "open" | "resolved";
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
 
 
 };
@@ -543,118 +793,126 @@ export type UserFilterInput = {
   or?: Array<UserFilterInput>;
   not?: Array<UserFilterInput>;
 
-  id?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-  };
-
-  firstName?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  lastName?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
   email?: {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  emailVerified?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  firstName?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   graduationYear?: {
+    isNil?: boolean;
     eq?: number;
     notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
     in?: Array<number>;
+    lessThan?: number;
+    greaterThan?: number;
+    lessThanOrEqual?: number;
+    greaterThanOrEqual?: number;
+  };
+
+  id?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  lastName?: {
     isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  organizationId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  profileComplete?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
   };
 
   role?: {
     eq?: "admin" | "professor" | "student" | "superadmin";
     notEq?: "admin" | "professor" | "student" | "superadmin";
     in?: Array<"admin" | "professor" | "student" | "superadmin">;
-  };
-
-  insertedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+    lessThan?: "admin" | "professor" | "student" | "superadmin";
+    greaterThan?: "admin" | "professor" | "student" | "superadmin";
+    lessThanOrEqual?: "admin" | "professor" | "student" | "superadmin";
+    greaterThanOrEqual?: "admin" | "professor" | "student" | "superadmin";
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
-  totalPetitionSignatures?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  numPetitions?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  numSigned?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  numPetitionSignees?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  petitions?: PetitionFilterInput;
-
-  signatures?: SignatureFilterInput;
 
   classroomMemberships?: ClassroomMembershipFilterInput;
+
+  organization?: OrganizationFilterInput;
 
   ownedClassrooms?: ClassroomFilterInput;
 
@@ -664,53 +922,77 @@ export type CategoryFilterInput = {
   or?: Array<CategoryFilterInput>;
   not?: Array<CategoryFilterInput>;
 
+  color?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  description?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
-  };
-
-  name?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  description?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  color?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  name?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
 
 
 };
@@ -719,104 +1001,135 @@ export type ClassroomFilterInput = {
   or?: Array<ClassroomFilterInput>;
   not?: Array<ClassroomFilterInput>;
 
+  allowStudentPetitions?: {
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  archived?: {
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  description?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
-  name?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-  };
-
-  description?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
   joinCode?: {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
 
-  archived?: {
-    eq?: boolean;
-    notEq?: boolean;
+  memberCount?: {
+    isNil?: boolean;
+    eq?: number;
+    notEq?: number;
+    in?: Array<number>;
+    lessThan?: number;
+    greaterThan?: number;
+    lessThanOrEqual?: number;
+    greaterThanOrEqual?: number;
   };
 
-  allowStudentPetitions?: {
-    eq?: boolean;
-    notEq?: boolean;
+  name?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
-  insertedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+  organizationId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
 
-  updatedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+  petitionCount?: {
+    isNil?: boolean;
+    eq?: number;
+    notEq?: number;
+    in?: Array<number>;
+    lessThan?: number;
+    greaterThan?: number;
+    lessThanOrEqual?: number;
+    greaterThanOrEqual?: number;
   };
 
   professorId?: {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
 
-  organizationId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-    isNil?: boolean;
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
-  memberCount?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  petitionCount?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-
-  professor?: UserFilterInput;
-
-  organization?: OrganizationFilterInput;
 
   memberships?: ClassroomMembershipFilterInput;
 
+  organization?: OrganizationFilterInput;
+
   petitions?: PetitionFilterInput;
+
+  professor?: UserFilterInput;
 
 };
 export type ClassroomMembershipFilterInput = {
@@ -824,80 +1137,103 @@ export type ClassroomMembershipFilterInput = {
   or?: Array<ClassroomMembershipFilterInput>;
   not?: Array<ClassroomMembershipFilterInput>;
 
+  classroomId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  invitedById?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  joinedAt?: {
+    isNil?: boolean;
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
   role?: {
     eq?: "student" | "ta";
     notEq?: "student" | "ta";
     in?: Array<"student" | "ta">;
+    lessThan?: "student" | "ta";
+    greaterThan?: "student" | "ta";
+    lessThanOrEqual?: "student" | "ta";
+    greaterThanOrEqual?: "student" | "ta";
   };
 
   status?: {
     eq?: "active" | "pending" | "removed";
     notEq?: "active" | "pending" | "removed";
     in?: Array<"active" | "pending" | "removed">;
-  };
-
-  joinedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
-    isNil?: boolean;
-  };
-
-  insertedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+    lessThan?: "active" | "pending" | "removed";
+    greaterThan?: "active" | "pending" | "removed";
+    lessThanOrEqual?: "active" | "pending" | "removed";
+    greaterThanOrEqual?: "active" | "pending" | "removed";
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
-  };
-
-  classroomId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
   userId?: {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
-
-  invitedById?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-    isNil?: boolean;
-  };
-
 
   classroom?: ClassroomFilterInput;
 
-  user?: UserFilterInput;
-
   invitedBy?: UserFilterInput;
+
+  user?: UserFilterInput;
 
 };
 export type CommentFilterInput = {
@@ -909,60 +1245,228 @@ export type CommentFilterInput = {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
-  };
-
-  text?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  sentiment?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  petitionId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  sentiment?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  text?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
   userId?: {
+    isNil?: boolean;
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  petition?: PetitionFilterInput;
+
+  user?: UserFilterInput;
+
+};
+export type ContentReportFilterInput = {
+  and?: Array<ContentReportFilterInput>;
+  or?: Array<ContentReportFilterInput>;
+  not?: Array<ContentReportFilterInput>;
+
+  commentId?: {
     isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  details?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
   petitionId?: {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
-    isNil?: boolean;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
 
+  reason?: {
+    eq?: "harassment" | "other" | "privacy" | "spam";
+    notEq?: "harassment" | "other" | "privacy" | "spam";
+    in?: Array<"harassment" | "other" | "privacy" | "spam">;
+    lessThan?: "harassment" | "other" | "privacy" | "spam";
+    greaterThan?: "harassment" | "other" | "privacy" | "spam";
+    lessThanOrEqual?: "harassment" | "other" | "privacy" | "spam";
+    greaterThanOrEqual?: "harassment" | "other" | "privacy" | "spam";
+  };
 
-  user?: UserFilterInput;
+  resolutionNote?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
 
-  petition?: PetitionFilterInput;
+  resolvedAt?: {
+    isNil?: boolean;
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  state?: {
+    eq?: "dismissed" | "open" | "resolved";
+    notEq?: "dismissed" | "open" | "resolved";
+    in?: Array<"dismissed" | "open" | "resolved">;
+    lessThan?: "dismissed" | "open" | "resolved";
+    greaterThan?: "dismissed" | "open" | "resolved";
+    lessThanOrEqual?: "dismissed" | "open" | "resolved";
+    greaterThanOrEqual?: "dismissed" | "open" | "resolved";
+  };
+
+  targetText?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  targetTitle?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
 
 };
 export type PetitionFilterInput = {
@@ -970,161 +1474,205 @@ export type PetitionFilterInput = {
   or?: Array<PetitionFilterInput>;
   not?: Array<PetitionFilterInput>;
 
+  allowComments?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  canManage?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  categoryId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  classroomId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  daysLeft?: {
+    isNil?: boolean;
+    eq?: number;
+    notEq?: number;
+    in?: Array<number>;
+    lessThan?: number;
+    greaterThan?: number;
+    lessThanOrEqual?: number;
+    greaterThanOrEqual?: number;
+  };
+
+  deadline?: {
+    isNil?: boolean;
+    eq?: UtcDateTime;
+    notEq?: UtcDateTime;
+    in?: Array<UtcDateTime>;
+    lessThan?: UtcDateTime;
+    greaterThan?: UtcDateTime;
+    lessThanOrEqual?: UtcDateTime;
+    greaterThanOrEqual?: UtcDateTime;
+  };
+
+  description?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  goal?: {
+    isNil?: boolean;
+    eq?: number;
+    notEq?: number;
+    in?: Array<number>;
+    lessThan?: number;
+    greaterThan?: number;
+    lessThanOrEqual?: number;
+    greaterThanOrEqual?: number;
+  };
+
+  hasSigned?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
-  };
-
-  title?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  description?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  status?: {
-    eq?: "closed" | "open" | "victory";
-    notEq?: "closed" | "open" | "victory";
-    in?: Array<"closed" | "open" | "victory">;
-    isNil?: boolean;
-  };
-
-  goal?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  allowComments?: {
-    eq?: boolean;
-    notEq?: boolean;
-    isNil?: boolean;
-  };
-
-  isAnonymous?: {
-    eq?: boolean;
-    notEq?: boolean;
-    isNil?: boolean;
-  };
-
-  deadline?: {
-    eq?: UtcDateTime;
-    notEq?: UtcDateTime;
-    greaterThan?: UtcDateTime;
-    greaterThanOrEqual?: UtcDateTime;
-    lessThan?: UtcDateTime;
-    lessThanOrEqual?: UtcDateTime;
-    in?: Array<UtcDateTime>;
-    isNil?: boolean;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  isAnonymous?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  isClassroomPetition?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  organizationId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
+  };
+
+  signaturesCount?: {
+    isNil?: boolean;
+    eq?: number;
+    notEq?: number;
+    in?: Array<number>;
+    lessThan?: number;
+    greaterThan?: number;
+    lessThanOrEqual?: number;
+    greaterThanOrEqual?: number;
+  };
+
+  status?: {
+    isNil?: boolean;
+    eq?: "closed" | "open" | "victory";
+    notEq?: "closed" | "open" | "victory";
+    in?: Array<"closed" | "open" | "victory">;
+    lessThan?: "closed" | "open" | "victory";
+    greaterThan?: "closed" | "open" | "victory";
+    lessThanOrEqual?: "closed" | "open" | "victory";
+    greaterThanOrEqual?: "closed" | "open" | "victory";
+  };
+
+  title?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
+  trending?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
-  userId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-    isNil?: boolean;
-  };
-
-  categoryId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-    isNil?: boolean;
-  };
-
-  classroomId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-    isNil?: boolean;
-  };
-
-  signaturesCount?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  isClassroomPetition?: {
-    eq?: boolean;
-    notEq?: boolean;
-    isNil?: boolean;
-  };
-
-  daysLeft?: {
-    eq?: number;
-    notEq?: number;
-    greaterThan?: number;
-    greaterThanOrEqual?: number;
-    lessThan?: number;
-    lessThanOrEqual?: number;
-    in?: Array<number>;
-    isNil?: boolean;
-  };
-
-  author?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  trending?: {
-    eq?: boolean;
-    notEq?: boolean;
-    isNil?: boolean;
-  };
-
-
-  user?: UserFilterInput;
 
   category?: CategoryFilterInput;
 
   classroom?: ClassroomFilterInput;
 
-  updates?: UpdateFilterInput;
-
   comments?: CommentFilterInput;
 
+  organization?: OrganizationFilterInput;
+
   signatures?: SignatureFilterInput;
+
+  updates?: UpdateFilterInput;
 
 };
 export type SignatureFilterInput = {
@@ -1136,71 +1684,64 @@ export type SignatureFilterInput = {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
-  };
-
-  reason?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  ipAddress?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  userAgent?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-    isNil?: boolean;
-  };
-
-  isVerified?: {
-    eq?: boolean;
-    notEq?: boolean;
-    isNil?: boolean;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
   };
 
   insertedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
 
-  updatedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+  isVerified?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
   };
 
   petitionId?: {
     eq?: UUID;
     notEq?: UUID;
     in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
 
-  userId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
+  reason?: {
+    isNil?: boolean;
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
 
   petition?: PetitionFilterInput;
-
-  user?: UserFilterInput;
 
 };
 export type UpdateFilterInput = {
@@ -1208,122 +1749,155 @@ export type UpdateFilterInput = {
   or?: Array<UpdateFilterInput>;
   not?: Array<UpdateFilterInput>;
 
+  body?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
+  };
+
   id?: {
     eq?: UUIDv7;
     notEq?: UUIDv7;
     in?: Array<UUIDv7>;
+    lessThan?: UUIDv7;
+    greaterThan?: UUIDv7;
+    lessThanOrEqual?: UUIDv7;
+    greaterThanOrEqual?: UUIDv7;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  petitionId?: {
+    isNil?: boolean;
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    lessThan?: UUID;
+    greaterThan?: UUID;
+    lessThanOrEqual?: UUID;
+    greaterThanOrEqual?: UUID;
   };
 
   title?: {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
-  };
-
-  body?: {
-    eq?: string;
-    notEq?: string;
-    in?: Array<string>;
-  };
-
-  insertedAt?: {
-    eq?: UtcDateTimeUsec;
-    notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
-    in?: Array<UtcDateTimeUsec>;
+    lessThan?: string;
+    greaterThan?: string;
+    lessThanOrEqual?: string;
+    greaterThanOrEqual?: string;
+    contains?: string;
+    stringEndsWith?: string;
+    stringStartsWith?: string;
   };
 
   updatedAt?: {
     eq?: UtcDateTimeUsec;
     notEq?: UtcDateTimeUsec;
-    greaterThan?: UtcDateTimeUsec;
-    greaterThanOrEqual?: UtcDateTimeUsec;
-    lessThan?: UtcDateTimeUsec;
-    lessThanOrEqual?: UtcDateTimeUsec;
     in?: Array<UtcDateTimeUsec>;
+    lessThan?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
   };
-
-  petitionId?: {
-    eq?: UUID;
-    notEq?: UUID;
-    in?: Array<UUID>;
-    isNil?: boolean;
-  };
-
 
   petition?: PetitionFilterInput;
 
 };
 
 
-export const notificationFilterFields = ["id", "title", "body", "status", "insertedAt", "updatedAt"] as const;
+export const notificationFilterFields = ["body", "id", "insertedAt", "status", "title", "updatedAt"] as const;
 export type NotificationFilterField = (typeof notificationFilterFields)[number];
 
-export const organizationFilterFields = ["id", "name", "description", "domain", "logoUrl", "allowPublicSignatures", "insertedAt", "updatedAt"] as const;
+export const organizationFilterFields = ["allowPublicSignatures", "description", "domain", "id", "insertedAt", "logoUrl", "name", "updatedAt"] as const;
 export type OrganizationFilterField = (typeof organizationFilterFields)[number];
 
-export const preferenceFilterFields = ["id", "name", "value", "insertedAt", "updatedAt"] as const;
+export const preferenceFilterFields = ["id", "insertedAt", "name", "updatedAt", "value"] as const;
 export type PreferenceFilterField = (typeof preferenceFilterFields)[number];
 
-export const userFilterFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees", "petitions", "signatures", "classroomMemberships", "ownedClassrooms"] as const;
+export const supportRequestFilterFields = ["id", "insertedAt", "kind", "message", "requesterEmail", "resolutionNote", "resolvedAt", "state", "updatedAt"] as const;
+export type SupportRequestFilterField = (typeof supportRequestFilterFields)[number];
+
+export const userFilterFields = ["email", "emailVerified", "firstName", "graduationYear", "id", "insertedAt", "lastName", "organizationId", "profileComplete", "role", "updatedAt", "classroomMemberships", "organization", "ownedClassrooms"] as const;
 export type UserFilterField = (typeof userFilterFields)[number];
 
-export const categoryFilterFields = ["id", "name", "description", "color", "insertedAt", "updatedAt"] as const;
+export const categoryFilterFields = ["color", "description", "id", "insertedAt", "name", "updatedAt"] as const;
 export type CategoryFilterField = (typeof categoryFilterFields)[number];
 
-export const classroomFilterFields = ["id", "name", "description", "joinCode", "archived", "allowStudentPetitions", "insertedAt", "updatedAt", "professorId", "organizationId", "memberCount", "petitionCount", "professor", "organization", "memberships", "petitions"] as const;
+export const classroomFilterFields = ["allowStudentPetitions", "archived", "description", "id", "insertedAt", "joinCode", "memberCount", "name", "organizationId", "petitionCount", "professorId", "updatedAt", "memberships", "organization", "petitions", "professor"] as const;
 export type ClassroomFilterField = (typeof classroomFilterFields)[number];
 
-export const classroomMembershipFilterFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById", "classroom", "user", "invitedBy"] as const;
+export const classroomMembershipFilterFields = ["classroomId", "id", "insertedAt", "invitedById", "joinedAt", "role", "status", "updatedAt", "userId", "classroom", "invitedBy", "user"] as const;
 export type ClassroomMembershipFilterField = (typeof classroomMembershipFilterFields)[number];
 
-export const commentFilterFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "user", "petition"] as const;
+export const commentFilterFields = ["id", "insertedAt", "petitionId", "sentiment", "text", "updatedAt", "userId", "petition", "user"] as const;
 export type CommentFilterField = (typeof commentFilterFields)[number];
 
-export const petitionFilterFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "userId", "categoryId", "classroomId", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending", "user", "category", "classroom", "updates", "comments", "signatures"] as const;
+export const contentReportFilterFields = ["commentId", "details", "id", "insertedAt", "petitionId", "reason", "resolutionNote", "resolvedAt", "state", "targetText", "targetTitle", "updatedAt"] as const;
+export type ContentReportFilterField = (typeof contentReportFilterFields)[number];
+
+export const petitionFilterFields = ["allowComments", "canManage", "categoryId", "classroomId", "daysLeft", "deadline", "description", "goal", "hasSigned", "id", "insertedAt", "isAnonymous", "isClassroomPetition", "organizationId", "signaturesCount", "status", "title", "trending", "updatedAt", "category", "classroom", "comments", "organization", "signatures", "updates"] as const;
 export type PetitionFilterField = (typeof petitionFilterFields)[number];
 
-export const signatureFilterFields = ["id", "reason", "ipAddress", "userAgent", "isVerified", "insertedAt", "updatedAt", "petitionId", "userId", "petition", "user"] as const;
+export const signatureFilterFields = ["id", "insertedAt", "isVerified", "petitionId", "reason", "updatedAt", "petition"] as const;
 export type SignatureFilterField = (typeof signatureFilterFields)[number];
 
-export const updateFilterFields = ["id", "title", "body", "insertedAt", "updatedAt", "petitionId", "petition"] as const;
+export const updateFilterFields = ["body", "id", "insertedAt", "petitionId", "title", "updatedAt", "petition"] as const;
 export type UpdateFilterField = (typeof updateFilterFields)[number];
 
 
-export const notificationSortFields = ["id", "title", "body", "status", "insertedAt", "updatedAt"] as const;
+export const notificationSortFields = ["body", "id", "insertedAt", "status", "title", "updatedAt"] as const;
 export type NotificationSortField = (typeof notificationSortFields)[number];
 
-export const organizationSortFields = ["id", "name", "description", "domain", "logoUrl", "allowPublicSignatures", "insertedAt", "updatedAt"] as const;
+export const organizationSortFields = ["allowPublicSignatures", "description", "domain", "id", "insertedAt", "logoUrl", "name", "updatedAt"] as const;
 export type OrganizationSortField = (typeof organizationSortFields)[number];
 
-export const preferenceSortFields = ["id", "name", "value", "insertedAt", "updatedAt"] as const;
+export const preferenceSortFields = ["id", "insertedAt", "name", "updatedAt", "value"] as const;
 export type PreferenceSortField = (typeof preferenceSortFields)[number];
 
-export const userSortFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees"] as const;
+export const supportRequestSortFields = ["id", "insertedAt", "kind", "message", "requesterEmail", "resolutionNote", "resolvedAt", "state", "updatedAt"] as const;
+export type SupportRequestSortField = (typeof supportRequestSortFields)[number];
+
+export const userSortFields = ["email", "emailVerified", "firstName", "graduationYear", "id", "insertedAt", "lastName", "organizationId", "profileComplete", "role", "updatedAt"] as const;
 export type UserSortField = (typeof userSortFields)[number];
 
-export const categorySortFields = ["id", "name", "description", "color", "insertedAt", "updatedAt"] as const;
+export const categorySortFields = ["color", "description", "id", "insertedAt", "name", "updatedAt"] as const;
 export type CategorySortField = (typeof categorySortFields)[number];
 
-export const classroomSortFields = ["id", "name", "description", "joinCode", "archived", "allowStudentPetitions", "insertedAt", "updatedAt", "professorId", "organizationId", "memberCount", "petitionCount"] as const;
+export const classroomSortFields = ["allowStudentPetitions", "archived", "description", "id", "insertedAt", "joinCode", "memberCount", "name", "organizationId", "petitionCount", "professorId", "updatedAt"] as const;
 export type ClassroomSortField = (typeof classroomSortFields)[number];
 
-export const classroomMembershipSortFields = ["id", "role", "status", "joinedAt", "insertedAt", "updatedAt", "classroomId", "userId", "invitedById"] as const;
+export const classroomMembershipSortFields = ["classroomId", "id", "insertedAt", "invitedById", "joinedAt", "role", "status", "updatedAt", "userId"] as const;
 export type ClassroomMembershipSortField = (typeof classroomMembershipSortFields)[number];
 
-export const commentSortFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId"] as const;
+export const commentSortFields = ["id", "insertedAt", "petitionId", "sentiment", "text", "updatedAt", "userId"] as const;
 export type CommentSortField = (typeof commentSortFields)[number];
 
-export const petitionSortFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "userId", "categoryId", "classroomId", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending"] as const;
+export const contentReportSortFields = ["commentId", "details", "id", "insertedAt", "petitionId", "reason", "resolutionNote", "resolvedAt", "state", "targetText", "targetTitle", "updatedAt"] as const;
+export type ContentReportSortField = (typeof contentReportSortFields)[number];
+
+export const petitionSortFields = ["allowComments", "canManage", "categoryId", "classroomId", "daysLeft", "deadline", "description", "goal", "hasSigned", "id", "insertedAt", "isAnonymous", "isClassroomPetition", "organizationId", "signaturesCount", "status", "title", "trending", "updatedAt"] as const;
 export type PetitionSortField = (typeof petitionSortFields)[number];
 
-export const signatureSortFields = ["id", "reason", "ipAddress", "userAgent", "isVerified", "insertedAt", "updatedAt", "petitionId", "userId"] as const;
+export const signatureSortFields = ["id", "insertedAt", "isVerified", "petitionId", "reason", "updatedAt"] as const;
 export type SignatureSortField = (typeof signatureSortFields)[number];
 
-export const updateSortFields = ["id", "title", "body", "insertedAt", "updatedAt", "petitionId"] as const;
+export const updateSortFields = ["body", "id", "insertedAt", "petitionId", "title", "updatedAt"] as const;
 export type UpdateSortField = (typeof updateSortFields)[number];
 
 
@@ -1332,6 +1906,19 @@ export type UpdateSortField = (typeof updateSortFields)[number];
 // Sort string type — allows optional direction prefix on sort field names
 // Prefixes per Ash.Query.sort/3: + (asc), - (desc), ++ (asc_nils_first), -- (desc_nils_last)
 export type SortString<T extends string> = T | `+${T}` | `-${T}` | `++${T}` | `--${T}`;
+
+// Nested relationship pagination input, keyed by the relationship's
+// __pagination marker ("offset" | "keyset" | "mixed"). Keys of the other
+// pagination family are typed `never` so passing them is a structural
+// error (excess-property checking does not fire through the envelope's
+// conditional types).
+export type NestedPageInput<P extends string> = P extends "offset"
+  ? { limit?: number; offset?: number; count?: boolean; after?: never; before?: never }
+  : P extends "keyset"
+    ? { limit?: number; after?: string; before?: string; count?: boolean; offset?: never }
+    :
+        | { limit?: number; offset?: number; count?: boolean; after?: never; before?: never }
+        | { limit?: number; after?: string; before?: string; count?: boolean; offset?: never };
 
 // Resource schema constraint
 export type TypedSchema = {
@@ -1347,50 +1934,59 @@ export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) ex
   : never;
 
 // Helper type to infer union field values, avoiding duplication between array and non-array unions
+// Selection-object walkers use key remapping to drop keys whose value is
+// undefined: hoisting a selection with `satisfies` widens the array to a
+// union whose object members grow synthetic `?: undefined` siblings, and
+// walking those as real selections would collapse the result to never.
+// `FieldSelection[FieldIndex] extends infer Sel` re-binds the element to a
+// naked type parameter so widened (non-tuple) selections distribute over
+// their element union instead of falling through to never.
 export type InferUnionFieldValue<
   UnionSchema extends { __type: "Union"; __primitiveFields: any },
   FieldSelection extends any[],
 > = UnionToIntersection<
   {
-    [FieldIndex in keyof FieldSelection]: FieldSelection[FieldIndex] extends UnionSchema["__primitiveFields"]
-      ? FieldSelection[FieldIndex] extends keyof UnionSchema
-        ? { [P in FieldSelection[FieldIndex]]: UnionSchema[FieldSelection[FieldIndex]] }
-        : never
-      : FieldSelection[FieldIndex] extends Record<string, any>
-        ? {
-            [UnionKey in keyof FieldSelection[FieldIndex]]: UnionKey extends keyof UnionSchema
-              ? NonNullable<UnionSchema[UnionKey]> extends { __array: true; __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
-                ? FieldSelection[FieldIndex][UnionKey] extends any[]
-                  ? Array<
-                      UnionToIntersection<
-                        {
-                          [FieldIdx in keyof FieldSelection[FieldIndex][UnionKey]]: FieldSelection[FieldIndex][UnionKey][FieldIdx] extends TypedMapFields
-                            ? FieldSelection[FieldIndex][UnionKey][FieldIdx] extends keyof NonNullable<UnionSchema[UnionKey]>
-                              ? { [P in FieldSelection[FieldIndex][UnionKey][FieldIdx]]: NonNullable<UnionSchema[UnionKey]>[P] }
-                              : never
-                            : never;
-                        }[number]
-                      >
-                    > | null
-                  : never
-                : NonNullable<UnionSchema[UnionKey]> extends { __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
-                  ? FieldSelection[FieldIndex][UnionKey] extends any[]
-                    ? UnionToIntersection<
-                        {
-                          [FieldIdx in keyof FieldSelection[FieldIndex][UnionKey]]: FieldSelection[FieldIndex][UnionKey][FieldIdx] extends TypedMapFields
-                            ? FieldSelection[FieldIndex][UnionKey][FieldIdx] extends keyof NonNullable<UnionSchema[UnionKey]>
-                              ? { [P in FieldSelection[FieldIndex][UnionKey][FieldIdx]]: NonNullable<UnionSchema[UnionKey]>[P] }
-                              : never
-                            : never;
-                        }[number]
+    [FieldIndex in keyof FieldSelection]: FieldSelection[FieldIndex] extends infer Sel
+      ? Sel extends UnionSchema["__primitiveFields"]
+        ? Sel extends keyof UnionSchema
+          ? { [P in Sel]: UnionSchema[Sel] }
+          : never
+        : Sel extends Record<string, any>
+          ? {
+              [UnionKey in keyof Sel as Sel[UnionKey] extends undefined ? never : UnionKey]: UnionKey extends keyof UnionSchema
+                ? NonNullable<UnionSchema[UnionKey]> extends { __array: true; __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
+                  ? Sel[UnionKey] extends any[]
+                    ? Array<
+                        UnionToIntersection<
+                          {
+                            [FieldIdx in keyof Sel[UnionKey]]: Sel[UnionKey][FieldIdx] extends TypedMapFields
+                              ? Sel[UnionKey][FieldIdx] extends keyof NonNullable<UnionSchema[UnionKey]>
+                                ? { [P in Sel[UnionKey][FieldIdx]]: NonNullable<UnionSchema[UnionKey]>[P] }
+                                : never
+                              : never;
+                          }[number]
+                        >
                       > | null
                     : never
-                  : NonNullable<UnionSchema[UnionKey]> extends TypedSchema
-                    ? InferResult<NonNullable<UnionSchema[UnionKey]>, FieldSelection[FieldIndex][UnionKey]>
-                    : never
-              : never;
-          }
-        : never;
+                  : NonNullable<UnionSchema[UnionKey]> extends { __type: "TypedMap"; __primitiveFields: infer TypedMapFields }
+                    ? Sel[UnionKey] extends any[]
+                      ? UnionToIntersection<
+                          {
+                            [FieldIdx in keyof Sel[UnionKey]]: Sel[UnionKey][FieldIdx] extends TypedMapFields
+                              ? Sel[UnionKey][FieldIdx] extends keyof NonNullable<UnionSchema[UnionKey]>
+                                ? { [P in Sel[UnionKey][FieldIdx]]: NonNullable<UnionSchema[UnionKey]>[P] }
+                                : never
+                              : never;
+                          }[number]
+                        > | null
+                      : never
+                    : NonNullable<UnionSchema[UnionKey]> extends TypedSchema
+                      ? InferResult<NonNullable<UnionSchema[UnionKey]>, Sel[UnionKey]>
+                      : never
+                : never;
+            }
+          : never
+      : never;
   }[number]
 >;
 
@@ -1408,13 +2004,52 @@ export type ComplexFieldKeys<T extends TypedSchema> = keyof Omit<
 
 export type LeafFieldSelection<T extends TypedSchema> = T["__primitiveFields"];
 
-export type ComplexFieldSelection<T extends TypedSchema> = {
+// Query-option envelope for many-cardinality relationships. Each optional
+// key is usable only when the corresponding capability marker is present
+// and the action-level flag (F = filter, S = sort) is enabled; otherwise
+// the key is typed `never` so passing a value is a structural error (plain
+// excess-property checking does not fire through these conditional types).
+// `page` and bare `limit`/`offset` are mutually exclusive: the pagination
+// part is a union of the two shapes, each `never`-typing the other's keys.
+export type RelationshipQueryEnvelope<
+  Meta,
+  Dest extends TypedSchema,
+  F extends boolean = true,
+  S extends boolean = true,
+> = {
+  fields: UnifiedFieldSelection<Dest, F, S>[];
+} & (F extends true
+  ? Meta extends { __filterInput: infer FI }
+    ? { filter?: FI }
+    : { filter?: never }
+  : { filter?: never }) &
+  (S extends true
+    ? Meta extends { __sortField: infer SF extends string }
+      ? { sort?: SortString<SF> | SortString<SF>[] }
+      : { sort?: never }
+    : { sort?: never }) &
+  (Meta extends { __pagination: infer P extends string }
+    ? (
+        | { page?: NestedPageInput<P>; limit?: never; offset?: never }
+        | { limit?: number; offset?: number; page?: never }
+      )
+    : { limit?: number; offset?: number; page?: never });
+
+export type ComplexFieldSelection<
+  T extends TypedSchema,
+  F extends boolean = true,
+  S extends boolean = true,
+> = {
   [K in ComplexFieldKeys<T>]?: T[K] extends {
     __type: "Relationship";
     __resource: infer Resource;
   }
     ? NonNullable<Resource> extends TypedSchema
-      ? UnifiedFieldSelection<NonNullable<Resource>>[]
+      ? T[K] extends { __array: true }
+        ?
+            | UnifiedFieldSelection<NonNullable<Resource>, F, S>[]
+            | RelationshipQueryEnvelope<T[K], NonNullable<Resource>, F, S>
+        : UnifiedFieldSelection<NonNullable<Resource>, F, S>[]
       : never
     : T[K] extends {
           __type: "ComplexCalculation";
@@ -1424,15 +2059,15 @@ export type ComplexFieldSelection<T extends TypedSchema> = {
         ? NonNullable<ReturnType> extends TypedSchema
           ? {
               args: Args;
-              fields: UnifiedFieldSelection<NonNullable<ReturnType>>[];
+              fields: UnifiedFieldSelection<NonNullable<ReturnType>, F, S>[];
             }
           : { args: Args }
         : NonNullable<ReturnType> extends TypedSchema
-          ? { fields: UnifiedFieldSelection<NonNullable<ReturnType>>[] }
+          ? { fields: UnifiedFieldSelection<NonNullable<ReturnType>, F, S>[] }
           : never
       : T[K] extends { __type: "TypedMap" }
         ? NonNullable<T[K]> extends TypedSchema
-          ? UnifiedFieldSelection<NonNullable<T[K]>>[]
+          ? UnifiedFieldSelection<NonNullable<T[K]>, F, S>[]
           : never
         : T[K] extends { __type: "Union"; __primitiveFields: infer PrimitiveFields }
           ? T[K] extends { __array: true }
@@ -1440,26 +2075,57 @@ export type ComplexFieldSelection<T extends TypedSchema> = {
                 [UnionKey in keyof Omit<T[K], "__type" | "__primitiveFields" | "__array">]?: NonNullable<T[K][UnionKey]> extends { __type: "TypedMap"; __primitiveFields: any }
                   ? NonNullable<T[K][UnionKey]>["__primitiveFields"][]
                   : NonNullable<T[K][UnionKey]> extends TypedSchema
-                    ? UnifiedFieldSelection<NonNullable<T[K][UnionKey]>>[]
+                    ? UnifiedFieldSelection<NonNullable<T[K][UnionKey]>, F, S>[]
                     : never;
               })[]
             : (PrimitiveFields | {
                 [UnionKey in keyof Omit<T[K], "__type" | "__primitiveFields">]?: NonNullable<T[K][UnionKey]> extends { __type: "TypedMap"; __primitiveFields: any }
                   ? NonNullable<T[K][UnionKey]>["__primitiveFields"][]
                   : NonNullable<T[K][UnionKey]> extends TypedSchema
-                    ? UnifiedFieldSelection<NonNullable<T[K][UnionKey]>>[]
+                    ? UnifiedFieldSelection<NonNullable<T[K][UnionKey]>, F, S>[]
                     : never;
               })[]
             : NonNullable<T[K]> extends TypedSchema
-              ? UnifiedFieldSelection<NonNullable<T[K]>>[]
+              ? UnifiedFieldSelection<NonNullable<T[K]>, F, S>[]
               : never;
 };
 
 // Main type: Use explicit base case detection to prevent infinite recursion
-export type UnifiedFieldSelection<T extends TypedSchema> =
+export type UnifiedFieldSelection<
+  T extends TypedSchema,
+  F extends boolean = true,
+  S extends boolean = true,
+> =
   HasComplexFields<T> extends false
     ? LeafFieldSelection<T> // Base case: only primitives, no recursion
-    : LeafFieldSelection<T> | ComplexFieldSelection<T>; // Recursive case
+    : LeafFieldSelection<T> | ComplexFieldSelection<T, F, S>; // Recursive case
+
+// Infers the result value of one selected member inside a TypedMap:
+// Relationship-wrapped members (embedded resources) recurse through the
+// wrapped resource; plain TypedSchema members (nested TypedMaps) recurse
+// directly. The Selection guard satisfies InferResult's constraint.
+export type InferTypedMapMemberValue<M, Selection> = M extends {
+  __type: "Relationship";
+  __resource: infer Resource;
+}
+  ? NonNullable<Resource> extends TypedSchema
+    ? Selection extends UnifiedFieldSelection<NonNullable<Resource>>[] | undefined
+      ? M extends { __array: true }
+        ? null extends Resource
+          ? Array<InferResult<NonNullable<Resource>, Selection>> | null
+          : Array<InferResult<NonNullable<Resource>, Selection>>
+        : null extends Resource
+          ? InferResult<NonNullable<Resource>, Selection> | null
+          : InferResult<NonNullable<Resource>, Selection>
+      : never
+    : never
+  : NonNullable<M> extends TypedSchema
+    ? Selection extends UnifiedFieldSelection<NonNullable<M>>[] | undefined
+      ? null extends M
+        ? InferResult<NonNullable<M>, Selection> | null
+        : InferResult<NonNullable<M>, Selection>
+      : never
+    : never;
 
 export type InferFieldValue<
   T extends TypedSchema,
@@ -1470,17 +2136,29 @@ export type InferFieldValue<
     : never
   : Field extends Record<string, any>
     ? {
-        [K in keyof Field]: K extends keyof T
+        [K in keyof Field as Field[K] extends undefined ? never : K]: K extends keyof T
           ? T[K] extends {
               __type: "Relationship";
               __resource: infer Resource;
             }
             ? NonNullable<Resource> extends TypedSchema
-              ? T[K] extends { __array: true }
-                ? Array<InferResult<NonNullable<Resource>, Field[K]>>
-                : null extends Resource
-                  ? InferResult<NonNullable<Resource>, Field[K]> | null
-                  : InferResult<NonNullable<Resource>, Field[K]>
+              ? Field[K] extends { fields: infer NestedFields }
+                ? NestedFields extends UnifiedFieldSelection<NonNullable<Resource>>[]
+                  ? Field[K] extends { page: infer Page }
+                    ? T[K] extends { __pagination: infer P extends string }
+                      ? NestedPageResult<NonNullable<Resource>, NestedFields, P, Page>
+                      : never
+                    : T[K] extends { __array: true }
+                      ? Array<InferResult<NonNullable<Resource>, NestedFields>>
+                      : never
+                  : never
+                : T[K] extends { __array: true }
+                  ? null extends Resource
+                    ? Array<InferResult<NonNullable<Resource>, Field[K]>> | null
+                    : Array<InferResult<NonNullable<Resource>, Field[K]>>
+                  : null extends Resource
+                    ? InferResult<NonNullable<Resource>, Field[K]> | null
+                    : InferResult<NonNullable<Resource>, Field[K]>
             : never
           : T[K] extends {
                 __type: "ComplexCalculation";
@@ -1505,12 +2183,8 @@ export type InferFieldValue<
                                   : never
                                 : E extends Record<string, any>
                                   ? {
-                                      [NestedKey in keyof E]: NestedKey extends keyof NonNullable<T[K]>
-                                        ? NonNullable<NonNullable<T[K]>[NestedKey]> extends TypedSchema
-                                          ? null extends NonNullable<T[K]>[NestedKey]
-                                            ? InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]> | null
-                                            : InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]>
-                                          : never
+                                      [NestedKey in keyof E as E[NestedKey] extends undefined ? never : NestedKey]: NestedKey extends keyof NonNullable<T[K]>
+                                          ? InferTypedMapMemberValue<NonNullable<T[K]>[NestedKey], E[NestedKey]>
                                         : never;
                                     }
                                   : E extends keyof NonNullable<T[K]>
@@ -1530,12 +2204,8 @@ export type InferFieldValue<
                                   : never
                                 : E extends Record<string, any>
                                   ? {
-                                      [NestedKey in keyof E]: NestedKey extends keyof NonNullable<T[K]>
-                                        ? NonNullable<NonNullable<T[K]>[NestedKey]> extends TypedSchema
-                                          ? null extends NonNullable<T[K]>[NestedKey]
-                                            ? InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]> | null
-                                            : InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]>
-                                          : never
+                                      [NestedKey in keyof E as E[NestedKey] extends undefined ? never : NestedKey]: NestedKey extends keyof NonNullable<T[K]>
+                                          ? InferTypedMapMemberValue<NonNullable<T[K]>[NestedKey], E[NestedKey]>
                                         : never;
                                     }
                                   : E extends keyof NonNullable<T[K]>
@@ -1557,12 +2227,8 @@ export type InferFieldValue<
                                 : never
                               : E extends Record<string, any>
                                 ? {
-                                    [NestedKey in keyof E]: NestedKey extends keyof NonNullable<T[K]>
-                                      ? NonNullable<NonNullable<T[K]>[NestedKey]> extends TypedSchema
-                                        ? null extends NonNullable<T[K]>[NestedKey]
-                                          ? InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]> | null
-                                          : InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]>
-                                        : never
+                                    [NestedKey in keyof E as E[NestedKey] extends undefined ? never : NestedKey]: NestedKey extends keyof NonNullable<T[K]>
+                                        ? InferTypedMapMemberValue<NonNullable<T[K]>[NestedKey], E[NestedKey]>
                                       : never;
                                   }
                                 : E extends keyof NonNullable<T[K]>
@@ -1580,12 +2246,8 @@ export type InferFieldValue<
                                 : never
                               : E extends Record<string, any>
                                 ? {
-                                    [NestedKey in keyof E]: NestedKey extends keyof NonNullable<T[K]>
-                                      ? NonNullable<NonNullable<T[K]>[NestedKey]> extends TypedSchema
-                                        ? null extends NonNullable<T[K]>[NestedKey]
-                                          ? InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]> | null
-                                          : InferResult<NonNullable<NonNullable<T[K]>[NestedKey]>, E[NestedKey]>
-                                        : never
+                                    [NestedKey in keyof E as E[NestedKey] extends undefined ? never : NestedKey]: NestedKey extends keyof NonNullable<T[K]>
+                                        ? InferTypedMapMemberValue<NonNullable<T[K]>[NestedKey], E[NestedKey]>
                                       : never;
                                   }
                                 : E extends keyof NonNullable<T[K]>
@@ -1632,17 +2294,22 @@ export type InferResult<
   : {};
 
 // Pagination conditional types
-// Checks if a page configuration object has any pagination parameters
+// Checks if a page configuration object has any pagination parameters.
+// A limit-only page (e.g. { limit: 20 } for the first page) also paginates.
 export type HasPaginationParams<Page> =
   Page extends { offset: any } ? true :
   Page extends { after: any } ? true :
   Page extends { before: any } ? true :
+  Page extends { limit: any } ? true :
   false;
 
-// Infer which pagination type is being used from the page config
+// Infer which pagination type is being used from the page config.
+// A limit-only page resolves to keyset — when an action supports both
+// strategies, Ash paginates limit-only requests with keyset.
 export type InferPaginationType<Page> =
   Page extends { offset: any } ? "offset" :
   Page extends { after: any } | { before: any } ? "keyset" :
+  Page extends { limit: any } ? "keyset" :
   never;
 
 // Returns either non-paginated (array) or paginated result based on page params
@@ -1676,6 +2343,42 @@ export type ConditionalPaginatedResultMixed<
         : OffsetType | KeysetType  // Fallback to union if can't determine
     : RecordType;
 
+// Nested relationship pagination results — shaped identically to the
+// top-level page payloads, but generic over the destination schema.
+export type NestedOffsetPageResult<R extends TypedSchema, Fields> = {
+  results: Fields extends UnifiedFieldSelection<R>[] ? Array<InferResult<R, Fields>> : never;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+};
+
+export type NestedKeysetPageResult<R extends TypedSchema, Fields> = {
+  results: Fields extends UnifiedFieldSelection<R>[] ? Array<InferResult<R, Fields>> : never;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string | null;
+  nextPage: string | null;
+  count?: number | null;
+  type: "keyset";
+};
+
+// P is the relationship's __pagination marker; Page is the page input the
+// caller actually passed (used to narrow "mixed" to a concrete side).
+export type NestedPageResult<R extends TypedSchema, Fields, P extends string, Page> =
+  P extends "offset"
+    ? NestedOffsetPageResult<R, Fields>
+    : P extends "keyset"
+      ? NestedKeysetPageResult<R, Fields>
+      : InferPaginationType<Page> extends "offset"
+        ? NestedOffsetPageResult<R, Fields>
+        : InferPaginationType<Page> extends "keyset"
+          ? NestedKeysetPageResult<R, Fields>
+          : NestedOffsetPageResult<R, Fields> | NestedKeysetPageResult<R, Fields>;
+
 export type SuccessDataFunc<T extends (...args: any[]) => Promise<any>> = Extract<
   Awaited<ReturnType<T>>,
   { success: true }
@@ -1702,6 +2405,18 @@ export type ErrorData<T extends (...args: any[]) => Promise<any>> = Extract<
  *   path: ["user", "email"],
  *   details: { suggestion: "Provide a valid email address" }
  * }
+ *
+ * @example
+ * // An internal error withholds detail and carries a correlation ID
+ * const error: AshRpcError = {
+ *   type: "internal_error",
+ *   message: "Something went wrong. Unique error id: 4f3c...",
+ *   shortMessage: "Internal error",
+ *   vars: {},
+ *   fields: [],
+ *   path: [],
+ *   errorId: "4f3c..."
+ * }
  */
 export type AshRpcError = {
   /** Machine-readable error type (e.g., "invalid_changes", "not_found") */
@@ -1718,6 +2433,12 @@ export type AshRpcError = {
   path: string[];
   /** Optional map with extra details (e.g., suggestions, hints) */
   details?: Record<string, any>;
+  /**
+   * Correlation ID for an error whose details were withheld. Present on
+   * internal errors, where the full exception is written to the server log
+   * under this same ID — surface it so a user can quote it to support.
+   */
+  errorId?: string;
 }
 
 /**

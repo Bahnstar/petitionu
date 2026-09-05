@@ -1,0 +1,61 @@
+{
+  "runId": "mtoygvia",
+  "ownerId": "d009b5a7-d7d0-496a-9258-e3d19d338aa8",
+  "signerId": "8b78bcd7-afa3-40db-b488-5336e8147ce9",
+  "petitionId": "01a073b1-a6e3-7a7b-86c2-e15ea41ca607",
+  "classroomId": "01a073b2-4899-752e-8efb-6e34706dbfcd",
+  "results": [
+    {
+      "name": "register, confirm and complete profile",
+      "status": "passed"
+    },
+    {
+      "name": "second student onboarding",
+      "status": "passed"
+    },
+    {
+      "name": "create petition",
+      "status": "passed"
+    },
+    {
+      "name": "sign and comment persist",
+      "status": "passed"
+    },
+    {
+      "name": "campus browsing and public link",
+      "status": "passed"
+    },
+    {
+      "name": "edit petition and protect anonymous ownership",
+      "status": "passed"
+    },
+    {
+      "name": "publish update, close and mark victory",
+      "status": "passed"
+    },
+    {
+      "name": "professor creates classroom",
+      "status": "passed"
+    },
+    {
+      "name": "join classroom and display TA members",
+      "status": "passed"
+    },
+    {
+      "name": "report content through the petition page",
+      "status": "passed"
+    },
+    {
+      "name": "moderator reviews and hides reported content",
+      "status": "passed"
+    },
+    {
+      "name": "submit support and account deletion requests",
+      "status": "passed"
+    },
+    {
+      "name": "operator resolves requests without deleting the account",
+      "status": "passed"
+    }
+  ]
+}

@@ -4,7 +4,7 @@ defmodule PetitionuWeb.AshTypescriptRpcControllerTest do
   alias Petitionu.Accounts
 
   describe "get_users RPC" do
-    test "anonymous getUsers succeeds and returns email as null for other users", %{conn: conn} do
+    test "anonymous getUsers returns no user identities or inverse activity", %{conn: conn} do
       _user =
         Accounts.User
         |> Ash.Changeset.for_create(:register_with_password, %{
@@ -23,10 +23,7 @@ defmodule PetitionuWeb.AshTypescriptRpcControllerTest do
 
       assert %{"success" => true, "data" => users} = json_response(conn, 200)
 
-      rpc_view = Enum.find(users, &(&1["firstName"] == "RPC"))
-      refute is_nil(rpc_view)
-      assert rpc_view["lastName"] == "User"
-      assert rpc_view["email"] == nil
+      assert users == []
     end
   end
 end

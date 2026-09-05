@@ -1,4 +1,4 @@
-import { readPetitionDraft, savePetitionDraft, clearPetitionDraft } from "../lib/petition-draft"
+import { readPetitionDraft, savePetitionDraft, clearPetitionDraft, type PetitionDraft } from "../lib/petition-draft"
 import { AuthLink } from "../components/auth-link"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
@@ -49,15 +49,16 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
       return result.data
     },
   })
-  const handleChange = (field: keyof typeof formData, value: string) => setFormData((previous) => ({ ...previous, [field]: value }))
+  const handleChange = <Field extends keyof PetitionDraft,>(field: Field, value: PetitionDraft[Field]) => setFormData((previous) => ({ ...previous, [field]: value }))
+  const canParticipate = !!(user?.emailVerified && user.profileComplete)
   const isFormValid = !!(formData.title.trim() && formData.description.trim() && formData.categoryId)
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (isSubmitting || !isFormValid || !user || (classroomId && !classroomQuery.isSuccess)) return
+    if (isSubmitting || !isFormValid || !canParticipate || (classroomId && !classroomQuery.isSuccess)) return
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      const input = { title: formData.title.trim(), description: formData.description.trim(), status: "open" as const, goal: Number(formData.goal), categoryId: formData.categoryId }
+      const input = { title: formData.title.trim(), description: formData.description.trim(), goal: Number(formData.goal), categoryId: formData.categoryId, deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null, allowComments: formData.allowComments, isAnonymous: formData.isAnonymous }
       const result = classroomId
         ? await createClassroomPetition({ input: { ...input, classroomId }, fields: ["id"], headers: buildCSRFHeaders() })
         : await createPetition({ input, fields: ["id"], headers: buildCSRFHeaders() })
@@ -102,9 +103,10 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
         <section className="app-panel order-2 lg:order-1" aria-labelledby="petition-details-heading">
           <h2 id="petition-details-heading" className="mb-2 font-display text-3xl tracking-tight">Put your idea into words.</h2>
-          <p className="mb-8 text-sm text-muted-foreground">All fields are required. You can start with a small signature goal.</p>
+          <p className="mb-8 text-sm text-muted-foreground">Tell your story, choose a category, and set a signature goal. A deadline is optional.</p>
           {classroomId ? <p id="petition-classroom-context" className="mb-6 rounded-xl bg-secondary p-4 text-sm">{classroomQuery.isSuccess ? `This petition will be shared with ${classroomQuery.data.name}.` : classroomQuery.isError ? classroomQuery.error.message : "Creating a classroom petition."}</p> : null}
           {!authLoading && !user ? <div className="mb-6 rounded-xl border border-border bg-secondary p-4 text-sm">Sign in to publish your petition. <AuthLink className="font-medium underline underline-offset-4">Sign in</AuthLink></div> : null}
+          {user && !canParticipate ? <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">Confirm your email and complete your campus profile to publish. Your draft will stay here while you do. <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">Complete your profile</Link></p> : null}
           {categoryQuery.isError ? <div role="alert" className="mb-6 text-sm text-destructive">{categoryQuery.error.message} <button type="button" className="underline" onClick={() => categoryQuery.refetch()}>Try again</button></div> : null}
           {submitError ? <p id="petition-submit-error" role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{submitError}</p> : null}
           <form id="create-petition-form" onSubmit={handleSubmit} className="space-y-7">
@@ -131,9 +133,11 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
               <Select value={formData.goal} onValueChange={(value) => handleChange("goal", value)}><SelectTrigger id="goal" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{[100, 250, 500, 1000, 2500, 5000, 10000].map((goal) => <SelectItem key={goal} value={String(goal)}>{goal.toLocaleString()} signatures</SelectItem>)}</SelectContent></Select>
               <p className="text-xs text-muted-foreground">Choose a goal that makes sense for your community.</p>
             </div>
+            <div className="space-y-2"><Label htmlFor="petition-deadline">Deadline <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="petition-deadline" type="datetime-local" value={formData.deadline} onChange={(event) => handleChange("deadline", event.target.value)} /><p className="text-xs text-muted-foreground">Signing and comments close at this time in your local timezone. Leave blank to keep the petition open.</p></div>
+            <div className="space-y-4"><div className="space-y-2"><Label className="flex items-center gap-3" htmlFor="petition-allow-comments"><input id="petition-allow-comments" type="checkbox" checked={formData.allowComments} onChange={(event) => handleChange("allowComments", event.target.checked)} className="size-4 accent-primary" />Allow comments</Label><p className="text-xs leading-6 text-muted-foreground">People who can view the petition can read its comments. Commenters appear by name.</p></div><div className="space-y-2"><Label className="flex items-center gap-3" htmlFor="petition-anonymous"><input id="petition-anonymous" type="checkbox" checked={formData.isAnonymous} onChange={(event) => handleChange("isAnonymous", event.target.checked)} className="size-4 accent-primary" />Hide my name as the petition creator</Label><p className="text-xs leading-6 text-muted-foreground">The petition will say “Anonymous.” Your account still owns it. This setting does not hide your name on comments you post.</p></div></div>
             <p className="border-t border-border pt-5 text-xs leading-6 text-muted-foreground">Keep your petition respectful, inclusive, and focused on a change your campus can make.</p>
             <div className="flex flex-wrap gap-3">
-              <Button id="publish-petition" type="submit" disabled={!isFormValid || isSubmitting || !user || !!(classroomId && !classroomQuery.isSuccess)} className="flex-1 sm:flex-none">{isSubmitting ? "Publishing…" : "Publish petition"}</Button>
+              <Button id="publish-petition" type="submit" disabled={!isFormValid || isSubmitting || !canParticipate || !!(classroomId && !classroomQuery.isSuccess)} className="flex-1 sm:flex-none">{isSubmitting ? "Publishing…" : "Publish petition"}</Button>
               <Button type="button" variant="outline" asChild><Link to={returnPath}>Cancel</Link></Button>
             </div>
           </form>

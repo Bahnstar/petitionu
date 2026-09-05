@@ -3,10 +3,19 @@ defmodule Petitionu.Post do
     extensions: [AshTypescript.Rpc]
 
   typescript_rpc do
+    resource Petitionu.Post.ContentReport do
+      rpc_action :get_content_reports, :read
+      rpc_action :create_content_report, :create
+      rpc_action :resolve_content_report, :resolve
+    end
+
     resource Petitionu.Post.Petition do
       rpc_action :get_petitions, :read
       rpc_action :get_petition_by_id, :get_by_id
       rpc_action :create_petition, :create
+      rpc_action :update_petition, :update
+      rpc_action :close_petition, :close
+      rpc_action :mark_petition_victory, :mark_victory
       rpc_action :create_classroom_petition, :create_classroom_petition
       rpc_action :get_classroom_petitions, :for_classroom
       rpc_action :get_public_petitions, :public_petitions
@@ -58,6 +67,8 @@ defmodule Petitionu.Post do
   end
 
   resources do
+    resource Petitionu.Post.ContentReport
+
     resource Petitionu.Post.Petition do
       define :create_classroom_petition, action: :create_classroom_petition
       define :list_classroom_petitions, action: :for_classroom, args: [:classroom_id]

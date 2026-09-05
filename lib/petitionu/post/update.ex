@@ -24,6 +24,9 @@ defmodule Petitionu.Post.Update do
     create :create do
       primary? true
       accept [:title, :body, :petition_id]
+      validate present(:petition_id)
+      validate Petitionu.Post.Validations.Participant
+      change {Petitionu.Post.Changes.CheckPetition, mode: :manage}
     end
 
     update :update do
@@ -50,11 +53,9 @@ defmodule Petitionu.Post.Update do
   end
 
   policies do
-    # Updates can be read by anyone who can read the petition
     policy action_type(:read) do
-      # Public petitions
+      forbid_unless expr(is_nil(petition.hidden_at))
       authorize_if expr(is_nil(petition.classroom_id))
-      # Classroom petition: must be professor or member
       authorize_if expr(petition.classroom.professor_id == ^actor(:id))
 
       authorize_if expr(
@@ -65,19 +66,23 @@ defmodule Petitionu.Post.Update do
                    )
     end
 
-    # Updates can be created by petition owner OR professor of classroom petitions
     policy action(:create) do
-      # Petition owner can create updates
-      authorize_if expr(petition.user_id == ^actor(:id))
-      # Professor can create updates on classroom petitions
-      authorize_if expr(petition.classroom.professor_id == ^actor(:id))
+      authorize_if actor_present()
     end
 
-    # Updates can be modified by their creator or petition owner or professor
     policy action([:update, :destroy]) do
-      # Petition owner
+      forbid_unless expr(is_nil(petition.hidden_at))
+
+      forbid_unless expr(
+                      is_nil(petition.classroom_id) or
+                        petition.classroom.professor_id == ^actor(:id) or
+                        exists(
+                          petition.classroom.memberships,
+                          user_id == ^actor(:id) and status == :active
+                        )
+                    )
+
       authorize_if expr(petition.user_id == ^actor(:id))
-      # Professor of classroom petition
       authorize_if expr(petition.classroom.professor_id == ^actor(:id))
     end
   end
@@ -86,11 +91,13 @@ defmodule Petitionu.Post.Update do
     uuid_v7_primary_key :id
 
     attribute :title, :string do
+      constraints min_length: 1, max_length: 200, trim?: true
       allow_nil? false
       public? true
     end
 
     attribute :body, :string do
+      constraints min_length: 1, max_length: 20000, trim?: true
       allow_nil? false
       public? true
     end

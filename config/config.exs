@@ -8,6 +8,7 @@
 import Config
 
 config :ash_typescript,
+  manifest: Petitionu.AshTypescriptManifest,
   output_file: "assets/js/ash_rpc.ts",
   run_endpoint: "/rpc/run",
   validate_endpoint: "/rpc/validate",
@@ -30,6 +31,7 @@ config :ash_json_api,
   authorize_update_destroy_with_error?: true
 
 config :ash,
+  default_string_length_count: :codepoints,
   allow_forbidden_field_for_relationships_by_default?: true,
   include_embedded_source_by_default?: false,
   show_keysets_for_all_actions?: false,

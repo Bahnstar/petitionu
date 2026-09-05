@@ -27,11 +27,8 @@ defmodule Petitionu.Post.Classroom do
       primary? true
       accept [:name, :description, :allow_student_petitions]
 
-      argument :organization_id, :uuid do
-        allow_nil? true
-      end
-
-      change set_attribute(:organization_id, arg(:organization_id))
+      validate Petitionu.Post.Validations.Participant
+      change set_attribute(:organization_id, actor(:organization_id))
       change relate_actor(:professor)
       change {Petitionu.Post.Classroom.Changes.GenerateJoinCode, []}
     end
@@ -87,25 +84,22 @@ defmodule Petitionu.Post.Classroom do
   end
 
   policies do
-    # Professors and admins can create classrooms
     policy action(:create) do
       authorize_if actor_attribute_equals(:role, :professor)
       authorize_if actor_attribute_equals(:role, :admin)
     end
 
-    # Professor (owner) can update, archive, unarchive, regenerate code, destroy
     policy action([:update, :archive, :unarchive, :regenerate_join_code, :destroy]) do
       authorize_if relates_to_actor_via(:professor)
     end
 
-    # Members and professor can read their classrooms
-    policy action_type(:read) do
+    policy action([:read, :get_by_id, :my_classrooms]) do
       authorize_if relates_to_actor_via(:professor)
       authorize_if expr(exists(memberships, user_id == ^actor(:id) and status == :active))
     end
 
-    # Allow reading by join code for joining (anyone authenticated)
     policy action(:get_by_join_code) do
+      forbid_if actor_attribute_equals(:confirmed_at, nil)
       authorize_if actor_present()
     end
   end

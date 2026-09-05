@@ -21,9 +21,14 @@ defmodule Petitionu.Post.Petition do
   actions do
     defaults [:read, :destroy]
 
+    update :moderator_hide do
+      accept []
+      change set_attribute(:hidden_at, &DateTime.utc_now/0)
+    end
+
     create :create do
       primary? true
-      accept [:title, :description, :status, :goal, :deadline, :allow_comments, :is_anonymous]
+      accept [:title, :description, :goal, :deadline, :allow_comments, :is_anonymous]
 
       argument :category_id, :uuid_v7 do
         allow_nil? false
@@ -32,15 +37,18 @@ defmodule Petitionu.Post.Petition do
       change manage_relationship(:category_id, :category,
                type: :append_and_remove,
                on_lookup: :relate
-               # on_no_match: :errror
              )
 
       change relate_actor(:user)
+      validate present([:title, :description, :goal])
+      validate Petitionu.Post.Validations.FutureDeadline
+      validate Petitionu.Post.Validations.Participant
+      change Petitionu.Post.Changes.PetitionCampus
     end
 
     create :create_classroom_petition do
       description "Create a petition scoped to a classroom"
-      accept [:title, :description, :status, :goal, :deadline, :allow_comments, :is_anonymous]
+      accept [:title, :description, :goal, :deadline, :allow_comments, :is_anonymous]
 
       argument :category_id, :uuid_v7 do
         allow_nil? false
@@ -57,11 +65,28 @@ defmodule Petitionu.Post.Petition do
 
       change set_attribute(:classroom_id, arg(:classroom_id))
       change relate_actor(:user)
+      validate present([:title, :description, :goal])
+      validate Petitionu.Post.Validations.FutureDeadline
+      validate Petitionu.Post.Validations.Participant
+      change Petitionu.Post.Changes.PetitionCampus
     end
 
     update :update do
       primary? true
-      accept [:title, :description, :status, :goal, :deadline]
+      accept [:title, :description, :goal, :deadline, :allow_comments, :is_anonymous]
+      require_atomic? false
+      validate present([:title, :description, :goal])
+      validate Petitionu.Post.Validations.FutureDeadline
+    end
+
+    update :close do
+      accept []
+      change set_attribute(:status, :closed)
+    end
+
+    update :mark_victory do
+      accept []
+      change set_attribute(:status, :victory)
     end
 
     read :get_by_id do
@@ -94,10 +119,18 @@ defmodule Petitionu.Post.Petition do
   end
 
   policies do
-    # Public petitions (no classroom_id) can be read by anyone
+    policy action(:moderator_hide) do
+      authorize_if actor_attribute_equals(:role, :superadmin)
+
+      authorize_if expr(
+                     not is_nil(organization_id) and organization_id == ^actor(:organization_id) and
+                       ^actor(:role) == :admin
+                   )
+    end
+
     policy action_type(:read) do
+      forbid_unless expr(is_nil(hidden_at))
       authorize_if expr(is_nil(classroom_id))
-      # Classroom petitions: must be professor or active member
       authorize_if expr(classroom.professor_id == ^actor(:id))
 
       authorize_if expr(
@@ -108,29 +141,26 @@ defmodule Petitionu.Post.Petition do
                    )
     end
 
-    # Anyone authenticated can create public petitions
     policy action(:create) do
       authorize_if actor_present()
     end
 
-    # Classroom petition creation: professor OR (member when allowed)
     policy action(:create_classroom_petition) do
-      # Professor can always create
-      authorize_if expr(classroom.professor_id == ^actor(:id))
-      # Active members can create if allowed
-      authorize_if expr(
-                     classroom.allow_student_petitions == true and
-                       exists(
-                         classroom.memberships,
-                         user_id == ^actor(:id) and status == :active
-                       )
-                   )
+      authorize_if actor_present()
     end
 
-    # Only petition owner can update/destroy
-    policy action([:update, :destroy]) do
-      authorize_if relates_to_actor_via(:user)
-      # Professor can also update/destroy classroom petitions
+    policy action([:update, :close, :mark_victory, :destroy]) do
+      forbid_unless expr(is_nil(hidden_at))
+
+      forbid_unless expr(
+                      is_nil(classroom_id) or classroom.professor_id == ^actor(:id) or
+                        exists(
+                          classroom.memberships,
+                          user_id == ^actor(:id) and status == :active
+                        )
+                    )
+
+      authorize_if expr(user_id == ^actor(:id))
       authorize_if expr(classroom.professor_id == ^actor(:id))
     end
   end
@@ -140,10 +170,12 @@ defmodule Petitionu.Post.Petition do
 
     attribute :title, :string do
       public? true
+      constraints min_length: 1, max_length: 200, trim?: true
     end
 
     attribute :description, :string do
       public? true
+      constraints min_length: 1, max_length: 20000, trim?: true
     end
 
     attribute :status, :atom do
@@ -154,6 +186,7 @@ defmodule Petitionu.Post.Petition do
 
     attribute :goal, :integer do
       public? true
+      constraints min: 1
       default 1000
     end
 
@@ -172,11 +205,19 @@ defmodule Petitionu.Post.Petition do
       allow_nil? true
     end
 
+    attribute :hidden_at, :utc_datetime_usec
+
     timestamps public?: true
   end
 
   relationships do
     belongs_to :user, Petitionu.Accounts.User do
+      public? false
+      attribute_public? false
+      filterable? false
+    end
+
+    belongs_to :organization, Petitionu.Accounts.Organization do
       public? true
       attribute_public? true
     end
@@ -203,11 +244,24 @@ defmodule Petitionu.Post.Petition do
     has_many :signatures, Petitionu.Post.Signature do
       public? true
     end
-
-    # has_many :user_petitions, Petitionu.Post.UserPetition
   end
 
   calculations do
+    calculate :can_manage,
+              :boolean,
+              expr(
+                if not is_nil(^actor(:id)) and is_nil(hidden_at) and
+                     (user_id == ^actor(:id) or classroom.professor_id == ^actor(:id)),
+                   do: true,
+                   else: false
+              ) do
+      public? true
+    end
+
+    calculate :has_signed, :boolean, expr(exists(signatures, user_id == ^actor(:id))) do
+      public? true
+    end
+
     calculate :signatures_count, :integer, expr(count(signatures)) do
       public? true
     end
@@ -228,22 +282,15 @@ defmodule Petitionu.Post.Petition do
       public? true
     end
 
-    calculate :author, :string, expr(user.first_name <> " " <> user.last_name) do
+    calculate :author, :string, {Petitionu.Post.Calculations.Author, anonymous?: true} do
       public? true
+      filterable? false
+      sortable? false
     end
 
     calculate :trending,
               :boolean,
               expr(
-                # Trending if:
-                # 1. Has more than 10 signatures
-                # 2. Created within the last 7 days
-                # 3. Has a good signature velocity (signatures per day)
-                # 4. Is 50% or more of the way to its goal
-                # fragment("p0.inserted_at > NOW() - INTERVAL '7 days'") and
-                # signatures_count /
-                #   fragment("GREATEST(1, EXTRACT(EPOCH FROM (NOW() - p0.inserted_at)) / 86400)") >
-                #   2.0 and
                 signatures_count > 5 and
                   signatures_count / goal >= 0.5
               ) do
