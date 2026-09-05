@@ -35,16 +35,19 @@ defmodule Petitionu.Post.ClassroomMembership do
       change fn changeset, context ->
         join_code = Ash.Changeset.get_argument(changeset, :join_code)
 
-        case Petitionu.Post.get_classroom_by_join_code(join_code) do
-          {:ok, classroom} ->
+        case Petitionu.Post.get_classroom_by_join_code(join_code, actor: context.actor) do
+          {:ok, %{archived: false} = classroom} ->
             changeset
             |> Ash.Changeset.force_change_attribute(:classroom_id, classroom.id)
             |> Ash.Changeset.force_change_attribute(:status, :active)
             |> Ash.Changeset.force_change_attribute(:role, :student)
             |> Ash.Changeset.force_change_attribute(:joined_at, DateTime.utc_now())
 
-          {:error, _} ->
-            Ash.Changeset.add_error(changeset, field: :join_code, message: "Invalid join code")
+          _ ->
+            Ash.Changeset.add_error(changeset,
+              field: :join_code,
+              message: "Invalid or archived join code"
+            )
         end
       end
 
@@ -87,8 +90,8 @@ defmodule Petitionu.Post.ClassroomMembership do
         role = Ash.Changeset.get_argument(changeset, :role) || :student
         classroom_id = Ash.Changeset.get_argument(changeset, :classroom_id)
 
-        case Petitionu.Accounts.get_user_by_email(email) do
-          {:ok, user} ->
+        case Petitionu.Accounts.get_user_by_email(email, actor: context.actor) do
+          {:ok, %Petitionu.Accounts.User{} = user} ->
             changeset
             |> Ash.Changeset.force_change_attribute(:user_id, user.id)
             |> Ash.Changeset.force_change_attribute(:classroom_id, classroom_id)
@@ -99,7 +102,7 @@ defmodule Petitionu.Post.ClassroomMembership do
               context.actor && context.actor.id
             )
 
-          {:error, _} ->
+          _ ->
             Ash.Changeset.add_error(changeset, field: :email, message: "User not found")
         end
       end
@@ -170,13 +173,16 @@ defmodule Petitionu.Post.ClassroomMembership do
   end
 
   policies do
-    # Anyone authenticated can join by code or request to join
+    policy action_type([:create, :update, :destroy]) do
+      forbid_if actor_attribute_equals(:confirmed_at, nil)
+      authorize_if actor_present()
+    end
+
     policy action([:join_by_code, :request_to_join]) do
       authorize_if actor_present()
     end
 
-    # Professor or TA can invite, approve, remove, promote, demote
-    policy action([:invite_by_email, :approve, :remove, :promote_to_ta, :demote_to_student]) do
+    policy action([:invite_by_email, :approve, :remove]) do
       authorize_if expr(classroom.professor_id == ^actor(:id))
 
       authorize_if expr(
@@ -187,12 +193,20 @@ defmodule Petitionu.Post.ClassroomMembership do
                    )
     end
 
-    # Only professor can destroy memberships
-    policy action(:destroy) do
+    policy action(:invite_by_email) do
+      authorize_if expr(classroom.professor_id == ^actor(:id))
+      authorize_if expr(^arg(:role) == :student)
+    end
+
+    policy action(:approve) do
+      forbid_unless expr(status == :pending and classroom.archived == false)
+      authorize_if always()
+    end
+
+    policy action([:destroy, :promote_to_ta, :demote_to_student]) do
       authorize_if expr(classroom.professor_id == ^actor(:id))
     end
 
-    # Members can read their own membership, professor/TA can read all
     policy action_type(:read) do
       authorize_if relates_to_actor_via(:user)
       authorize_if expr(classroom.professor_id == ^actor(:id))
@@ -204,6 +218,10 @@ defmodule Petitionu.Post.ClassroomMembership do
                      )
                    )
     end
+  end
+
+  changes do
+    change Petitionu.Post.ClassroomMembership.Changes.ValidateAdmission, on: :create
   end
 
   attributes do
@@ -260,13 +278,13 @@ defmodule Petitionu.Post.ClassroomMembership.Changes.SendInviteEmail do
   @impl true
   def change(changeset, _opts, _context) do
     Ash.Changeset.after_action(changeset, fn _changeset, membership ->
-      # Load the necessary relationships for sending the email
-      membership = Ash.load!(membership, [:user, :invited_by, classroom: [:professor]])
+      email_membership =
+        Ash.load!(membership, [:user, :invited_by, classroom: [:professor]], authorize?: false)
 
       Petitionu.Post.ClassroomMembership.Senders.SendClassroomInviteEmail.send(
-        membership.user,
-        membership.classroom,
-        membership.invited_by
+        email_membership.user,
+        email_membership.classroom,
+        email_membership.invited_by
       )
 
       {:ok, membership}
@@ -281,15 +299,65 @@ defmodule Petitionu.Post.ClassroomMembership.Changes.SendApprovalEmail do
   @impl true
   def change(changeset, _opts, _context) do
     Ash.Changeset.after_action(changeset, fn _changeset, membership ->
-      # Load the necessary relationships for sending the email
-      membership = Ash.load!(membership, [:user, classroom: [:professor]])
+      email_membership =
+        Ash.load!(membership, [:user, classroom: [:professor]], authorize?: false)
 
       Petitionu.Post.ClassroomMembership.Senders.SendMembershipApprovalEmail.send(
-        membership.user,
-        membership.classroom
+        email_membership.user,
+        email_membership.classroom
       )
 
       {:ok, membership}
     end)
+  end
+end
+
+defmodule Petitionu.Post.ClassroomMembership.Changes.ValidateAdmission do
+  use Ash.Resource.Change
+
+  @impl true
+  def change(changeset, _opts, context) do
+    Ash.Changeset.before_action(changeset, fn changeset ->
+      classroom_id = Ash.Changeset.get_attribute(changeset, :classroom_id)
+      user_id = Ash.Changeset.get_attribute(changeset, :user_id)
+
+      with {:ok, %{archived: false} = classroom} <-
+             Ash.get(Petitionu.Post.Classroom, classroom_id, authorize?: false),
+           false <- classroom.professor_id == user_id,
+           {:ok, nil} <- existing_membership(classroom_id, user_id, context.actor) do
+        changeset
+      else
+        true ->
+          Ash.Changeset.add_error(changeset,
+            field: :classroom_id,
+            message: "The professor already owns this classroom"
+          )
+
+        {:ok, %Petitionu.Post.ClassroomMembership{status: status}} ->
+          message =
+            case status do
+              :active -> "You are already a member of this classroom"
+              :pending -> "Your membership is awaiting approval"
+              :removed -> "Your membership was removed; contact the professor"
+            end
+
+          Ash.Changeset.add_error(changeset, field: :classroom_id, message: message)
+
+        _ ->
+          Ash.Changeset.add_error(changeset,
+            field: :classroom_id,
+            message: "Classroom is unavailable or archived"
+          )
+      end
+    end)
+  end
+
+  defp existing_membership(classroom_id, user_id, actor) do
+    require Ash.Query
+
+    Petitionu.Post.ClassroomMembership
+    |> Ash.Query.for_read(:read, %{}, actor: actor)
+    |> Ash.Query.filter(classroom_id == ^classroom_id and user_id == ^user_id)
+    |> Ash.read_one()
   end
 end
