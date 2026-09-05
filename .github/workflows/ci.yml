@@ -1,0 +1,59 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.3'
+          elixir-version: '1.18.4'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: assets/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-otp27-elixir1.18-${{ hashFiles('mix.lock') }}
+      - run: mix help deps.get && mix deps.get
+      - run: npm ci --prefix assets
+      - run: mix help precommit && mix precommit
+      - run: git diff --exit-code
+      - run: ./node_modules/.bin/tsc --noEmit
+        working-directory: assets
+      - run: mix help assets.setup && mix assets.setup
+      - run: mix help assets.build && mix assets.build
+      - run: scripts/backup-smoke.sh
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+      - run: scripts/build-release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petitionu-linux-release
+          path: _build/prod/petitionu-release.tar.gz
+          retention-days: 7
