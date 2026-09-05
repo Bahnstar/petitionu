@@ -45,6 +45,8 @@ Run `scripts/backup-smoke.sh` with `PGHOST`, `PGUSER`, and, when needed, `PGPASS
 
 Test a real archive with `scripts/restore-smoke.sh /secure/backups/petitionu-TIMESTAMP.dump` against the disposable server. It restores into a new database and checks that migration records exist. It never restores over an existing database.
 
+To verify application data in a quiet local development database, run `python3 scripts/backup-restore-check.py petitionu_dev` with `PGHOST` and `PGUSER` set to its disposable PostgreSQL server. It backs up that database, restores into a new database, compares counts for nine application and migration tables, and removes only the temporary restore. Pause writes while running it so the source counts and backup describe the same state. This checks restoration and row counts, not every stored value.
+
 For incident recovery, restore the selected archive into a new empty production database with `pg_restore --exit-on-error --no-owner --no-acl`. Validate petition, signature, and user counts and log in with a controlled account. Change `DATABASE_URL` to the restored database only after validation. Record the backup timestamp and any lost writes.
 
 ## Monitor the pilot
@@ -52,3 +54,5 @@ For incident recovery, restore the selected archive into a new empty production 
 Configure an external monitor for `/healthz` and alert the responsible operator after repeated failures. Collect application error logs, restart events, and Resend delivery failures. Keep authentication tokens, full email links, and database credentials out of alerts and tickets. Test an alert before admitting students.
 
 The repository provides the release and recovery commands. Hosting, TLS, mail-domain verification, backup scheduling, external alerting, and a successful deployed email check remain operator setup steps.
+
+Email sends are synchronous. A provider failure can roll back registration or a classroom membership change. If the provider accepts a message but its response is lost, a retry can send a duplicate notice. There is no delivery outbox or automatic retry queue in this MVP. Monitor provider failures and test these workflows with the configured sender before launch.

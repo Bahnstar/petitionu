@@ -19,7 +19,7 @@ defmodule Petitionu.Accounts do
     end
 
     resource Petitionu.Accounts.User do
-      rpc_action :get_users, :read_users
+      rpc_action :get_users, :read_users, enable_filter?: false, enable_sort?: false
       rpc_action :get_user_by_id, :read_by_id
       rpc_action :get_me, :me
       rpc_action :update_my_profile, :update_my_profile, identities: [], read_action: :me

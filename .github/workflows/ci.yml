@@ -40,6 +40,7 @@ jobs:
             _build
           key: ${{ runner.os }}-otp27-elixir1.18-${{ hashFiles('mix.lock') }}
       - run: mix help deps.get && mix deps.get
+      - run: python3 scripts/check-dependency-advisories.py
       - run: bun install --frozen-lockfile
         working-directory: assets
       - run: mix help precommit && mix precommit
@@ -81,6 +82,11 @@ jobs:
             /tmp/petitionu-mvp-browser-report.json
             /tmp/petitionu-mvp-server.log
           retention-days: 7
+      - run: python3 scripts/backup-restore-check.py petitionu_dev
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
       - run: scripts/backup-smoke.sh
         env:
           PGHOST: localhost
