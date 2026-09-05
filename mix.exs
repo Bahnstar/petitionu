@@ -12,7 +12,8 @@ defmodule Petitionu.MixProject do
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
-      consolidate_protocols: Mix.env() != :dev
+      consolidate_protocols: Mix.env() != :dev,
+      usage_rules: usage_rules()
     ]
   end
 
@@ -46,7 +47,7 @@ defmodule Petitionu.MixProject do
       {:sourceror, "~> 1.8", only: [:dev, :test]},
       {:open_api_spex, "~> 3.0"},
       {:ash_typescript, "~> 0.11"},
-      {:usage_rules, "~> 0.1", only: [:dev]},
+      {:usage_rules, "~> 1.2.7", only: [:dev]},
       {:tidewave, "~> 0.5", only: [:dev]},
       {:ash_admin, "~> 0.13"},
       {:ash_authentication_phoenix, "~> 2.0"},
@@ -82,6 +83,36 @@ defmodule Petitionu.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"}
+    ]
+  end
+
+  # Skills-only configuration keeps generated package rules out of AGENTS.md.
+  defp usage_rules do
+    [
+      skills: [
+        location: ".agents/skills",
+        build: [
+          "ash-resources": [
+            description:
+              "Use when changing Ash resources, actions, policies, authentication, database migrations, JSON API, or Ash forms in Petitionu.",
+            usage_rules: [:ash, :ash_postgres, :ash_authentication, :ash_json_api, :ash_phoenix]
+          ],
+          "ash-typescript": [
+            description:
+              "Use when changing typescript_rpc declarations, generated TypeScript clients, browser RPC calls, or AshTypescript configuration in Petitionu.",
+            usage_rules: [:ash_typescript]
+          ],
+          "phoenix-elixir": [
+            description:
+              "Use when changing Phoenix routes, HEEx, LiveViews, Ecto integration, or Elixir/OTP processes in Petitionu.",
+            usage_rules: [
+              {:phoenix, sub_rules: [:phoenix, :html, :liveview, :ecto]},
+              :elixir,
+              :otp
+            ]
+          ]
+        ]
+      ]
     ]
   end
 
