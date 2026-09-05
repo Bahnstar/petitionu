@@ -70,7 +70,8 @@ defmodule Petitionu.Post.Changes.CheckPetition do
   end
 
   defp check_campus(changeset, %{classroom_id: classroom_id}, _actor)
-       when not is_nil(classroom_id), do: changeset
+       when not is_nil(classroom_id),
+       do: changeset
 
   defp check_campus(changeset, %{organization_id: nil}, _actor), do: changeset
 

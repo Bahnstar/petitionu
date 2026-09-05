@@ -66,9 +66,13 @@ The release check uses dummy mail credentials and sends no email. The data-resto
 
 ## Recorded results
 
-The stable pre-upgrade browser run `mtoxsxsi` passed all 13 scenarios and produced 12 desktop/mobile screenshots. The updated dependencies passed 94 backend tests, TypeScript, and asset building in the isolated upgrade worktree. Final integration and upgraded release results are recorded in the PR and decision trail after completion.
+The final dependency-updated browser run `mtoygvia` passed all 13 scenarios. Its [JSON results](browser-results.json) and 12 desktop/mobile screenshots are committed. The 21 separate mocked UI checks also passed.
 
-A backup of the browser-populated database restored successfully into a new disposable database. All nine checked counts matched. There were 11 users, 3 petitions, 3 signatures, 3 comments, 1 classroom, 2 memberships, 1 content report, 2 support requests, and 14 migration records.
+The integrated upgraded tree passed 94 backend tests, TypeScript, asset building, the 45-advisory check, and frontend audit. The dependency-updated release build succeeded in an isolated worktree with 154 matching runtime/build source files, including the generated client. The parent independently ran that package through repeated migrations, a healthy HTTP 200 response, and HTTP 503 with an explicit unreachable database URL.
+
+The final backup check restored a real browser-populated application database. All nine table counts matched: 15 users, 5 petitions, 5 signatures, 5 comments, 2 classrooms, 4 memberships, 2 reports, 4 support requests, and 14 migrations. It used a separate temporary database and left the source intact.
+
+Local checks used Elixir 1.20.3, OTP 29.0.5, and PostgreSQL 17.11. CI uses the versions pinned in its workflow and separately verifies the Linux release. Both formatter versions accept the committed layout.
 
 ## Launch limits
 
