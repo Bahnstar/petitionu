@@ -2,10 +2,14 @@
    https://tailwindcss.com/docs/configuration */
 
 /* Import Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,700;1,400;1,700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap");
 
 @import "tailwindcss" source(none);
+@import "./home-prototype.css";
+@import "./landing-prototype.css";
+@import "./landing-page.css";
 @source "../../deps/ash_authentication_phoenix";
 @source "../css";
 @source "../js";
