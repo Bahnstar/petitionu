@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
-import { Plus, GraduationCap } from "lucide-react"
+import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getMyClassrooms, buildCSRFHeaders } from "@/js/ash_rpc"
 import { ClassroomList } from "../features/classroom/classroom-list"
@@ -13,12 +13,12 @@ import { useDocumentTitle } from "../hooks/use-document-title"
 function ClassroomsLoadingState() {
   return (
     <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <div className="app-page">
         {/* Header Skeleton */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
           <div>
             <div className="h-10 lg:h-12 bg-muted rounded-lg w-48 mb-2 animate-pulse" />
-            <div className="h-4 bg-muted rounded-lg w-72 animate-pulse" />
+            <div className="h-4 bg-muted rounded-lg w-full max-w-72 animate-pulse" />
           </div>
           <div className="h-10 bg-muted rounded-lg w-40 animate-pulse" />
         </div>
@@ -28,7 +28,7 @@ function ClassroomsLoadingState() {
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-card rounded-lg border border-border p-6">
+                <div key={i} className="bg-card rounded-2xl border border-border p-6">
                   <div className="h-6 bg-muted rounded-lg w-24 mb-4 animate-pulse" />
                   <div className="h-6 bg-muted rounded-lg w-3/4 mb-2 animate-pulse" />
                   <div className="h-4 bg-muted rounded-lg w-full mb-4 animate-pulse" />
@@ -41,7 +41,7 @@ function ClassroomsLoadingState() {
             </div>
           </div>
           <div>
-            <div className="bg-card rounded-lg border border-border p-6">
+            <div className="bg-card rounded-2xl border border-border p-6">
               <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse" />
               <div className="h-10 bg-muted rounded-lg w-full mb-4 animate-pulse" />
               <div className="h-10 bg-muted rounded-lg w-full animate-pulse" />
@@ -56,11 +56,11 @@ function ClassroomsLoadingState() {
 export default function ClassroomsPage() {
   useDocumentTitle("Classrooms")
 
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
   const currentUserId = currentUser?.id
 
   const classroomsQuery = useQuery({
-    queryKey: ["myClassrooms"],
+    queryKey: ["myClassrooms", currentUserId],
     queryFn: async () => {
       const result = await getMyClassrooms({
         fields: [
@@ -84,7 +84,22 @@ export default function ClassroomsPage() {
 
       return result.data
     },
+    enabled: !authLoading && !!currentUserId,
   })
+
+  if (authLoading) return <ClassroomsLoadingState />
+
+  if (!currentUser) {
+    return (
+      <main className="app-page">
+        <section id="classrooms-sign-in" className="app-empty-state">
+          <h1 className="app-page-heading">Find your people.</h1>
+          <p className="app-page-description">Sign in to join your class, share ideas, and see what you can change together.</p>
+          <Button asChild className="mt-6"><a href="/sign-in">Sign in</a></Button>
+        </section>
+      </main>
+    )
+  }
 
   if (classroomsQuery.isPending) {
     return <ClassroomsLoadingState />
@@ -93,11 +108,12 @@ export default function ClassroomsPage() {
   if (classroomsQuery.isError) {
     return (
       <main className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-          <div className="text-center py-12">
+        <div className="app-page">
+          <div className="app-empty-state" role="alert">
+            <h1 className="font-display text-3xl mb-3">Your classrooms couldn’t load</h1>
             <p className="text-destructive">Error: {classroomsQuery.error?.message}</p>
             <Button onClick={() => classroomsQuery.refetch()} className="mt-4">
-              Try Again
+              Try again
             </Button>
           </div>
         </div>
@@ -111,24 +127,28 @@ export default function ClassroomsPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <div className="app-page">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-              <GraduationCap className="w-8 h-8 lg:w-10 lg:h-10" />
-              My Classrooms
+            <h1 className="app-page-heading mb-3">
+              My classrooms
             </h1>
-            <p className="text-muted-foreground">
-              View and manage your classrooms or join a new one
+            <p className="app-page-description">
+              A shared space for your class and the ideas you care about.
             </p>
           </div>
-          <Link to={ROUTES.classroomNew}>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Classroom
+          <div className="flex flex-wrap gap-3">
+            <Button asChild variant="outline">
+              <a href="#join-code">Join with a code</a>
             </Button>
-          </Link>
+            <Button asChild id="create-classroom-link">
+              <Link to={ROUTES.classroomNew}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create classroom
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -138,8 +158,8 @@ export default function ClassroomsPage() {
             {/* Owned Classrooms */}
             {ownedClassrooms.length > 0 && (
               <section>
-                <h2 className="text-xl font-semibold text-foreground mb-4">
-                  Classrooms You Teach
+                <h2 className="font-display text-3xl font-normal text-foreground mb-4">
+                  Classrooms you teach
                 </h2>
                 <ClassroomList
                   classrooms={ownedClassrooms}
@@ -150,13 +170,13 @@ export default function ClassroomsPage() {
 
             {/* Member Classrooms */}
             <section>
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                Classrooms You've Joined
+              <h2 className="font-display text-3xl font-normal text-foreground mb-4">
+                Classrooms you’ve joined
               </h2>
               <ClassroomList
                 classrooms={memberClassrooms}
                 currentUserId={currentUserId}
-                emptyMessage="You haven't joined any classrooms yet. Use a join code to get started!"
+                emptyMessage="Ask your professor for a join code, then enter it here to find your class."
               />
             </section>
           </div>
