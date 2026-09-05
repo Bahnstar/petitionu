@@ -1,67 +1,51 @@
-import { Card } from "@/components/ui/card"
-import { Clock, MessageCircle, UserPlus, FileText } from "lucide-react"
+import { Link } from "react-router-dom"
+import { CleanResource } from "@/lib/types"
+import { PetitionResourceSchema, SignatureResourceSchema } from "@/js/ash_rpc"
+import { ROUTES } from "@/lib/routes"
 
-export function RecentActivity() {
+interface RecentActivityProps {
+  petitions: CleanResource<PetitionResourceSchema>[]
+  signatures: CleanResource<SignatureResourceSchema>[]
+}
+
+const activityDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+
+export function RecentActivity({ petitions, signatures }: RecentActivityProps) {
   const activities = [
-    {
-      type: "comment",
-      icon: MessageCircle,
-      text: "New comment on",
-      petition: "Library Hours",
-      time: "2 hours ago",
-      color: "text-chart-2",
-    },
-    {
-      type: "signature",
-      icon: UserPlus,
-      text: "50 new signatures on",
-      petition: "Dining Options",
-      time: "5 hours ago",
-      color: "text-chart-3",
-    },
-    {
-      type: "update",
-      icon: FileText,
-      text: "Status update for",
-      petition: "WiFi Infrastructure",
-      time: "1 day ago",
-      color: "text-chart-1",
-    },
-    {
-      type: "signature",
-      icon: UserPlus,
-      text: "100 new signatures on",
-      petition: "Library Hours",
-      time: "2 days ago",
-      color: "text-chart-3",
-    },
-  ]
+    ...petitions.map((petition) => ({
+      id: `petition-${petition.id}`,
+      title: petition.title,
+      petitionId: petition.id,
+      date: petition.insertedAt,
+      action: "You started",
+    })),
+    ...signatures.filter((signature) => signature.petition).map((signature) => ({
+      id: `signature-${signature.id}`,
+      title: signature.petition.title,
+      petitionId: signature.petition.id,
+      date: signature.insertedAt,
+      action: "You signed",
+    })),
+  ].filter((activity) => activity.date && Number.isFinite(Date.parse(activity.date)))
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
+    .slice(0, 5)
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Clock className="w-5 h-5 text-muted-foreground" />
-        <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
-      </div>
-
-      <div className="space-y-4">
-        {activities.map((activity, index) => (
-          <div key={index} className="flex items-start gap-3">
-            <div
-              className={`w-8 h-8 rounded-full bg-accent flex items-center justify-center shrink-0 ${activity.color}`}
-            >
-              <activity.icon className="w-4 h-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-foreground leading-relaxed">
-                {activity.text}{" "}
-                <span className="font-medium text-primary">{activity.petition}</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
+    <section id="dashboard-recent-activity" className="app-panel" aria-labelledby="recent-activity-heading">
+      <h2 id="recent-activity-heading" className="mb-5 font-display text-2xl tracking-tight">Your recent activity</h2>
+      {activities.length === 0 ? (
+        <p className="text-sm leading-relaxed text-muted-foreground">When you start or sign a petition, you’ll find it here.</p>
+      ) : (
+        <ol className="divide-y divide-border">
+          {activities.map((activity) => (
+            <li key={activity.id} className="py-4 first:pt-0 last:pb-0">
+              <p className="text-xs text-muted-foreground">{activity.action}</p>
+              <Link to={ROUTES.petition(activity.petitionId)} className="mt-1 block rounded-sm text-sm font-medium leading-relaxed underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">{activity.title}</Link>
+              <time dateTime={activity.date} className="mt-1 block text-xs text-muted-foreground">{activityDate.format(new Date(activity.date))}</time>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   )
 }
