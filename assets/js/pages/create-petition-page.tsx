@@ -1,423 +1,139 @@
 import { useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2, Lightbulb } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { buildCSRFHeaders, createPetition, getCategories } from "../ash_rpc"
-import { useQuery } from "@tanstack/react-query"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { buildCSRFHeaders, createPetition, createClassroomPetition, getCategories, getClassroomById } from "../ash_rpc"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
-
-function CreatePetitionLoadingState() {
-  return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="max-w-4xl mx-auto">
-          {/* Page Header Skeleton */}
-          <div className="mb-12 text-center">
-            <div className="h-12 md:h-14 lg:h-16 bg-muted rounded-lg w-3/4 mx-auto mb-4 animate-pulse"></div>
-            <div className="h-6 bg-muted rounded-lg w-1/2 mx-auto animate-pulse"></div>
-          </div>
-
-          {/* Tips Card Skeleton */}
-          <div className="mb-8 p-4 rounded-xl border border-border bg-card">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-5 h-5 bg-muted rounded animate-pulse"></div>
-              <div className="h-6 bg-muted rounded-lg w-48 animate-pulse"></div>
-            </div>
-            <div className="space-y-2">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex gap-2">
-                  <div className="w-4 h-4 bg-muted rounded-full animate-pulse mt-0.5"></div>
-                  <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Petition Form Skeleton */}
-          <div className="p-4 rounded-xl border border-border bg-card">
-            <div className="mb-6">
-              <div className="h-6 bg-muted rounded-lg w-32 mb-2 animate-pulse"></div>
-              <div className="h-4 bg-muted rounded-lg w-64 animate-pulse"></div>
-            </div>
-
-            <div className="space-y-6">
-              {/* Title Field Skeleton */}
-              <div className="space-y-2">
-                <div className="h-5 bg-muted rounded-lg w-32 animate-pulse"></div>
-                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-3 bg-muted rounded-lg w-16 animate-pulse"></div>
-              </div>
-
-              {/* Category Field Skeleton */}
-              <div className="space-y-2">
-                <div className="h-5 bg-muted rounded-lg w-24 animate-pulse"></div>
-                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-              </div>
-
-              {/* Description Field Skeleton */}
-              <div className="space-y-2">
-                <div className="h-5 bg-muted rounded-lg w-28 animate-pulse"></div>
-                <div className="h-32 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-3 bg-muted rounded-lg w-20 animate-pulse"></div>
-              </div>
-
-              {/* Target Audience Field Skeleton */}
-              <div className="space-y-2">
-                <div className="h-5 bg-muted rounded-lg w-48 animate-pulse"></div>
-                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-3 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-              </div>
-
-              {/* Signature Goal Field Skeleton */}
-              <div className="space-y-2">
-                <div className="h-5 bg-muted rounded-lg w-32 animate-pulse"></div>
-                <div className="h-10 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-3 bg-muted rounded-lg w-2/3 animate-pulse"></div>
-              </div>
-
-              {/* Guidelines Notice Skeleton */}
-              <div className="p-4 rounded-lg border border-border bg-muted/20">
-                <div className="flex gap-2 mb-2">
-                  <div className="w-4 h-4 bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 bg-muted rounded-lg w-40 animate-pulse"></div>
-                </div>
-                <div className="space-y-1">
-                  <div className="h-3 bg-muted rounded-lg w-full animate-pulse"></div>
-                  <div className="h-3 bg-muted rounded-lg w-5/6 animate-pulse"></div>
-                </div>
-              </div>
-
-              {/* Submit Buttons Skeleton */}
-              <div className="flex gap-4 pt-4">
-                <div className="h-10 bg-muted rounded-lg flex-1 animate-pulse"></div>
-                <div className="h-10 bg-muted rounded-lg w-24 animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Additional Info Skeleton */}
-          <div className="mt-8 text-center">
-            <div className="h-4 bg-muted rounded-lg w-48 mx-auto animate-pulse"></div>
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-}
+import { ROUTES } from "@/lib/routes"
+import { useAuth } from "../contexts/auth-context"
 
 export default function CreatePetitionPage() {
   useDocumentTitle("Start a Petition")
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "",
-    goal: "1000",
-    targetAudience: "",
-  })
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-
-  const {
-    status,
-    data: categories,
-    error,
-  } = useQuery({
-    queryKey: ["categories"],
+  const { user, isLoading: authLoading } = useAuth()
+  const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const classroomId = searchParams.get("classroomId")
+  const returnPath = classroomId ? ROUTES.classroom(classroomId) : ROUTES.petitions
+  const classroomQuery = useQuery({
+    queryKey: ["classroomContext", classroomId],
+    enabled: !!classroomId && !!user,
     queryFn: async () => {
-      const result = await getCategories({
-        fields: ["id", "name"],
-        headers: buildCSRFHeaders(),
-      })
-      if (!result.success) {
-        throw new Error("Failed to fetch categories")
-      }
+      const result = await getClassroomById({ input: { id: classroomId! }, fields: ["id", "name"], headers: buildCSRFHeaders() })
+      if (result.success === false) throw new Error("This classroom could not be loaded. Return to the classroom and try again.")
       return result.data
     },
   })
-
-  switch (status) {
-    case "pending":
-      return <CreatePetitionLoadingState />
-    case "error":
-      return <div>Error: {error.message}</div>
-    case "success":
-    default:
-      break
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (isSubmitting) return
+  const [formData, setFormData] = useState({ title: "", description: "", categoryId: "", goal: "1000" })
+  const [createdId, setCreatedId] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const categoryQuery = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const result = await getCategories({ fields: ["id", "name"], headers: buildCSRFHeaders() })
+      if (result.success === false) throw new Error("We couldn't load the categories. Please try again.")
+      return result.data
+    },
+  })
+  const handleChange = (field: keyof typeof formData, value: string) => setFormData((previous) => ({ ...previous, [field]: value }))
+  const isFormValid = !!(formData.title.trim() && formData.description.trim() && formData.categoryId)
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (isSubmitting || !isFormValid || !user || (classroomId && !classroomQuery.isSuccess)) return
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      const result = await createPetition({
-        input: {
-          title: formData.title,
-          description: formData.description,
-          status: "open",
-          goal: parseInt(formData.goal),
-          categoryId: categories.find((category) => formData.category === category.name)?.id,
-        },
-        headers: buildCSRFHeaders(),
-      })
+      const input = { title: formData.title.trim(), description: formData.description.trim(), status: "open" as const, goal: Number(formData.goal), categoryId: formData.categoryId }
+      const result = classroomId
+        ? await createClassroomPetition({ input: { ...input, classroomId }, fields: ["id"], headers: buildCSRFHeaders() })
+        : await createPetition({ input, fields: ["id"], headers: buildCSRFHeaders() })
       if (result.success === false) {
-        const message = result.errors.map((error) => error.message).join(" ")
-        setSubmitError(message || "Something went wrong. Please try again.")
+        setSubmitError(result.errors.map((error) => error.message).join(" ") || "Your petition couldn't be created. Please try again.")
       } else {
-        setShowSuccess(true)
-        setFormData({
-          title: "",
-          description: "",
-          category: "",
-          goal: "1000",
-          targetAudience: "",
-        })
+        setCreatedId(result.data.id)
+        void queryClient.invalidateQueries({ queryKey: ["petitions"] })
+        void queryClient.invalidateQueries({ queryKey: ["dashboardUser"] })
+        if (classroomId) {
+          void queryClient.invalidateQueries({ queryKey: ["classroomPetitions", classroomId] })
+          void queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
+          void queryClient.invalidateQueries({ queryKey: ["classrooms"] })
+        }
+        window.scrollTo({ top: 0 })
       }
     } catch {
-      setSubmitError("Something went wrong. Please try again.")
+      setSubmitError("Your petition couldn't be created. Check your connection and try again.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const isFormValid =
-    formData.title && formData.description && formData.category && formData.targetAudience
+  if (createdId) return (
+    <main id="petition-created" className="app-page">
+      <section className="app-empty-state mx-auto max-w-2xl" role="status">
+        <span className="hero-check-circle mb-5 size-12 text-primary" aria-hidden="true" />
+        <h1 className="app-page-heading">Your idea is out there.</h1>
+        <p className="app-page-description mx-auto">Your petition is live. Share it with the people who care, and take the next step together.</p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3"><Button id="view-created-petition" asChild><Link to={ROUTES.petition(createdId)}>View your petition</Link></Button><Button variant="outline" asChild><Link to={ROUTES.petitions}>Browse petitions</Link></Button></div>
+      </section>
+    </main>
+  )
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="max-w-4xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-12 text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 text-balance">
-              Start a Petition
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-balance">
-              Make your voice heard and drive positive change in your university community
-            </p>
-          </div>
-
-          {/* Success Alert */}
-          {showSuccess && (
-            <Alert className="mb-6 border-primary bg-primary/5">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              <AlertTitle>Petition Created Successfully!</AlertTitle>
-              <AlertDescription>
-                Your petition is now live and ready to collect signatures.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Tips Card */}
-          <Card className="mb-8 p-4 rounded-xl border-accent bg-accent/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Lightbulb className="w-5 h-5 text-primary" />
-                Tips for a Successful Petition
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <span className="text-primary">•</span>
-                  <span>Be specific and clear about what you want to achieve</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-primary">•</span>
-                  <span>Explain why this issue matters to the community</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-primary">•</span>
-                  <span>Include relevant facts, data, or personal stories</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-primary">•</span>
-                  <span>Address who has the power to make the change happen</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* Petition Form */}
-          <Card className="p-4">
-            <CardHeader>
-              <CardTitle>Petition Details</CardTitle>
-              <CardDescription>
-                Fill in the information below to create your petition
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {submitError && (
-                <Alert variant="destructive" className="mb-6">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Unable to Create Petition</AlertTitle>
-                  <AlertDescription>{submitError}</AlertDescription>
-                </Alert>
-              )}
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Title */}
-                <div className="space-y-2">
-                  <Label htmlFor="title" className="text-base">
-                    Petition Title *
-                  </Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Extend Library Hours During Finals Week"
-                    value={formData.title}
-                    onChange={(e) => handleChange("title", e.target.value)}
-                    required
-                    maxLength={100}
-                    className="text-base"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {formData.title.length}/100 characters
-                  </p>
-                </div>
-
-                {/* Category */}
-                <div className="space-y-2">
-                  <Label htmlFor="category" className="text-base">
-                    Category *
-                  </Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => handleChange("category", value)}
-                    required
-                  >
-                    <SelectTrigger id="category" className="text-base">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.name}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Description */}
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-base">
-                    Description *
-                  </Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Explain what you want to change and why it matters. Include specific details about the issue and your proposed solution."
-                    value={formData.description}
-                    onChange={(e) => handleChange("description", e.target.value)}
-                    required
-                    rows={8}
-                    maxLength={2000}
-                    className="text-base resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {formData.description.length}/2000 characters
-                  </p>
-                </div>
-
-                {/* Target Audience */}
-                <div className="space-y-2">
-                  <Label htmlFor="targetAudience" className="text-base">
-                    Who can make this change happen? *
-                  </Label>
-                  <Input
-                    id="targetAudience"
-                    placeholder="e.g., Dean of Students, University President, Board of Trustees"
-                    value={formData.targetAudience}
-                    onChange={(e) => handleChange("targetAudience", e.target.value)}
-                    required
-                    className="text-base"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Specify the person or department with the authority to implement this change
-                  </p>
-                </div>
-
-                {/* Signature Goal */}
-                <div className="space-y-2">
-                  <Label htmlFor="goal" className="text-base">
-                    Signature Goal
-                  </Label>
-                  <Select
-                    value={formData.goal}
-                    onValueChange={(value) => handleChange("goal", value)}
-                  >
-                    <SelectTrigger id="goal" className="text-base">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="500">500 signatures</SelectItem>
-                      <SelectItem value="1000">1,000 signatures</SelectItem>
-                      <SelectItem value="2500">2,500 signatures</SelectItem>
-                      <SelectItem value="5000">5,000 signatures</SelectItem>
-                      <SelectItem value="10000">10,000 signatures</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Set a realistic goal based on your university's size and the scope of your
-                    petition
-                  </p>
-                </div>
-
-                {/* Guidelines Notice */}
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Community Guidelines</AlertTitle>
-                  <AlertDescription className="text-sm">
-                    By creating this petition, you agree to our community guidelines. Petitions must
-                    be respectful, non-discriminatory, and focused on legitimate university issues.
-                  </AlertDescription>
-                </Alert>
-
-                {/* Submit Button */}
-                <div className="flex gap-4 pt-4">
-                  <Button
-                    type="submit"
-                    disabled={!isFormValid || isSubmitting}
-                    className="flex-1"
-                  >
-                    Create Petition
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => window.history.back()}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Additional Info */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              Need help? Check out our{" "}
-              <a href="#" className="text-primary hover:underline">
-                guide to creating effective petitions
-              </a>
-            </p>
-          </div>
-        </div>
-      </main>
-    </div>
+    <main id="create-petition-page" className="app-page">
+      <header className="mb-10 max-w-2xl">
+        <Link to={returnPath} className="mb-7 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"><span className="hero-arrow-left size-4" aria-hidden="true" />{classroomId ? "Back to classroom" : "Browse petitions"}</Link>
+        <h1 className="app-page-heading">Let's start with your idea.</h1>
+        <p className="app-page-description">A better campus begins with one clear ask. Tell your community what you'd change and why it matters.</p>
+      </header>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
+        <section className="app-panel order-2 lg:order-1" aria-labelledby="petition-details-heading">
+          <h2 id="petition-details-heading" className="mb-2 font-display text-3xl tracking-tight">Put your idea into words.</h2>
+          <p className="mb-8 text-sm text-muted-foreground">All fields are required. You can start with a small signature goal.</p>
+          {classroomId ? <p id="petition-classroom-context" className="mb-6 rounded-xl bg-secondary p-4 text-sm">{classroomQuery.isSuccess ? `This petition will be shared with ${classroomQuery.data.name}.` : classroomQuery.isError ? classroomQuery.error.message : "Creating a classroom petition."}</p> : null}
+          {!authLoading && !user ? <div className="mb-6 rounded-xl border border-border bg-secondary p-4 text-sm">Sign in to publish your petition. <a href="/sign-in" className="font-medium underline underline-offset-4">Sign in</a></div> : null}
+          {categoryQuery.isError ? <div role="alert" className="mb-6 text-sm text-destructive">{categoryQuery.error.message} <button type="button" className="underline" onClick={() => categoryQuery.refetch()}>Try again</button></div> : null}
+          {submitError ? <p id="petition-submit-error" role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{submitError}</p> : null}
+          <form id="create-petition-form" onSubmit={handleSubmit} className="space-y-7">
+            <div className="space-y-2">
+              <Label htmlFor="title">What would you like to change?</Label>
+              <Input id="title" placeholder="Keep the library open later during finals" value={formData.title} onChange={(event) => handleChange("title", event.target.value)} required maxLength={100} aria-describedby="title-help" />
+              <p id="title-help" className="flex justify-between gap-3 text-xs text-muted-foreground"><span>Make your title a clear, specific ask.</span><span className="shrink-0">{formData.title.length}/100</span></p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select value={formData.categoryId} onValueChange={(value) => handleChange("categoryId", value)} required disabled={categoryQuery.isPending || categoryQuery.isError}>
+                <SelectTrigger id="category" className="w-full"><SelectValue placeholder={categoryQuery.isPending ? "Loading categories…" : "Choose a category"} /></SelectTrigger>
+                <SelectContent>{categoryQuery.data?.map((category) => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}</SelectContent>
+              </Select>
+              {categoryQuery.isSuccess && categoryQuery.data.length === 0 ? <p className="text-xs text-muted-foreground">No categories are available yet. Please try again later.</p> : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Why does it matter?</Label>
+              <Textarea id="description" placeholder="Describe the issue, the change you're asking for, and who can help make it happen." value={formData.description} onChange={(event) => handleChange("description", event.target.value)} required rows={9} maxLength={2000} className="min-h-48 resize-y leading-7" aria-describedby="description-help" />
+              <p id="description-help" className="flex justify-between gap-3 text-xs text-muted-foreground"><span>Help people understand why their support matters.</span><span className="shrink-0">{formData.description.length}/2,000</span></p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="goal">Signature goal</Label>
+              <Select value={formData.goal} onValueChange={(value) => handleChange("goal", value)}><SelectTrigger id="goal" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{[100, 250, 500, 1000, 2500, 5000, 10000].map((goal) => <SelectItem key={goal} value={String(goal)}>{goal.toLocaleString()} signatures</SelectItem>)}</SelectContent></Select>
+              <p className="text-xs text-muted-foreground">Choose a goal that makes sense for your community.</p>
+            </div>
+            <p className="border-t border-border pt-5 text-xs leading-6 text-muted-foreground">Keep your petition respectful, inclusive, and focused on a change your campus can make.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button id="publish-petition" type="submit" disabled={!isFormValid || isSubmitting || !user || !!(classroomId && !classroomQuery.isSuccess)} className="flex-1 sm:flex-none">{isSubmitting ? "Publishing…" : "Publish petition"}</Button>
+              <Button type="button" variant="outline" asChild><Link to={returnPath}>Cancel</Link></Button>
+            </div>
+          </form>
+        </section>
+        <aside id="petition-writing-tips" className="order-1 rounded-2xl bg-[#f7e8d2] p-6 text-[#685649] lg:order-2 lg:p-7">
+          <span className="hero-light-bulb mb-4 size-7" aria-hidden="true" />
+          <h2 className="font-display text-3xl tracking-tight">A little clarity goes a long way.</h2>
+          <ul className="mt-5 space-y-4 text-sm leading-6"><li>Ask for one specific change.</li><li>Share a personal story or a fact that makes the issue real.</li><li>Name the person or department who can help.</li><li>Write like you're talking to a classmate.</li></ul>
+        </aside>
+      </div>
+    </main>
   )
 }
