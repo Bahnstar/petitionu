@@ -1,140 +1,33 @@
+import { Link } from "react-router-dom"
 import { PetitionCard } from "./petition-card"
 import { PetitionResourceSchema } from "../../ash_rpc"
 import { CleanResource } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/lib/routes"
 
-// Fallback mock data for when no petitions are available
-const mockPetitions: CleanResource<PetitionResourceSchema>[] = [
-  {
-    id: "018f1234-5678-9abc-def0-123456789abc",
-    title: "Extend Library Hours During Finals Week",
-    description: "Request 24/7 library access during final exams to support student study needs and reduce stress during most critical academic period.",
-    author: "Sarah Mitchell",
-    signaturesCount: 2847,
-    goal: 3000,
-    daysLeft: 12,
-    trending: true,
-    status: "open",
-    deadline: null,
-    allowComments: true,
-    isAnonymous: false,
-    insertedAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-15T10:30:00Z",
-    userId: "018f1234-5678-9abc-def0-123456789abc",
-    categoryId: "018f1234-5678-9abc-def0-123456789abc",
-    category: {
-      id: "018f1234-5678-9abc-def0-123456789abc",
-      name: "Academic",
-      description: "Academic related petitions",
-      color: "#3b82f6",
-      insertedAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    user: {
-      id: "018f1234-5678-9abc-def0-123456789abc",
-      firstName: "Sarah",
-      lastName: "Mitchell",
-      email: "sarah.mitchell@example.com",
-      graduationYear: 2025,
-      insertedAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z",
-      numPetitions: 2,
-      numSigned: 15,
-      numPetitionSignees: 50,
-      totalPetitionSignatures: 120,
-      petitions: [],
-      signatures: []
-    },
-    updates: [],
-    comments: [],
-    signatures: []
-  },
-  {
-    id: "018f1234-5678-9abc-def0-123456789abd",
-    title: "Add More Vegetarian Options in Dining Halls",
-    description: "Expand plant-based meal choices across all campus dining facilities to accommodate dietary preferences and promote sustainable eating.",
-    author: "James Chen",
-    signaturesCount: 1653,
-    goal: 2500,
-    daysLeft: 8,
-    trending: false,
-    status: "open",
-    deadline: null,
-    allowComments: true,
-    isAnonymous: false,
-    insertedAt: "2024-01-14T09:15:00Z",
-    updatedAt: "2024-01-14T09:15:00Z",
-    userId: "018f1234-5678-9abc-def0-123456789abd",
-    categoryId: "018f1234-5678-9abc-def0-123456789abd",
-    category: {
-      id: "018f1234-5678-9abc-def0-123456789abd",
-      name: "Campus Life",
-      description: "Campus life related petitions",
-      color: "#10b981",
-      insertedAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z"
-    },
-    user: {
-      id: "018f1234-5678-9abc-def0-123456789abd",
-      firstName: "James",
-      lastName: "Chen",
-      email: "james.chen@example.com",
-      graduationYear: 2024,
-      insertedAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z",
-      numPetitions: 1,
-      numSigned: 8,
-      numPetitionSignees: 25,
-      totalPetitionSignatures: 60,
-      petitions: [],
-      signatures: []
-    },
-    updates: [],
-    comments: [],
-    signatures: []
-  }
-]
-
 interface PetitionGridProps {
   petitions?: CleanResource<PetitionResourceSchema>[]
 }
 
-export function PetitionGrid({ petitions = mockPetitions }: PetitionGridProps) {
+export function PetitionGrid({ petitions = [] }: PetitionGridProps) {
   return (
-    <section id="petitions" className="py-16 lg:py-24">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8 lg:mb-12">
+    <section id="petitions" className="py-12 lg:py-16">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">
-              Active Petitions
-            </h2>
-            <p className="text-muted-foreground">Discover causes that matter to your community</p>
+            <h2 className="mb-2 font-display text-4xl tracking-tight text-foreground">Ideas finding their people.</h2>
+            <p className="text-sm text-muted-foreground">Discover what your community is speaking up about.</p>
           </div>
-
-          <div className="flex gap-2">
-            <button className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground">
-              Trending
-            </button>
-            <button className="px-4 py-2 text-sm rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80">
-              Recent
-            </button>
-          </div>
+          <Button variant="outline" asChild><Link to={ROUTES.petitions}>Browse petitions</Link></Button>
         </div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {petitions.length > 0 ? (
-            petitions.map((petition) => (
-              <PetitionCard key={petition.id} petition={petition} />
-            ))
-          ) : (
-            <div className="col-span-full text-center py-16">
-              <p className="text-muted-foreground text-lg">
-                No petitions found. Be the first to start a petition!
-              </p>
-              <Button className="mt-4" asChild>
-                <a href={ROUTES.createPetition}>Start a Petition</a>
-              </Button>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {petitions.length > 0 ? petitions.map((petition) => (
+            <PetitionCard key={petition.id} petition={petition} />
+          )) : (
+            <div className="app-empty-state col-span-full">
+              <h3 className="font-display text-3xl">One idea is a good place to start.</h3>
+              <p className="mb-6 mt-3 text-sm text-muted-foreground">Be the first to share a change you'd like to see.</p>
+              <Button asChild><Link to={ROUTES.createPetition}>Start a petition</Link></Button>
             </div>
           )}
         </div>

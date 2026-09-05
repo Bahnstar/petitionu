@@ -1,387 +1,119 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Filter, X } from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PetitionCard } from "../features/petition/petition-card"
-import {
-  buildCSRFHeaders,
-  getCategories,
-  getPetitions,
-  PetitionResourceSchema,
-  CategoryResourceSchema,
-  UserResourceSchema,
-  AshRpcError,
-} from "../ash_rpc"
+import { buildCSRFHeaders, getCategories, getPetitions, PetitionResourceSchema } from "../ash_rpc"
 import { CleanResource } from "../../lib/types"
 import { useQuery } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { ROUTES } from "@/lib/routes"
 
 const SORT_OPTIONS = [
   { value: "trending", label: "Trending" },
-  { value: "most-signed", label: "Most Signed" },
+  { value: "most-signed", label: "Most signed" },
   { value: "newest", label: "Newest" },
-  { value: "ending-soon", label: "Ending Soon" },
+  { value: "ending-soon", label: "Ending soon" },
 ]
 
-type Category = CleanResource<CategoryResourceSchema>
 type Petition = CleanResource<PetitionResourceSchema>
-type User = CleanResource<UserResourceSchema>
-
-function LoadingState() {
-  return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header Skeleton */}
-        <div className="mb-12 text-center">
-          <div className="h-12 md:h-14 lg:h-16 bg-muted rounded-lg w-3/4 mx-auto mb-4 animate-pulse"></div>
-          <div className="h-6 bg-muted rounded-lg w-1/2 mx-auto animate-pulse"></div>
-        </div>
-
-        {/* Search Bar Skeleton */}
-        <div className="mb-8 space-y-4">
-          <div className="relative max-w-3xl mx-auto">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-muted rounded animate-pulse"></div>
-            <div className="h-14 bg-muted rounded-lg w-full animate-pulse"></div>
-          </div>
-
-          {/* Filter Toggle Button Skeleton (Mobile) */}
-          <div className="flex justify-center md:hidden">
-            <div className="h-10 bg-muted rounded-lg w-32 animate-pulse"></div>
-          </div>
-
-          {/* Filters Skeleton */}
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2 justify-center md:justify-start max-w-5xl mx-auto">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-8 bg-muted rounded-full w-20 animate-pulse"></div>
-              ))}
-            </div>
-
-            {/* Sort Dropdown Skeleton */}
-            <div className="flex items-center gap-2 justify-center md:justify-end max-w-5xl mx-auto">
-              <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
-              <div className="h-10 bg-muted rounded-lg w-[180px] animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Results Count Skeleton */}
-        <div className="text-center mb-6">
-          <div className="h-4 bg-muted rounded-lg w-32 mx-auto animate-pulse"></div>
-        </div>
-
-        {/* Petitions Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-card rounded-lg border border-border p-6 space-y-4">
-              {/* Title skeleton */}
-              <div className="h-6 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-
-              {/* Description skeleton */}
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-5/6 animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-4/6 animate-pulse"></div>
-              </div>
-
-              {/* Category and author skeleton */}
-              <div className="flex items-center gap-4">
-                <div className="h-6 bg-muted rounded-full w-20 animate-pulse"></div>
-                <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
-              </div>
-
-              {/* Stats skeleton */}
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 bg-muted rounded-lg w-16 animate-pulse"></div>
-                  <div className="h-4 bg-muted rounded-lg w-12 animate-pulse"></div>
-                </div>
-                <div className="h-8 bg-muted rounded-lg w-20 animate-pulse"></div>
-              </div>
-
-              {/* Progress bar skeleton */}
-              <div className="space-y-2">
-                <div className="h-2 bg-muted rounded-full w-full animate-pulse"></div>
-                <div className="flex justify-between">
-                  <div className="h-3 bg-muted rounded-lg w-12 animate-pulse"></div>
-                  <div className="h-3 bg-muted rounded-lg w-16 animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </main>
-    </div>
-  )
-}
 
 export default function BrowsePetitionsPage() {
   useDocumentTitle("Browse Petitions")
-
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("All")
+  const [selectedCategory, setSelectedCategory] = useState("all")
   const [sortBy, setSortBy] = useState("trending")
-  const [showFilters, setShowFilters] = useState(false)
-
   const petitionsQuery = useQuery({
     queryKey: ["petitions"],
     queryFn: async () => {
       const result = await getPetitions({
-        fields: [
-          "id",
-          "title",
-          "description",
-          "status",
-          "goal",
-          "signaturesCount",
-          "daysLeft",
-          "trending",
-          "author",
-          "categoryId",
-          "allowComments",
-          "isAnonymous",
-          "deadline",
-          "insertedAt",
-          "updatedAt",
-          { category: ["id", "name", "description"] },
-          { comments: ["sentiment", "text"] },
-          { signatures: ["reason", "userAgent"] },
-          { updates: ["id", "title", "body"] },
-        ],
+        fields: ["id", "title", "description", "status", "goal", "signaturesCount", "daysLeft", "trending", "author", "categoryId", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }],
         headers: buildCSRFHeaders(),
       })
-
-      if (result.success === false) {
-        result.errors.forEach((error) => {
-          console.error("API Error:", error.message, error.fields, error.type)
-        })
-        throw new Error(
-          `Failed to fetch petitions: ${result.errors.map((e) => e.message).join(", ")}`,
-        )
-      }
-
-      const fetchedPetitions: Petition[] = result.data
-      return fetchedPetitions
+      if (result.success === false) throw new Error("We couldn't load the petitions. Please try again.")
+      return result.data as Petition[]
     },
   })
-
   const categoryQuery = useQuery({
-    queryKey: ["category"],
+    queryKey: ["categories"],
     queryFn: async () => {
-      const result = await getCategories({
-        fields: ["id", "description", "name"],
-        headers: buildCSRFHeaders(),
-      })
-
-      if (result.success === false) {
-        result.errors.forEach((error) => {
-          console.error("API Error:", error.message, error.fields, error.type)
-        })
-        throw new Error(
-          `Failed to fetch categories: ${result.errors.map((e) => e.message).join(", ")}`,
-        )
-      }
-
-      const fetchedCategory: Category[] = result.data
-      return fetchedCategory
+      const result = await getCategories({ fields: ["id", "name"], headers: buildCSRFHeaders() })
+      if (result.success === false) throw new Error("We couldn't load the categories.")
+      return result.data
     },
   })
 
-  switch (true) {
-    case petitionsQuery.isError || categoryQuery.isError:
-      return <div>Error: {petitionsQuery.error?.message ?? categoryQuery.error?.message}</div>
-    case petitionsQuery.isPending || categoryQuery.isPending:
-      return <LoadingState />
-    case petitionsQuery.isSuccess || categoryQuery.isSuccess:
-      break
-    default:
-      return <div>Unknown status: {petitionsQuery.status}</div>
-  }
-
-  const petitions = petitionsQuery.data
-  const categories = categoryQuery.data
-
-  const categoryNames = ["All", ...categories.map((c) => c.name || "General")]
-
-  const filteredPetitions = petitions
-    .filter((petition) => {
-      const categoryName = petition.category?.name || "General"
-      const matchesSearch =
-        (petition.title?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-        (petition.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
-      const matchesCategory = selectedCategory === "All" || categoryName === selectedCategory
-
-      return matchesSearch && matchesCategory
-    })
-    .sort((a, b) => {
-      const aSignatures = a.signaturesCount || 0
-      const bSignatures = b.signaturesCount || 0
-      const aDaysLeft = a.daysLeft || 0
-      const bDaysLeft = b.daysLeft || 0
-      const aTrending = a.trending ? 1 : 0
-      const bTrending = b.trending ? 1 : 0
-
-      switch (sortBy) {
-        case "most-signed":
-          return bSignatures - aSignatures
-        case "newest":
-          // UUIDv7 is time-sortable as string
-          return b.id.localeCompare(a.id)
-        case "ending-soon":
-          return aDaysLeft - bDaysLeft
-        case "trending":
-          return bTrending - aTrending
-
-        default:
-          // Simple trending logic
-          return bSignatures - aSignatures
+  const search = searchQuery.trim().toLowerCase()
+  const petitions = petitionsQuery.data ?? []
+  const filteredPetitions = petitions.filter((petition) => (
+    (!search || `${petition.title ?? ""} ${petition.description ?? ""}`.toLowerCase().includes(search)) &&
+    (selectedCategory === "all" || petition.categoryId === selectedCategory)
+  )).sort((a, b) => {
+    switch (sortBy) {
+      case "most-signed": return (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
+      case "newest": return (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")
+      case "ending-soon": {
+        const now = Date.now()
+        const deadline = (petition: Petition) => petition.status === "open" && petition.deadline && new Date(petition.deadline).getTime() > now ? new Date(petition.deadline).getTime() : Infinity
+        return deadline(a) - deadline(b)
       }
-    })
+      default: return Number(b.trending) - Number(a.trending) || (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
+    }
+  })
+  const hasFilters = searchQuery !== "" || selectedCategory !== "all"
+  const clearFilters = () => { setSearchQuery(""); setSelectedCategory("all") }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 text-balance">
-            Browse Petitions
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-balance">
-            Discover and support causes that matter to your university community
-          </p>
+    <main id="browse-petitions-page" className="app-page">
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-6 border-b border-border pb-9">
+        <div className="max-w-2xl">
+          <h1 className="app-page-heading">Find something worth<br className="hidden sm:block" /> speaking up about.</h1>
+          <p className="app-page-description">Small asks. Shared ideas. Discover what your campus cares about, and add your voice.</p>
         </div>
+        <Button id="browse-start-petition" asChild><Link to={ROUTES.createPetition}>Start a petition</Link></Button>
+      </header>
 
-        {/* Search and Filter Section */}
-        <div className="mb-8 space-y-4">
-          {/* Search Bar */}
-          <div className="relative max-w-3xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search petitions by title or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 pr-4 h-14 text-base bg-card border-border"
-            />
+      <section aria-label="Find petitions" className="mb-8 space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <span className="hero-magnifying-glass pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input id="petition-search" type="search" aria-label="Search petitions" placeholder="Search ideas, issues, and petitions" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="h-12 rounded-full bg-white pl-12" />
           </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger id="petition-sort" aria-label="Sort petitions" className="h-12 w-full rounded-full bg-white sm:w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>{SORT_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap gap-2" aria-label="Filter by category">
+          <Button size="sm" variant={selectedCategory === "all" ? "default" : "outline"} aria-pressed={selectedCategory === "all"} onClick={() => setSelectedCategory("all")}>All petitions</Button>
+          {categoryQuery.data?.map((category) => <Button key={category.id} size="sm" variant={selectedCategory === category.id ? "default" : "outline"} aria-pressed={selectedCategory === category.id} onClick={() => setSelectedCategory(category.id)}>{category.name}</Button>)}
+        </div>
+        {categoryQuery.isError ? <p role="alert" className="text-sm text-muted-foreground">Categories are unavailable. You can still search petitions. <button className="underline underline-offset-4" onClick={() => categoryQuery.refetch()}>Try again</button></p> : null}
+      </section>
 
-          {/* Filter Toggle Button (Mobile) */}
-          <div className="flex justify-center md:hidden">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="gap-2"
-            >
-              <Filter className="w-4 h-4" />
-              {showFilters ? "Hide Filters" : "Show Filters"}
-            </Button>
+      {petitionsQuery.isPending ? (
+        <div role="status" aria-label="Loading petitions" className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((item) => <div key={item} className="app-panel min-h-80 space-y-6 motion-safe:animate-pulse"><div className="h-6 w-24 rounded-full bg-muted" /><div className="h-9 w-3/4 rounded bg-muted" /><div className="h-20 rounded bg-muted" /><div className="h-2 rounded bg-muted" /></div>)}
+        </div>
+      ) : petitionsQuery.isError ? (
+        <div role="alert" className="app-empty-state"><h2 className="font-display text-3xl">Petitions couldn't load.</h2><p className="mb-6 mt-3 text-sm text-muted-foreground">Please try again in a moment.</p><Button onClick={() => petitionsQuery.refetch()}>Try again</Button></div>
+      ) : (
+        <>
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <p role="status" className="text-sm text-muted-foreground">{filteredPetitions.length} {filteredPetitions.length === 1 ? "petition" : "petitions"}{hasFilters ? " found" : " to explore"}</p>
+            {hasFilters ? <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button> : null}
           </div>
-
-          {/* Filters */}
-          <div className={`${showFilters ? "block" : "hidden"} md:block`}>
-            <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between max-w-5xl mx-auto">
-              {/* Category Filter */}
-              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                {categoryNames.map((category) => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                    className="rounded-full"
-                  >
-                    {category}
-                  </Button>
-                ))}
-              </div>
-
-              {/* Sort Dropdown */}
-              <div className="flex items-center gap-2 justify-center md:justify-end">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SORT_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {filteredPetitions.length > 0 ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{filteredPetitions.map((petition) => <PetitionCard key={petition.id} petition={petition} />)}</div> : (
+            <div id="petitions-empty" className="app-empty-state">
+              <span className="hero-chat-bubble-left-right mb-5 size-9 text-primary" aria-hidden="true" />
+              <h2 className="font-display text-3xl">{hasFilters ? "No ideas found just yet." : "Your idea could be the first."}</h2>
+              <p className="mb-6 mt-3 text-sm text-muted-foreground">{hasFilters ? "Try a different search or explore all petitions." : "Turn that thing you keep talking about into one clear ask."}</p>
+              {hasFilters ? <Button variant="outline" onClick={clearFilters}>Clear filters</Button> : <Button asChild><Link to={ROUTES.createPetition}>Start a petition</Link></Button>}
             </div>
-
-            {/* Active Filters Display */}
-            {(searchQuery || selectedCategory !== "All") && (
-              <div className="flex flex-wrap gap-2 items-center justify-center mt-4">
-                <span className="text-sm text-muted-foreground">Active filters:</span>
-                {searchQuery && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setSearchQuery("")}
-                    className="gap-2 rounded-full"
-                  >
-                    Search: "{searchQuery}"
-                    <X className="w-3 h-3" />
-                  </Button>
-                )}
-                {selectedCategory !== "All" && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setSelectedCategory("All")}
-                    className="gap-2 rounded-full"
-                  >
-                    Category: {selectedCategory}
-                    <X className="w-3 h-3" />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Results Count */}
-        <div className="text-center mb-6">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredPetitions.length}{" "}
-            {filteredPetitions.length === 1 ? "petition" : "petitions"}
-          </p>
-        </div>
-
-        {/* Petitions Grid */}
-        {filteredPetitions.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {filteredPetitions.map((petition) => (
-              <PetitionCard key={petition.id} petition={petition} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <p className="text-lg text-muted-foreground mb-4">
-              No petitions found matching your criteria
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery("")
-                setSelectedCategory("All")
-              }}
-            >
-              Clear all filters
-            </Button>
-          </div>
-        )}
-      </main>
-    </div>
+          )}
+        </>
+      )}
+    </main>
   )
 }
