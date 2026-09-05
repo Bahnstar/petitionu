@@ -21,6 +21,11 @@ defmodule Petitionu.Post.Petition do
   actions do
     defaults [:read, :destroy]
 
+    update :moderator_hide do
+      accept []
+      change set_attribute(:hidden_at, &DateTime.utc_now/0)
+    end
+
     create :create do
       primary? true
       accept [:title, :description, :goal, :deadline, :allow_comments, :is_anonymous]
@@ -114,6 +119,15 @@ defmodule Petitionu.Post.Petition do
   end
 
   policies do
+    policy action(:moderator_hide) do
+      authorize_if actor_attribute_equals(:role, :superadmin)
+
+      authorize_if expr(
+                     not is_nil(organization_id) and organization_id == ^actor(:organization_id) and
+                       ^actor(:role) == :admin
+                   )
+    end
+
     policy action_type(:read) do
       forbid_unless expr(is_nil(hidden_at))
       authorize_if expr(is_nil(classroom_id))
