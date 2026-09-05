@@ -84,14 +84,7 @@ defmodule Petitionu.Accounts.User do
       :num_petition_signees,
       :total_petition_signatures
     ] do
-      authorize_if {AshAuthentication.Checks.AshAuthenticationInteraction, []}
       authorize_if expr(id == ^actor(:id))
-      authorize_if actor_attribute_equals(:role, :superadmin)
-
-      authorize_if expr(
-                     not is_nil(organization_id) and organization_id == ^actor(:organization_id) and
-                       ^actor(:role) == :admin
-                   )
     end
 
     field_policy :* do
@@ -450,10 +443,14 @@ defmodule Petitionu.Accounts.User do
 
     has_many :petitions, Petitionu.Post.Petition do
       public? true
+      filterable? false
+      filter expr(user_id == ^actor(:id))
     end
 
     has_many :signatures, Petitionu.Post.Signature do
       public? true
+      filterable? false
+      filter expr(user_id == ^actor(:id))
     end
 
     has_many :classroom_memberships, Petitionu.Post.ClassroomMembership do
@@ -483,20 +480,28 @@ defmodule Petitionu.Accounts.User do
 
     calculate :total_petition_signatures, :integer, expr(count(petitions.signatures)) do
       public? true
+      filterable? false
+      sortable? false
     end
   end
 
   aggregates do
     count :num_petitions, :petitions do
       public? true
+      filterable? false
+      sortable? false
     end
 
     count :num_signed, :signatures do
       public? true
+      filterable? false
+      sortable? false
     end
 
     count :num_petition_signees, :signatures do
       public? true
+      filterable? false
+      sortable? false
     end
   end
 

@@ -157,7 +157,7 @@ defmodule Petitionu.Accounts.ProfileTest do
         |> Ash.Query.filter(num_signed > 0)
         |> Ash.Query.sort(:num_petitions)
 
-      assert Ash.read!(query) == []
+      assert {:error, _} = Ash.read(query)
     end
   end
 

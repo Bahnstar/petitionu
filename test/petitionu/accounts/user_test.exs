@@ -188,7 +188,7 @@ defmodule Petitionu.Accounts.UserTest do
 
       assert to_string(target_view.email) == "org-target@example.com"
       assert target_view.role == :student
-      assert target_view.num_petitions == 0
+      assert %Ash.ForbiddenField{} = target_view.num_petitions
     end
 
     test "an admin cannot read sensitive fields outside their organization" do
@@ -235,7 +235,7 @@ defmodule Petitionu.Accounts.UserTest do
 
       assert to_string(target_view.email) == "global-target@example.com"
       assert target_view.role == :student
-      assert target_view.num_petitions == 0
+      assert %Ash.ForbiddenField{} = target_view.num_petitions
     end
   end
 

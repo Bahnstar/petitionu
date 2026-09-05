@@ -6,7 +6,7 @@ The report stores its reporter, campus, content snapshot, and target IDs. Report
 
 ## Review a report
 
-1. Open `/moderation` and choose Content reports.
+1. Open `/ash-typescript/moderation` and choose Content reports.
 2. Read the concern and expand Content when reported. The copy reflects what was submitted, even if the author later edits the content.
 3. Choose Resolve or Dismiss and write a decision note. The reporter can read that note.
 4. For a resolved report, select Hide reported content when removal from ordinary views is appropriate.
@@ -18,7 +18,7 @@ Moderators can inspect the submitted copy even when they are not classroom membe
 
 ## Handle support and account-deletion requests
 
-`/support` offers the configured support email to guests. Authenticated users can persist support or account-deletion requests and follow their status. This path also works before email confirmation or campus matching, so account setup problems can reach an operator.
+`/ash-typescript/support` offers the configured support email to guests. Authenticated users can persist support or account-deletion requests and follow their status. This path also works before email confirmation or campus matching, so account setup problems can reach an operator.
 
 The Support requests queue includes the requester's email. Contact that address outside the application when needed. Review account-deletion requests manually and determine the appropriate action before recording the outcome. Saving a resolution does not send email, delete an account, or delete content. Describe only actions actually taken. The requester can read the resolution note.
 
@@ -32,7 +32,7 @@ Post registers `Petitionu.Post.ContentReport` and exposes `get_content_reports`,
 
 The petition and comment `moderator_hide` actions are guarded server actions and are not exposed through RPC. Public target IDs and snapshots belong to the report. Reporter and resolver relationships are private.
 
-React pages default-export from `moderation-page.tsx`, `support-page.tsx`, `privacy-page.tsx`, and `community-rules-page.tsx`. Mount them at `/moderation`, `/support`, `/privacy`, and `/community-rules`.
+React pages default-export from `moderation-page.tsx`, `support-page.tsx`, `privacy-page.tsx`, and `community-rules-page.tsx`. They are mounted at `/ash-typescript/moderation`, `/ash-typescript/support`, `/ash-typescript/privacy`, and `/ash-typescript/community-rules`.
 
 ```tsx
 import { ReportContent } from "../moderation/report-content"
@@ -41,4 +41,4 @@ import { ReportContent } from "../moderation/report-content"
 <ReportContent petitionId={petition.id} commentId={comment.id} />
 ```
 
-Regenerate the Ash RPC client and migrations after registering the resources. Run `MIX_TEST_PARTITION=_moderation mix test test/petitionu/post/moderation_test.exs` for the focused authorization and persistence checks.
+Run `MIX_TEST_PARTITION=_moderation mix test test/petitionu/post/moderation_test.exs` for the focused authorization and persistence checks.
