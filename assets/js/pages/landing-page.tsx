@@ -1,13 +1,27 @@
 import React from "react"
 import { Link } from "react-router-dom"
 import { ROUTES } from "@/lib/routes"
+import { useAuth } from "../contexts/auth-context"
+
+function LandingAccountLink({ id }: { id: string }) {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) return null
+
+  return isAuthenticated
+    ? <Link id={id} to={ROUTES.dashboard}>My dashboard</Link>
+    : <a id={id} href="/sign-in">Sign in</a>
+}
 
 function LandingFooter() {
   return (
     <footer className="landing-footer">
       <span>PetitionU</span>
       <p>A place for student voices.</p>
-      <a href="/sign-in">Sign in</a>
+      <nav aria-label="Footer navigation">
+        <Link id="landing-footer-browse" to={ROUTES.petitions}>Browse petitions</Link>
+        <LandingAccountLink id="landing-footer-account" />
+      </nav>
     </footer>
   )
 }
@@ -17,8 +31,8 @@ export function LandingPage() {
     <div id="landing-page" className="landing-page">
       <header id="landing-header" className="landing-header">
         <a href="#landing-top" className="landing-brand" aria-label="PetitionU home">PetitionU<span aria-hidden="true">✳</span></a>
-        <nav aria-label="Main navigation"><a href="#landing-how">How it works</a><a href="#landing-why">Why PetitionU</a></nav>
-        <div><a href="/sign-in">Sign in</a><Link id="landing-header-create" className="landing-cta" to={ROUTES.createPetition}>Start a petition</Link></div>
+        <nav aria-label="Main navigation"><Link id="landing-header-browse" to={ROUTES.petitions}>Browse petitions</Link><a href="#landing-how">How it works</a><a href="#landing-why">Why PetitionU</a></nav>
+        <div><LandingAccountLink id="landing-header-account" /><Link id="landing-header-create" className="landing-cta" to={ROUTES.createPetition}>Start a petition</Link></div>
       </header>
 
       <section id="landing-top" className="landing-hero">
@@ -49,4 +63,3 @@ export function LandingPage() {
     </div>
   )
 }
-
