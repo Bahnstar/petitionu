@@ -1,7 +1,7 @@
 import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { buildCSRFHeaders, createComment, createSignature, getPetitions } from "../ash_rpc"
+import { buildCSRFHeaders, createComment, createSignature, getPetitions, type GetPetitionsFields } from "../ash_rpc"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,7 +13,7 @@ import { ROUTES } from "@/lib/routes"
 
 async function loadPetition(id: string | undefined) {
   const result = await getPetitions({
-    fields: ["id", "title", "description", "status", "classroomId", "organizationId", "hasSigned", "canManage", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", "author"] }, { signatures: ["id", "reason", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }],
+    fields: ["id", "title", "description", "status", "classroomId", "organizationId", "hasSigned", "canManage", "goal", "signaturesCount", "daysLeft", "trending", "author", "allowComments", "isAnonymous", "deadline", "insertedAt", { category: ["id", "name"] }, { comments: ["id", "text", "insertedAt", "author"] }, { signatures: ["id", "reason", "insertedAt"] }, { updates: ["id", "title", "body", "insertedAt"] }] as const satisfies GetPetitionsFields,
     filter: { id: { eq: id } },
     headers: buildCSRFHeaders(),
   })
