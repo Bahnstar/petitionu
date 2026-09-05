@@ -12,11 +12,11 @@ export type * from "./ash_types";
  */
 export interface ActionConfig {
   // Request data
-  input?: Record<string, any>;
+  input?: Record<string, any> | undefined;
   identity?: any;
-  fields?: Array<string | Record<string, any>>; // Field selection
-  filter?: Record<string, any>; // Filter options (for reads)
-  sort?: string | string[]; // Sort options
+  fields?: Array<string | Record<string, any>> | undefined; // Field selection
+  filter?: Record<string, any> | undefined; // Filter options (for reads)
+  sort?: string | string[] | undefined; // Sort options
   page?:
     | {
         // Offset-based pagination
@@ -29,24 +29,25 @@ export interface ActionConfig {
         limit?: number;
         after?: string;
         before?: string;
-      };
+      }
+    | undefined;
 
   // Metadata
-  metadataFields?: ReadonlyArray<string>;
+  metadataFields?: ReadonlyArray<string> | undefined;
 
   // HTTP customization
-  headers?: Record<string, string>; // Custom headers
-  fetchOptions?: RequestInit; // Fetch options (signal, cache, etc.)
-  customFetch?: (
+  headers?: Record<string, string> | undefined; // Custom headers
+  fetchOptions?: RequestInit | undefined; // Fetch options (signal, cache, etc.)
+  customFetch?: ((
     input: RequestInfo | URL,
     init?: RequestInit,
-  ) => Promise<Response>;
+  ) => Promise<Response>) | undefined;
 
   // Multitenancy
-  tenant?: string; // Tenant parameter
+  tenant?: string | undefined; // Tenant parameter
 
   // Hook context
-  hookCtx?: Record<string, any>;
+  hookCtx?: Record<string, any> | undefined;
 }
 
 /**
@@ -54,18 +55,18 @@ export interface ActionConfig {
  */
 export interface ValidationConfig {
   // Request data
-  input?: Record<string, any>;
+  input?: Record<string, any> | undefined;
 
   // HTTP customization
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (
+  headers?: Record<string, string> | undefined;
+  fetchOptions?: RequestInit | undefined;
+  customFetch?: ((
     input: RequestInfo | URL,
     init?: RequestInit,
-  ) => Promise<Response>;
+  ) => Promise<Response>) | undefined;
 
   // Hook context
-  hookCtx?: Record<string, any>;
+  hookCtx?: Record<string, any> | undefined;
 }
 
 
@@ -220,8 +221,8 @@ export type InferGetNotificationsResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -321,8 +322,8 @@ export type InferGetOrganizationsResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -422,8 +423,8 @@ export type InferGetPreferencesResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -801,8 +802,8 @@ export type InferGetCategoriesResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -1097,6 +1098,73 @@ export async function validateGetClassroomById(
 }
 
 
+export type GetMyClassroomsFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
+export type InferGetMyClassroomsResult<
+  Fields extends GetMyClassroomsFields,
+> = Array<InferResult<ClassroomResourceSchema, Fields>>;
+
+export type GetMyClassroomsResult<Fields extends GetMyClassroomsFields> = | { success: true; data: InferGetMyClassroomsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Read Classroom records
+ *
+ * @ashActionType :read
+ */
+export async function getMyClassrooms<Fields extends GetMyClassroomsFields>(
+  config: {
+  tenant?: string;
+  fields: Fields;
+  filter?: ClassroomFilterInput;
+  sort?: SortString<ClassroomSortField> | SortString<ClassroomSortField>[];
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetMyClassroomsResult<Fields>> {
+  const payload = {
+    action: "get_my_classrooms",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
+  };
+
+  return executeActionRpcRequest<GetMyClassroomsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Read Classroom records
+ *
+ * @ashActionType :read
+ * @validation true
+ */
+export async function validateGetMyClassrooms(
+  config: {
+  tenant?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_my_classrooms",
+    ...(config.tenant !== undefined && { tenant: config.tenant })
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type GetClassroomsFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
 
 
@@ -1116,8 +1184,8 @@ export type InferGetClassroomsResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -1188,73 +1256,6 @@ export async function validateGetClassrooms(
 ): Promise<ValidationResult> {
   const payload = {
     action: "get_classrooms",
-    ...(config.tenant !== undefined && { tenant: config.tenant })
-  };
-
-  return executeValidationRpcRequest<ValidationResult>(
-    payload,
-    config
-  );
-}
-
-
-export type GetMyClassroomsFields = UnifiedFieldSelection<ClassroomResourceSchema>[];
-export type InferGetMyClassroomsResult<
-  Fields extends GetMyClassroomsFields,
-> = Array<InferResult<ClassroomResourceSchema, Fields>>;
-
-export type GetMyClassroomsResult<Fields extends GetMyClassroomsFields> = | { success: true; data: InferGetMyClassroomsResult<Fields>; }
-| { success: false; errors: AshRpcError[]; }
-
-;
-
-/**
- * Read Classroom records
- *
- * @ashActionType :read
- */
-export async function getMyClassrooms<Fields extends GetMyClassroomsFields>(
-  config: {
-  tenant?: string;
-  fields: Fields;
-  filter?: ClassroomFilterInput;
-  sort?: SortString<ClassroomSortField> | SortString<ClassroomSortField>[];
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<GetMyClassroomsResult<Fields>> {
-  const payload = {
-    action: "get_my_classrooms",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    ...(config.fields !== undefined && { fields: config.fields }),
-    ...(config.filter && { filter: config.filter }),
-    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
-  };
-
-  return executeActionRpcRequest<GetMyClassroomsResult<Fields>>(
-    payload,
-    config
-  );
-}
-
-
-/**
- * Validate: Read Classroom records
- *
- * @ashActionType :read
- * @validation true
- */
-export async function validateGetMyClassrooms(
-  config: {
-  tenant?: string;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<ValidationResult> {
-  const payload = {
-    action: "get_my_classrooms",
     ...(config.tenant !== undefined && { tenant: config.tenant })
   };
 
@@ -1427,7 +1428,7 @@ export async function updateClassroom<Fields extends UpdateClassroomFields | und
   config: {
   tenant?: string;
   identity: UUIDv7;
-  input: UpdateClassroomInput;
+  input?: UpdateClassroomInput;
   fields?: Fields;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
@@ -1459,7 +1460,7 @@ export async function validateUpdateClassroom(
   config: {
   tenant?: string;
   identity: UUIDv7 | string;
-  input: UpdateClassroomInput;
+  input?: UpdateClassroomInput;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -1615,107 +1616,6 @@ export async function validateDemoteToStudent(
 }
 
 
-export type GetClassroomMembershipsFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
-
-
-export type InferGetClassroomMembershipsResult<
-  Fields extends GetClassroomMembershipsFields | undefined,
-  Page extends GetClassroomMembershipsConfig["page"] = undefined
-> = ConditionalPaginatedResultMixed<Page, Array<InferResult<ClassroomMembershipResourceSchema, Fields>>, {
-  results: Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
-  hasMore: boolean;
-  limit: number;
-  offset: number;
-  count?: number | null;
-  type: "offset";
-}, {
-  results: Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
-  hasMore: boolean;
-  limit: number;
-  after: string | null;
-  before: string | null;
-  previousPage: string;
-  nextPage: string;
-  count?: number | null;
-  type: "keyset";
-}>;
-
-export type GetClassroomMembershipsConfig = {
-  tenant?: string;
-  fields: GetClassroomMembershipsFields;
-  filter?: ClassroomMembershipFilterInput;
-  sort?: SortString<ClassroomMembershipSortField> | SortString<ClassroomMembershipSortField>[];
-  page?: (
-    {
-      limit?: number;
-      offset?: number;
-      count?: boolean;
-    } | {
-      limit?: number;
-      after?: string;
-      before?: string;
-    }
-  );
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-};
-
-export type GetClassroomMembershipsResult<Fields extends GetClassroomMembershipsFields, Page extends GetClassroomMembershipsConfig["page"] = undefined> = | { success: true; data: InferGetClassroomMembershipsResult<Fields, Page>; }
-| { success: false; errors: AshRpcError[]; }
-
-;
-
-/**
- * Read ClassroomMembership records
- *
- * @ashActionType :read
- */
-export async function getClassroomMemberships<Fields extends GetClassroomMembershipsFields, Config extends GetClassroomMembershipsConfig = GetClassroomMembershipsConfig>(
-  config: Config & { fields: Fields }
-): Promise<GetClassroomMembershipsResult<Fields, Config["page"]>> {
-  const payload = {
-    action: "get_classroom_memberships",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    ...(config.fields !== undefined && { fields: config.fields }),
-    ...(config.filter && { filter: config.filter }),
-    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort }),
-    ...(config.page && { page: config.page })
-  };
-
-  return executeActionRpcRequest<GetClassroomMembershipsResult<Fields, Config["page"]>>(
-    payload,
-    config
-  );
-}
-
-
-/**
- * Validate: Read ClassroomMembership records
- *
- * @ashActionType :read
- * @validation true
- */
-export async function validateGetClassroomMemberships(
-  config: {
-  tenant?: string;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<ValidationResult> {
-  const payload = {
-    action: "get_classroom_memberships",
-    ...(config.tenant !== undefined && { tenant: config.tenant })
-  };
-
-  return executeValidationRpcRequest<ValidationResult>(
-    payload,
-    config
-  );
-}
-
-
 export type GetMembershipsForClassroomInput = {
   classroomId: UUID;
 };
@@ -1780,81 +1680,6 @@ export async function validateGetMembershipsForClassroom(
 ): Promise<ValidationResult> {
   const payload = {
     action: "get_memberships_for_classroom",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    input: config.input
-  };
-
-  return executeValidationRpcRequest<ValidationResult>(
-    payload,
-    config
-  );
-}
-
-
-export type GetPendingMembershipsInput = {
-  classroomId: UUID;
-};
-
-export type GetPendingMembershipsFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
-export type InferGetPendingMembershipsResult<
-  Fields extends GetPendingMembershipsFields,
-> = Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
-
-export type GetPendingMembershipsResult<Fields extends GetPendingMembershipsFields> = | { success: true; data: InferGetPendingMembershipsResult<Fields>; }
-| { success: false; errors: AshRpcError[]; }
-
-;
-
-/**
- * Read ClassroomMembership records
- *
- * @ashActionType :read
- */
-export async function getPendingMemberships<Fields extends GetPendingMembershipsFields>(
-  config: {
-  tenant?: string;
-  input: GetPendingMembershipsInput;
-  fields: Fields;
-  filter?: ClassroomMembershipFilterInput;
-  sort?: SortString<ClassroomMembershipSortField> | SortString<ClassroomMembershipSortField>[];
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<GetPendingMembershipsResult<Fields>> {
-  const payload = {
-    action: "get_pending_memberships",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    input: config.input,
-    ...(config.fields !== undefined && { fields: config.fields }),
-    ...(config.filter && { filter: config.filter }),
-    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
-  };
-
-  return executeActionRpcRequest<GetPendingMembershipsResult<Fields>>(
-    payload,
-    config
-  );
-}
-
-
-/**
- * Validate: Read ClassroomMembership records
- *
- * @ashActionType :read
- * @validation true
- */
-export async function validateGetPendingMemberships(
-  config: {
-  tenant?: string;
-  input: GetPendingMembershipsInput;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<ValidationResult> {
-  const payload = {
-    action: "get_pending_memberships",
     ...(config.tenant !== undefined && { tenant: config.tenant }),
     input: config.input
   };
@@ -2012,6 +1837,81 @@ export async function validateJoinClassroomByCode(
 }
 
 
+export type GetPendingMembershipsInput = {
+  classroomId: UUID;
+};
+
+export type GetPendingMembershipsFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+export type InferGetPendingMembershipsResult<
+  Fields extends GetPendingMembershipsFields,
+> = Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+
+export type GetPendingMembershipsResult<Fields extends GetPendingMembershipsFields> = | { success: true; data: InferGetPendingMembershipsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Read ClassroomMembership records
+ *
+ * @ashActionType :read
+ */
+export async function getPendingMemberships<Fields extends GetPendingMembershipsFields>(
+  config: {
+  tenant?: string;
+  input: GetPendingMembershipsInput;
+  fields: Fields;
+  filter?: ClassroomMembershipFilterInput;
+  sort?: SortString<ClassroomMembershipSortField> | SortString<ClassroomMembershipSortField>[];
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetPendingMembershipsResult<Fields>> {
+  const payload = {
+    action: "get_pending_memberships",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
+  };
+
+  return executeActionRpcRequest<GetPendingMembershipsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Read ClassroomMembership records
+ *
+ * @ashActionType :read
+ * @validation true
+ */
+export async function validateGetPendingMemberships(
+  config: {
+  tenant?: string;
+  input: GetPendingMembershipsInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_pending_memberships",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type PromoteToTaFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
 
 export type InferPromoteToTaResult<
@@ -2071,6 +1971,107 @@ export async function validatePromoteToTa(
     action: "promote_to_ta",
     ...(config.tenant !== undefined && { tenant: config.tenant }),
     identity: config.identity
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
+export type GetClassroomMembershipsFields = UnifiedFieldSelection<ClassroomMembershipResourceSchema>[];
+
+
+export type InferGetClassroomMembershipsResult<
+  Fields extends GetClassroomMembershipsFields | undefined,
+  Page extends GetClassroomMembershipsConfig["page"] = undefined
+> = ConditionalPaginatedResultMixed<Page, Array<InferResult<ClassroomMembershipResourceSchema, Fields>>, {
+  results: Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count?: number | null;
+  type: "offset";
+}, {
+  results: Array<InferResult<ClassroomMembershipResourceSchema, Fields>>;
+  hasMore: boolean;
+  limit: number;
+  after: string | null;
+  before: string | null;
+  previousPage: string | null;
+  nextPage: string | null;
+  count?: number | null;
+  type: "keyset";
+}>;
+
+export type GetClassroomMembershipsConfig = {
+  tenant?: string;
+  fields: GetClassroomMembershipsFields;
+  filter?: ClassroomMembershipFilterInput;
+  sort?: SortString<ClassroomMembershipSortField> | SortString<ClassroomMembershipSortField>[];
+  page?: (
+    {
+      limit?: number;
+      offset?: number;
+      count?: boolean;
+    } | {
+      limit?: number;
+      after?: string;
+      before?: string;
+    }
+  );
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+};
+
+export type GetClassroomMembershipsResult<Fields extends GetClassroomMembershipsFields, Page extends GetClassroomMembershipsConfig["page"] = undefined> = | { success: true; data: InferGetClassroomMembershipsResult<Fields, Page>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Read ClassroomMembership records
+ *
+ * @ashActionType :read
+ */
+export async function getClassroomMemberships<Fields extends GetClassroomMembershipsFields, Config extends GetClassroomMembershipsConfig = GetClassroomMembershipsConfig>(
+  config: Config & { fields: Fields }
+): Promise<GetClassroomMembershipsResult<Fields, Config["page"]>> {
+  const payload = {
+    action: "get_classroom_memberships",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort }),
+    ...(config.page && { page: config.page })
+  };
+
+  return executeActionRpcRequest<GetClassroomMembershipsResult<Fields, Config["page"]>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Read ClassroomMembership records
+ *
+ * @ashActionType :read
+ * @validation true
+ */
+export async function validateGetClassroomMemberships(
+  config: {
+  tenant?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_classroom_memberships",
+    ...(config.tenant !== undefined && { tenant: config.tenant })
   };
 
   return executeValidationRpcRequest<ValidationResult>(
@@ -2313,8 +2314,8 @@ export type InferGetCommentsResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -2395,6 +2396,85 @@ export async function validateGetComments(
 }
 
 
+export type CreatePetitionInput = {
+  title?: string | null;
+  description?: string | null;
+  status?: "closed" | "open" | "victory" | null;
+  goal?: number | null;
+  deadline?: UtcDateTime | null;
+  allowComments?: boolean | null;
+  isAnonymous?: boolean | null;
+  categoryId: UUIDv7;
+};
+
+export type CreatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+
+export type InferCreatePetitionResult<
+  Fields extends CreatePetitionFields | undefined,
+> = InferResult<PetitionResourceSchema, Fields>;
+
+export type CreatePetitionResult<Fields extends CreatePetitionFields | undefined = undefined> = | { success: true; data: InferCreatePetitionResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Create a new Petition
+ *
+ * @ashActionType :create
+ */
+export async function createPetition<Fields extends CreatePetitionFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  input: CreatePetitionInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<CreatePetitionResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "create_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<CreatePetitionResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Create a new Petition
+ *
+ * @ashActionType :create
+ * @validation true
+ */
+export async function validateCreatePetition(
+  config: {
+  tenant?: string;
+  input: CreatePetitionInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "create_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type CreateClassroomPetitionInput = {
   title?: string | null;
   description?: string | null;
@@ -2464,85 +2544,6 @@ export async function validateCreateClassroomPetition(
 ): Promise<ValidationResult> {
   const payload = {
     action: "create_classroom_petition",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    input: config.input
-  };
-
-  return executeValidationRpcRequest<ValidationResult>(
-    payload,
-    config
-  );
-}
-
-
-export type CreatePetitionInput = {
-  title?: string | null;
-  description?: string | null;
-  status?: "closed" | "open" | "victory" | null;
-  goal?: number | null;
-  deadline?: UtcDateTime | null;
-  allowComments?: boolean | null;
-  isAnonymous?: boolean | null;
-  categoryId: UUIDv7;
-};
-
-export type CreatePetitionFields = UnifiedFieldSelection<PetitionResourceSchema>[];
-
-export type InferCreatePetitionResult<
-  Fields extends CreatePetitionFields | undefined,
-> = InferResult<PetitionResourceSchema, Fields>;
-
-export type CreatePetitionResult<Fields extends CreatePetitionFields | undefined = undefined> = | { success: true; data: InferCreatePetitionResult<Fields>; }
-| { success: false; errors: AshRpcError[]; }
-
-;
-
-/**
- * Create a new Petition
- *
- * @ashActionType :create
- */
-export async function createPetition<Fields extends CreatePetitionFields | undefined = undefined>(
-  config: {
-  tenant?: string;
-  input: CreatePetitionInput;
-  fields?: Fields;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<CreatePetitionResult<Fields extends undefined ? [] : Fields>> {
-  const payload = {
-    action: "create_petition",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    input: config.input,
-    ...(config.fields !== undefined && { fields: config.fields })
-  };
-
-  return executeActionRpcRequest<CreatePetitionResult<Fields extends undefined ? [] : Fields>>(
-    payload,
-    config
-  );
-}
-
-
-/**
- * Validate: Create a new Petition
- *
- * @ashActionType :create
- * @validation true
- */
-export async function validateCreatePetition(
-  config: {
-  tenant?: string;
-  input: CreatePetitionInput;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<ValidationResult> {
-  const payload = {
-    action: "create_petition",
     ...(config.tenant !== undefined && { tenant: config.tenant }),
     input: config.input
   };
@@ -2700,6 +2701,73 @@ export async function validateGetPetitionById(
 }
 
 
+export type GetPublicPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
+export type InferGetPublicPetitionsResult<
+  Fields extends GetPublicPetitionsFields,
+> = Array<InferResult<PetitionResourceSchema, Fields>>;
+
+export type GetPublicPetitionsResult<Fields extends GetPublicPetitionsFields> = | { success: true; data: InferGetPublicPetitionsResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Read Petition records
+ *
+ * @ashActionType :read
+ */
+export async function getPublicPetitions<Fields extends GetPublicPetitionsFields>(
+  config: {
+  tenant?: string;
+  fields: Fields;
+  filter?: PetitionFilterInput;
+  sort?: SortString<PetitionSortField> | SortString<PetitionSortField>[];
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetPublicPetitionsResult<Fields>> {
+  const payload = {
+    action: "get_public_petitions",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
+  };
+
+  return executeActionRpcRequest<GetPublicPetitionsResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Read Petition records
+ *
+ * @ashActionType :read
+ * @validation true
+ */
+export async function validateGetPublicPetitions(
+  config: {
+  tenant?: string;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_public_petitions",
+    ...(config.tenant !== undefined && { tenant: config.tenant })
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type GetPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
 
 
@@ -2719,8 +2787,8 @@ export type InferGetPetitionsResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -2791,73 +2859,6 @@ export async function validateGetPetitions(
 ): Promise<ValidationResult> {
   const payload = {
     action: "get_petitions",
-    ...(config.tenant !== undefined && { tenant: config.tenant })
-  };
-
-  return executeValidationRpcRequest<ValidationResult>(
-    payload,
-    config
-  );
-}
-
-
-export type GetPublicPetitionsFields = UnifiedFieldSelection<PetitionResourceSchema>[];
-export type InferGetPublicPetitionsResult<
-  Fields extends GetPublicPetitionsFields,
-> = Array<InferResult<PetitionResourceSchema, Fields>>;
-
-export type GetPublicPetitionsResult<Fields extends GetPublicPetitionsFields> = | { success: true; data: InferGetPublicPetitionsResult<Fields>; }
-| { success: false; errors: AshRpcError[]; }
-
-;
-
-/**
- * Read Petition records
- *
- * @ashActionType :read
- */
-export async function getPublicPetitions<Fields extends GetPublicPetitionsFields>(
-  config: {
-  tenant?: string;
-  fields: Fields;
-  filter?: PetitionFilterInput;
-  sort?: SortString<PetitionSortField> | SortString<PetitionSortField>[];
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<GetPublicPetitionsResult<Fields>> {
-  const payload = {
-    action: "get_public_petitions",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    ...(config.fields !== undefined && { fields: config.fields }),
-    ...(config.filter && { filter: config.filter }),
-    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
-  };
-
-  return executeActionRpcRequest<GetPublicPetitionsResult<Fields>>(
-    payload,
-    config
-  );
-}
-
-
-/**
- * Validate: Read Petition records
- *
- * @ashActionType :read
- * @validation true
- */
-export async function validateGetPublicPetitions(
-  config: {
-  tenant?: string;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<ValidationResult> {
-  const payload = {
-    action: "get_public_petitions",
     ...(config.tenant !== undefined && { tenant: config.tenant })
   };
 
@@ -2964,8 +2965,8 @@ export type InferGetSignaturesResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -3120,6 +3121,81 @@ export async function validateCreateUpdate(
 }
 
 
+export type GetUpdatesForPetitionInput = {
+  petitionId: UUIDv7;
+};
+
+export type GetUpdatesForPetitionFields = UnifiedFieldSelection<UpdateResourceSchema>[];
+export type InferGetUpdatesForPetitionResult<
+  Fields extends GetUpdatesForPetitionFields,
+> = Array<InferResult<UpdateResourceSchema, Fields>>;
+
+export type GetUpdatesForPetitionResult<Fields extends GetUpdatesForPetitionFields> = | { success: true; data: InferGetUpdatesForPetitionResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Read Update records
+ *
+ * @ashActionType :read
+ */
+export async function getUpdatesForPetition<Fields extends GetUpdatesForPetitionFields>(
+  config: {
+  tenant?: string;
+  input: GetUpdatesForPetitionInput;
+  fields: Fields;
+  filter?: UpdateFilterInput;
+  sort?: SortString<UpdateSortField> | SortString<UpdateSortField>[];
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GetUpdatesForPetitionResult<Fields>> {
+  const payload = {
+    action: "get_updates_for_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.filter && { filter: config.filter }),
+    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
+  };
+
+  return executeActionRpcRequest<GetUpdatesForPetitionResult<Fields>>(
+    payload,
+    config
+  );
+}
+
+
+/**
+ * Validate: Read Update records
+ *
+ * @ashActionType :read
+ * @validation true
+ */
+export async function validateGetUpdatesForPetition(
+  config: {
+  tenant?: string;
+  input: GetUpdatesForPetitionInput;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ValidationResult> {
+  const payload = {
+    action: "get_updates_for_petition",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    input: config.input
+  };
+
+  return executeValidationRpcRequest<ValidationResult>(
+    payload,
+    config
+  );
+}
+
+
 export type GetUpdatesFields = UnifiedFieldSelection<UpdateResourceSchema>[];
 
 
@@ -3139,8 +3215,8 @@ export type InferGetUpdatesResult<
   limit: number;
   after: string | null;
   before: string | null;
-  previousPage: string;
-  nextPage: string;
+  previousPage: string | null;
+  nextPage: string | null;
   count?: number | null;
   type: "keyset";
 }>;
@@ -3212,81 +3288,6 @@ export async function validateGetUpdates(
   const payload = {
     action: "get_updates",
     ...(config.tenant !== undefined && { tenant: config.tenant })
-  };
-
-  return executeValidationRpcRequest<ValidationResult>(
-    payload,
-    config
-  );
-}
-
-
-export type GetUpdatesForPetitionInput = {
-  petitionId: UUIDv7;
-};
-
-export type GetUpdatesForPetitionFields = UnifiedFieldSelection<UpdateResourceSchema>[];
-export type InferGetUpdatesForPetitionResult<
-  Fields extends GetUpdatesForPetitionFields,
-> = Array<InferResult<UpdateResourceSchema, Fields>>;
-
-export type GetUpdatesForPetitionResult<Fields extends GetUpdatesForPetitionFields> = | { success: true; data: InferGetUpdatesForPetitionResult<Fields>; }
-| { success: false; errors: AshRpcError[]; }
-
-;
-
-/**
- * Read Update records
- *
- * @ashActionType :read
- */
-export async function getUpdatesForPetition<Fields extends GetUpdatesForPetitionFields>(
-  config: {
-  tenant?: string;
-  input: GetUpdatesForPetitionInput;
-  fields: Fields;
-  filter?: UpdateFilterInput;
-  sort?: SortString<UpdateSortField> | SortString<UpdateSortField>[];
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<GetUpdatesForPetitionResult<Fields>> {
-  const payload = {
-    action: "get_updates_for_petition",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    input: config.input,
-    ...(config.fields !== undefined && { fields: config.fields }),
-    ...(config.filter && { filter: config.filter }),
-    ...(config.sort && { sort: Array.isArray(config.sort) ? config.sort.join(",") : config.sort })
-  };
-
-  return executeActionRpcRequest<GetUpdatesForPetitionResult<Fields>>(
-    payload,
-    config
-  );
-}
-
-
-/**
- * Validate: Read Update records
- *
- * @ashActionType :read
- * @validation true
- */
-export async function validateGetUpdatesForPetition(
-  config: {
-  tenant?: string;
-  input: GetUpdatesForPetitionInput;
-  headers?: Record<string, string>;
-  fetchOptions?: RequestInit;
-  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-}
-): Promise<ValidationResult> {
-  const payload = {
-    action: "get_updates_for_petition",
-    ...(config.tenant !== undefined && { tenant: config.tenant }),
-    input: config.input
   };
 
   return executeValidationRpcRequest<ValidationResult>(

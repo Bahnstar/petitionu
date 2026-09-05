@@ -11,18 +11,13 @@ defmodule Petitionu.Accounts.User.Senders.SendMagicLinkEmail do
 
   @impl true
   def send(user_or_email, token, _) do
-    # if you get a user, its for a user that already exists.
-    # if you get an email, then the user does not yet exist.
-
     email =
       case user_or_email do
         %{email: email} -> email
         email -> email
       end
 
-    new()
-    # TODO: Replace with your email
-    |> from({"noreply", "noreply@example.com"})
+    Mailer.new_email()
     |> to(to_string(email))
     |> subject("Your login link")
     |> html_body(body(token: token, email: email))
@@ -30,10 +25,8 @@ defmodule Petitionu.Accounts.User.Senders.SendMagicLinkEmail do
   end
 
   defp body(params) do
-    # NOTE: You may have to change this to match your magic link acceptance URL.
-
     """
-    <p>Hello, #{params[:email]}! Click this link to sign in:</p>
+    <p>Hello, #{Mailer.escape(params[:email])}! Click this link to sign in:</p>
     <p><a href="#{url(~p"/magic_link/#{params[:token]}")}">#{url(~p"/magic_link/#{params[:token]}")}</a></p>
     """
   end
