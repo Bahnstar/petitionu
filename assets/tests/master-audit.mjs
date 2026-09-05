@@ -185,7 +185,7 @@ try {
       assert.equal(await page.getByRole("button", { name: /Approve|Remove .* from classroom/ }).count(), 0)
     })
   }
-  await check("sign-in preserves shared petition destination", { guest: true }, async (page) => {
+  await check("sign-in preserves shared petition destination", { guest: true, open: true }, async (page) => {
     const destination = `${home}/petitions/petition-1?shared=1#petition-comments`
     await page.goto(destination, { waitUntil: "domcontentloaded" })
     const link = page.locator('#petition-comments a[href^="/sign-in"]')

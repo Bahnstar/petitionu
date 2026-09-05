@@ -16,7 +16,6 @@ defmodule Petitionu.Post.Calculations.Author do
       |> Enum.reject(&is_nil/1)
       |> Enum.uniq()
 
-    # Public names bypass private account reads after anonymous authors are excluded.
     names =
       Petitionu.Accounts.User
       |> Ash.Query.filter(id in ^user_ids)

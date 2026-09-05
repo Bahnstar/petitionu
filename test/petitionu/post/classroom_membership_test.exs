@@ -197,12 +197,16 @@ defmodule Petitionu.Post.ClassroomMembershipTest do
   test "classroom campus is actor-owned and creation requires a complete profile", context do
     assert context.classroom.organization_id == context.professor.organization_id
 
-    assert {:error, _} = Petitionu.Post.create_classroom(
-      %{name: "Forged campus", organization_id: context.student.organization_id},
-      actor: context.professor
-    )
+    assert {:error, _} =
+             Petitionu.Post.create_classroom(
+               %{name: "Forged campus", organization_id: context.student.organization_id},
+               actor: context.professor
+             )
 
-    for actor <- [%{context.professor | first_name: nil}, %{context.professor | confirmed_at: nil}] do
+    for actor <- [
+          %{context.professor | first_name: nil},
+          %{context.professor | confirmed_at: nil}
+        ] do
       assert {:error, _} = Petitionu.Post.create_classroom(%{name: "Incomplete"}, actor: actor)
     end
   end
@@ -219,7 +223,12 @@ defmodule Petitionu.Post.ClassroomMembershipTest do
     do: Petitionu.Post.join_classroom_by_code(%{join_code: classroom.join_code}, actor: actor)
 
   defp user(role, confirmed_at \\ DateTime.utc_now()) do
-    campus = Ash.Seed.seed!(Petitionu.Accounts.Organization, %{name: "Test campus", domain: "classroom-#{System.unique_integer([:positive])}.test"})
+    campus =
+      Ash.Seed.seed!(Petitionu.Accounts.Organization, %{
+        name: "Test campus",
+        domain: "classroom-#{System.unique_integer([:positive])}.test"
+      })
+
     Ash.Seed.seed!(User, %{
       email: "classroom-#{System.unique_integer([:positive])}@example.com",
       role: role,

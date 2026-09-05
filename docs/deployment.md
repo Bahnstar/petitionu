@@ -8,7 +8,9 @@ Build the release on the same operating system and architecture as the productio
 2. Run `scripts/build-release.sh` from a clean checkout.
 3. Copy `_build/prod/petitionu-release.tar.gz` to the host and extract it into a new release directory. The archive preserves executable permissions and includes the Erlang runtime.
 
-CI also runs the backend tests, TypeScript check, asset build, and disposable backup smoke check. CI uploads the release for seven days. Extract the release archive inside the downloaded artifact before using it.
+CI also runs the backend tests, TypeScript check, asset build, and disposable backup and release checks. CI uploads the release for seven days. Extract the release archive inside the downloaded artifact before using it.
+
+To test the packaged release locally, set `PGHOST`, `PGUSER`, and, when needed, `PGPASSWORD` to a disposable PostgreSQL server and run `python3 scripts/release-smoke.py`. It creates a temporary database, applies migrations twice, checks HTTP 200, then checks HTTP 503 with an unreachable database. It stops its own release processes and removes only its temporary database. It uses dummy mail credentials and sends no email.
 
 ## Configure production
 
