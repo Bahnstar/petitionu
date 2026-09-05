@@ -22,8 +22,7 @@ defmodule Petitionu.Post.ClassroomMembership.Senders.SendClassroomInviteEmail do
         "A professor"
       end
 
-    new()
-    |> from({"PetitionU", "noreply@petitionu.com"})
+    Mailer.new_email()
     |> to(to_string(user.email))
     |> subject("You've been invited to join #{classroom.name}")
     |> html_body(body(user: user, classroom: classroom, inviter_name: inviter_name))
@@ -34,10 +33,10 @@ defmodule Petitionu.Post.ClassroomMembership.Senders.SendClassroomInviteEmail do
     """
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>Classroom Invitation</h2>
-      <p>Hello#{if params[:user].first_name, do: " #{params[:user].first_name}", else: ""}!</p>
-      <p>#{params[:inviter_name]} has invited you to join the classroom <strong>#{params[:classroom].name}</strong> on PetitionU.</p>
-      #{if params[:classroom].description, do: "<p><em>#{params[:classroom].description}</em></p>", else: ""}
-      <p>Sign in to PetitionU to accept or decline this invitation.</p>
+      <p>Hello#{if params[:user].first_name, do: " #{Mailer.escape(params[:user].first_name)}", else: ""}!</p>
+      <p>#{Mailer.escape(params[:inviter_name])} has invited you to join the classroom <strong>#{Mailer.escape(params[:classroom].name)}</strong> on PetitionU.</p>
+      #{if params[:classroom].description, do: "<p><em>#{Mailer.escape(params[:classroom].description)}</em></p>", else: ""}
+      <p>Your membership is pending. Your professor will approve access before you can view classroom petitions. Sign in to PetitionU to check your classrooms.</p>
       <p style="margin-top: 20px;">
         <a href="#{url(~p"/")}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
           Go to PetitionU

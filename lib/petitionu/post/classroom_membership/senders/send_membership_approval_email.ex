@@ -9,8 +9,7 @@ defmodule Petitionu.Post.ClassroomMembership.Senders.SendMembershipApprovalEmail
   alias Petitionu.Mailer
 
   def send(user, classroom) do
-    new()
-    |> from({"PetitionU", "noreply@petitionu.com"})
+    Mailer.new_email()
     |> to(to_string(user.email))
     |> subject("You've been approved to join #{classroom.name}")
     |> html_body(body(user: user, classroom: classroom))
@@ -20,9 +19,9 @@ defmodule Petitionu.Post.ClassroomMembership.Senders.SendMembershipApprovalEmail
   defp body(params) do
     """
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Welcome to #{params[:classroom].name}!</h2>
-      <p>Hello#{if params[:user].first_name, do: " #{params[:user].first_name}", else: ""}!</p>
-      <p>Great news! Your request to join <strong>#{params[:classroom].name}</strong> has been approved.</p>
+      <h2>Welcome to #{Mailer.escape(params[:classroom].name)}!</h2>
+      <p>Hello#{if params[:user].first_name, do: " #{Mailer.escape(params[:user].first_name)}", else: ""}!</p>
+      <p>Great news! Your request to join <strong>#{Mailer.escape(params[:classroom].name)}</strong> has been approved.</p>
       <p>You can now:</p>
       <ul>
         <li>View and sign petitions in this classroom</li>
