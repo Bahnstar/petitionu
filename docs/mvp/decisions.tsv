@@ -1,0 +1,4 @@
+ts	phase	decision	why	evidence	result
+2026-09-05T21:26:10Z	frame	Start from current master in an isolated worktree	Master includes earlier UI and ownership fixes; preserve the original dirty workspace	b4ad9aa; /Users/quinceycarter/Developer/petitionu-mvp	baseline selected
+2026-09-05T21:31:40Z	design	Keep resource-owned authorization; derive campus from confirmed email	Two designs compared; custom access context duplicates Ash; server derives school membership	docs/mvp/design-review.md	selected A with report/request structure from B
+2026-09-05T21:31:40Z	baseline	Run upstream tests against disposable PostgreSQL	Establish actual baseline before changes	/tmp/petitionu-mvp-baseline-tests.log	35 tests passed
