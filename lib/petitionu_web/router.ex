@@ -24,6 +24,11 @@ defmodule PetitionuWeb.Router do
   end
 
   scope "/", PetitionuWeb do
+    pipe_through :api
+    get "/healthz", HealthController, :index
+  end
+
+  scope "/", PetitionuWeb do
     pipe_through :browser
 
     ash_authentication_live_session :authenticated_routes do
