@@ -19,17 +19,22 @@
 
 ## Documentation on demand
 
-Read the relevant skill before changing that integration, then load only the reference files needed for the task. These skills are generated from the installed dependencies.
+Read the relevant package rules before changing that integration; load only the files needed for the task. Paths below refer to installed dependencies under `deps/`.
 
-| Task | Guidance |
+| Task | Rules |
 | --- | --- |
-| Ash resources, policies, authentication, migrations, JSON API, Ash forms | [.agents/skills/ash-resources/SKILL.md](.agents/skills/ash-resources/SKILL.md) |
-| TypeScript RPC declarations, clients, configuration | [.agents/skills/ash-typescript/SKILL.md](.agents/skills/ash-typescript/SKILL.md) |
-| Phoenix routes, HEEx, LiveView, Ecto, Elixir/OTP | [.agents/skills/phoenix-elixir/SKILL.md](.agents/skills/phoenix-elixir/SKILL.md) |
+| Ash resources, actions, policies, queries | `deps/ash/usage-rules.md`; focused topics in `deps/ash/usage-rules/` |
+| Database changes | `deps/ash_postgres/usage-rules.md` |
+| Authentication | `deps/ash_authentication/usage-rules.md` |
+| Ash forms in Phoenix | `deps/ash_phoenix/usage-rules.md` |
+| TypeScript RPC contracts | `deps/ash_typescript/usage-rules.md` |
+| JSON API | `deps/ash_json_api/usage-rules.md` |
+| Phoenix routes, HEEx, LiveView, Ecto | Relevant file in `deps/phoenix/usage-rules/`: `phoenix.md`, `html.md`, `liveview.md`, or `ecto.md` |
+| Elixir or OTP patterns | `deps/usage_rules/usage-rules/elixir.md` or `otp.md` in that directory |
 | Igniter generators | `deps/igniter/usage-rules.md` |
 
 For API details, use `mix usage_rules.docs Module.function/arity`. For documentation searches, use `mix usage_rules.search_docs "query" -p package`. If dependencies are unavailable, consult documentation matching the versions in `mix.lock`.
 
 ## Maintaining this file
 
-Keep this guide limited to project conventions and pointers. Skill selection and descriptions live in `mix.exs` under `usage_rules/0`; update that configuration instead of editing generated skills or references. After dependency or guidance changes, run `mix usage_rules.sync`, review the generated diff, and verify with `mix usage_rules.sync --check`. The skills-only configuration intentionally leaves this file untouched.
+Keep this guide limited to project conventions and pointers that affect implementation. Keep framework tutorials and generated usage-rule bodies in their source files; when updating package guidance, preserve references instead of inlining it here.
