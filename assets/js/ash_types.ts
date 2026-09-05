@@ -88,6 +88,38 @@ export type PreferenceAttributesOnlySchema = {
 };
 
 
+// SupportRequest Schema
+export type SupportRequestResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "requesterEmail" | "kind" | "message" | "state" | "resolutionNote" | "resolvedAt" | "insertedAt" | "updatedAt";
+  id: UUIDv7;
+  requesterEmail: string;
+  kind: "account_deletion" | "support";
+  message: string;
+  state: "open" | "resolved";
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
+};
+
+
+
+export type SupportRequestAttributesOnlySchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "requesterEmail" | "kind" | "message" | "state" | "resolutionNote" | "resolvedAt" | "insertedAt" | "updatedAt";
+  id: UUIDv7;
+  requesterEmail: string;
+  kind: "account_deletion" | "support";
+  message: string;
+  state: "open" | "resolved";
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
+};
+
+
 // User Schema
 export type UserResourceSchema = {
   __type: "Resource";
@@ -261,6 +293,44 @@ export type CommentAttributesOnlySchema = {
   updatedAt: UtcDateTimeUsec;
   userId: UUID | null;
   petitionId: UUID | null;
+};
+
+
+// ContentReport Schema
+export type ContentReportResourceSchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "targetTitle" | "targetText" | "reason" | "details" | "state" | "resolutionNote" | "resolvedAt" | "insertedAt" | "updatedAt" | "petitionId" | "commentId";
+  id: UUIDv7;
+  targetTitle: string;
+  targetText: string;
+  reason: "harassment" | "other" | "privacy" | "spam";
+  details: string | null;
+  state: "dismissed" | "open" | "resolved";
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
+  petitionId: UUID;
+  commentId: UUID | null;
+};
+
+
+
+export type ContentReportAttributesOnlySchema = {
+  __type: "Resource";
+  __primitiveFields: "id" | "targetTitle" | "targetText" | "reason" | "details" | "state" | "resolutionNote" | "resolvedAt" | "insertedAt" | "updatedAt" | "petitionId" | "commentId";
+  id: UUIDv7;
+  targetTitle: string;
+  targetText: string;
+  reason: "harassment" | "other" | "privacy" | "spam";
+  details: string | null;
+  state: "dismissed" | "open" | "resolved";
+  resolutionNote: string | null;
+  resolvedAt: UtcDateTimeUsec | null;
+  insertedAt: UtcDateTimeUsec;
+  updatedAt: UtcDateTimeUsec;
+  petitionId: UUID;
+  commentId: UUID | null;
 };
 
 
@@ -514,6 +584,82 @@ export type PreferenceFilterInput = {
     eq?: string;
     notEq?: string;
     in?: Array<string>;
+    isNil?: boolean;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+
+
+};
+export type SupportRequestFilterInput = {
+  and?: Array<SupportRequestFilterInput>;
+  or?: Array<SupportRequestFilterInput>;
+  not?: Array<SupportRequestFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  requesterEmail?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  kind?: {
+    eq?: "account_deletion" | "support";
+    notEq?: "account_deletion" | "support";
+    in?: Array<"account_deletion" | "support">;
+  };
+
+  message?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  state?: {
+    eq?: "open" | "resolved";
+    notEq?: "open" | "resolved";
+    in?: Array<"open" | "resolved">;
+  };
+
+  resolutionNote?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    isNil?: boolean;
+  };
+
+  resolvedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
     isNil?: boolean;
   };
 
@@ -1002,6 +1148,102 @@ export type CommentFilterInput = {
   petition?: PetitionFilterInput;
 
 };
+export type ContentReportFilterInput = {
+  and?: Array<ContentReportFilterInput>;
+  or?: Array<ContentReportFilterInput>;
+  not?: Array<ContentReportFilterInput>;
+
+  id?: {
+    eq?: UUIDv7;
+    notEq?: UUIDv7;
+    in?: Array<UUIDv7>;
+  };
+
+  targetTitle?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  targetText?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+  };
+
+  reason?: {
+    eq?: "harassment" | "other" | "privacy" | "spam";
+    notEq?: "harassment" | "other" | "privacy" | "spam";
+    in?: Array<"harassment" | "other" | "privacy" | "spam">;
+  };
+
+  details?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    isNil?: boolean;
+  };
+
+  state?: {
+    eq?: "dismissed" | "open" | "resolved";
+    notEq?: "dismissed" | "open" | "resolved";
+    in?: Array<"dismissed" | "open" | "resolved">;
+  };
+
+  resolutionNote?: {
+    eq?: string;
+    notEq?: string;
+    in?: Array<string>;
+    isNil?: boolean;
+  };
+
+  resolvedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+    isNil?: boolean;
+  };
+
+  insertedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  updatedAt?: {
+    eq?: UtcDateTimeUsec;
+    notEq?: UtcDateTimeUsec;
+    greaterThan?: UtcDateTimeUsec;
+    greaterThanOrEqual?: UtcDateTimeUsec;
+    lessThan?: UtcDateTimeUsec;
+    lessThanOrEqual?: UtcDateTimeUsec;
+    in?: Array<UtcDateTimeUsec>;
+  };
+
+  petitionId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+  };
+
+  commentId?: {
+    eq?: UUID;
+    notEq?: UUID;
+    in?: Array<UUID>;
+    isNil?: boolean;
+  };
+
+
+
+};
 export type PetitionFilterInput = {
   and?: Array<PetitionFilterInput>;
   or?: Array<PetitionFilterInput>;
@@ -1295,6 +1537,9 @@ export type OrganizationFilterField = (typeof organizationFilterFields)[number];
 export const preferenceFilterFields = ["id", "name", "value", "insertedAt", "updatedAt"] as const;
 export type PreferenceFilterField = (typeof preferenceFilterFields)[number];
 
+export const supportRequestFilterFields = ["id", "requesterEmail", "kind", "message", "state", "resolutionNote", "resolvedAt", "insertedAt", "updatedAt"] as const;
+export type SupportRequestFilterField = (typeof supportRequestFilterFields)[number];
+
 export const userFilterFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "organizationId", "emailVerified", "profileComplete", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees", "organization", "petitions", "signatures", "classroomMemberships", "ownedClassrooms"] as const;
 export type UserFilterField = (typeof userFilterFields)[number];
 
@@ -1309,6 +1554,9 @@ export type ClassroomMembershipFilterField = (typeof classroomMembershipFilterFi
 
 export const commentFilterFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "author", "user", "petition"] as const;
 export type CommentFilterField = (typeof commentFilterFields)[number];
+
+export const contentReportFilterFields = ["id", "targetTitle", "targetText", "reason", "details", "state", "resolutionNote", "resolvedAt", "insertedAt", "updatedAt", "petitionId", "commentId"] as const;
+export type ContentReportFilterField = (typeof contentReportFilterFields)[number];
 
 export const petitionFilterFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "organizationId", "categoryId", "classroomId", "canManage", "hasSigned", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending", "organization", "category", "classroom", "updates", "comments", "signatures"] as const;
 export type PetitionFilterField = (typeof petitionFilterFields)[number];
@@ -1329,6 +1577,9 @@ export type OrganizationSortField = (typeof organizationSortFields)[number];
 export const preferenceSortFields = ["id", "name", "value", "insertedAt", "updatedAt"] as const;
 export type PreferenceSortField = (typeof preferenceSortFields)[number];
 
+export const supportRequestSortFields = ["id", "requesterEmail", "kind", "message", "state", "resolutionNote", "resolvedAt", "insertedAt", "updatedAt"] as const;
+export type SupportRequestSortField = (typeof supportRequestSortFields)[number];
+
 export const userSortFields = ["id", "firstName", "lastName", "email", "graduationYear", "role", "insertedAt", "updatedAt", "organizationId", "emailVerified", "profileComplete", "totalPetitionSignatures", "numPetitions", "numSigned", "numPetitionSignees"] as const;
 export type UserSortField = (typeof userSortFields)[number];
 
@@ -1343,6 +1594,9 @@ export type ClassroomMembershipSortField = (typeof classroomMembershipSortFields
 
 export const commentSortFields = ["id", "text", "sentiment", "insertedAt", "updatedAt", "userId", "petitionId", "author"] as const;
 export type CommentSortField = (typeof commentSortFields)[number];
+
+export const contentReportSortFields = ["id", "targetTitle", "targetText", "reason", "details", "state", "resolutionNote", "resolvedAt", "insertedAt", "updatedAt", "petitionId", "commentId"] as const;
+export type ContentReportSortField = (typeof contentReportSortFields)[number];
 
 export const petitionSortFields = ["id", "title", "description", "status", "goal", "allowComments", "isAnonymous", "deadline", "insertedAt", "updatedAt", "organizationId", "categoryId", "classroomId", "canManage", "hasSigned", "signaturesCount", "isClassroomPetition", "daysLeft", "author", "trending"] as const;
 export type PetitionSortField = (typeof petitionSortFields)[number];

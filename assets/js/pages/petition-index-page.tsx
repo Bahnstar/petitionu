@@ -1,3 +1,4 @@
+import { ReportContent } from "../features/moderation/report-content"
 import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
@@ -117,6 +118,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               {signature.reason ? <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">“{signature.reason}”</p> : null}
             </div>)}</div> : <p className="text-sm leading-7 text-muted-foreground">{closed ? "This petition closed without signatures." : "Be the first to stand behind this idea."}</p>}
           </section>
+          <ReportContent petitionId={petition.id} />
           <section id="petition-comments" aria-labelledby="petition-comments-heading">
             <h2 id="petition-comments-heading" className="mb-5 font-display text-3xl tracking-tight">The conversation <span className="font-sans text-sm text-muted-foreground">({comments.length})</span></h2>
             {petition.allowComments ? closed ? <p className="mb-6 text-sm text-muted-foreground">This petition is no longer accepting comments.</p> : user ? !canParticipate ? <p className="mb-6 text-sm text-muted-foreground">Confirm your email and <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">complete your profile</Link> to comment.</p> : <form id="petition-comment-form" onSubmit={(event) => { event.preventDefault(); if (commentText.trim() && !commentMutation.isPending) commentMutation.mutate(commentText.trim()) }} className="app-panel mb-6 space-y-4">
@@ -129,6 +131,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
             <div className="divide-y divide-border">{comments.map((comment) => <div key={comment.id} className="py-5">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-medium">{comment.author || "A campus community member"}</span>{comment.insertedAt ? <span className="text-muted-foreground">{new Date(comment.insertedAt).toLocaleDateString()}</span> : null}</div>
               <p className="whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{comment.text}</p>
+              <ReportContent petitionId={petition.id} commentId={comment.id} />
             </div>)}</div>
           </section>
         </article>

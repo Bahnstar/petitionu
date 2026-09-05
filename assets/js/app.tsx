@@ -2,6 +2,10 @@ import React from "react"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { HomePage } from "./pages/home-page"
 import PetitionIndexPage from "./pages/petition-index-page"
+import ModerationPage from "./pages/moderation-page"
+import SupportPage from "./pages/support-page"
+import PrivacyPage from "./pages/privacy-page"
+import CommunityRulesPage from "./pages/community-rules-page"
 import ProfilePage from "./pages/profile-page"
 import DashboardPage from "./pages/dashboard-page"
 import BrowsePetitionsPage from "./pages/browse-petitions-page"
@@ -58,6 +62,10 @@ export const App = () => {
                 <Route path={`${defaultPath}/classrooms`} element={<ClassroomsPage />} />
                 <Route path={`${defaultPath}/classrooms/new`} element={<CreateClassroomPage />} />
                 <Route path={`${defaultPath}/classrooms/:id`} element={<ClassroomDetailPage />} />
+                <Route path={`${defaultPath}/moderation`} element={<ModerationPage />} />
+                <Route path={`${defaultPath}/support`} element={<SupportPage />} />
+                <Route path={`${defaultPath}/privacy`} element={<PrivacyPage />} />
+                <Route path={`${defaultPath}/community-rules`} element={<CommunityRulesPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Layout>
