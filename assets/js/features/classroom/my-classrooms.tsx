@@ -17,7 +17,7 @@ interface MyClassroomsProps {
 
 export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
   const classroomsQuery = useQuery({
-    queryKey: ["myClassrooms"],
+    queryKey: ["myClassrooms", "summary"],
     queryFn: async () => {
       const result = await getMyClassrooms({
         fields: [
@@ -42,11 +42,10 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
   // Loading state
   if (classroomsQuery.isPending) {
     return (
-      <Card className="p-6">
+      <Card className="gap-0 rounded-2xl p-6 shadow-none">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <GraduationCap className="w-5 h-5" />
-            My Classrooms
+          <h2 className="font-display text-2xl font-normal text-foreground">
+            My classrooms
           </h2>
         </div>
         <div className="space-y-3">
@@ -64,14 +63,14 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
   // Error state
   if (classroomsQuery.isError) {
     return (
-      <Card className="p-6">
+      <Card className="gap-0 rounded-2xl p-6 shadow-none">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <GraduationCap className="w-5 h-5" />
-            My Classrooms
+          <h2 className="font-display text-2xl font-normal text-foreground">
+            My classrooms
           </h2>
         </div>
-        <p className="text-sm text-muted-foreground">Failed to load classrooms</p>
+        <p role="alert" className="text-sm text-muted-foreground">Your classrooms couldn’t load.</p>
+        <Button variant="outline" className="mt-4" onClick={() => classroomsQuery.refetch()}>Try again</Button>
       </Card>
     )
   }
@@ -81,18 +80,17 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
   const displayClassrooms = activeClassrooms.slice(0, limit)
 
   return (
-    <Card className="p-6">
+    <Card className="gap-0 rounded-2xl p-6 shadow-none">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <GraduationCap className="w-5 h-5" />
-          My Classrooms
+        <h2 className="font-display text-2xl font-normal text-foreground">
+          My classrooms
         </h2>
-        <Link to={ROUTES.classrooms}>
-          <Button variant="ghost" size="sm">
-            View All
+        <Button asChild variant="ghost" size="sm">
+          <Link to={ROUTES.classrooms}>
+            View all
             <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {displayClassrooms.length === 0 ? (
@@ -101,9 +99,7 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
           <p className="text-sm text-muted-foreground mb-4">
             You haven't joined any classrooms yet
           </p>
-          <Link to={ROUTES.classrooms}>
-            <Button size="sm">Browse Classrooms</Button>
-          </Link>
+          <Button asChild size="sm"><Link to={ROUTES.classrooms}>Find your class</Link></Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -113,7 +109,7 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
               to={ROUTES.classroom(classroom.id)}
               className="block"
             >
-              <div className="p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-all">
+              <div className="py-4 border-b border-border hover:bg-muted/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -129,11 +125,11 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {classroom.memberCount ?? 0}
+                        {classroom.memberCount ?? 0} members
                       </span>
                       <span className="flex items-center gap-1">
                         <FileText className="w-3 h-3" />
-                        {classroom.petitionCount ?? 0}
+                        {classroom.petitionCount ?? 0} petitions
                       </span>
                     </div>
                   </div>

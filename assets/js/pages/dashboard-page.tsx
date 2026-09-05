@@ -1,13 +1,12 @@
-import { Bell, TrendingUp } from "lucide-react"
+import { Plus } from "lucide-react"
 import { DashboardStats } from "../features/dashboard/dashboard-stats"
 import { UserPetitions } from "../features/dashboard/user-petitions"
 import { SignedPetitions } from "../features/dashboard/signed-petitions"
-import { TrendingAtSchool } from "../features/dashboard/trending-at-school"
+import { CampusIdeas } from "../features/dashboard/trending-at-school"
 import { RecentActivity } from "../features/dashboard/recent-activity"
 import { MyClassrooms } from "../features/classroom/my-classrooms"
 import { Button } from "@/components/ui/button"
 import { buildCSRFHeaders, getUserById, UserResourceSchema } from "../ash_rpc"
-import { Badge } from "@/components/ui/badge"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { CleanResource } from "@/lib/types"
@@ -19,142 +18,16 @@ type User = CleanResource<UserResourceSchema>
 
 function DashboardLoadingState() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-        {/* Welcome Section Skeleton */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-          <div>
-            <div className="h-10 lg:h-12 bg-muted rounded-lg w-64 mb-2 animate-pulse"></div>
-            <div className="flex items-center gap-2">
-              <div className="h-6 bg-muted rounded-lg w-24 animate-pulse"></div>
-              <div className="h-4 bg-muted rounded-lg w-32 animate-pulse"></div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative p-2 rounded-md h-10 w-10 bg-muted animate-pulse"></div>
-            <div className="h-10 bg-muted rounded-lg w-40 animate-pulse"></div>
-          </div>
+    <main id="dashboard-loading" className="app-page" aria-busy="true" aria-label="Loading your dashboard">
+      <p role="status" className="sr-only">Loading your dashboard…</p>
+      <div aria-hidden="true" className="space-y-8 motion-safe:animate-pulse">
+        <div className="h-14 w-3/4 max-w-md rounded-2xl bg-muted" />
+        <div className="grid grid-cols-3 gap-4">
+          {[0, 1, 2].map((index) => <div key={index} className="h-28 rounded-2xl bg-muted" />)}
         </div>
-
-        {/* Stats Overview Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-card rounded-lg border border-border p-6">
-              <div className="h-4 bg-muted rounded-lg w-20 mb-2 animate-pulse"></div>
-              <div className="h-8 bg-muted rounded-lg w-16 animate-pulse"></div>
-            </div>
-          ))}
-        </div>
-
-        {/* Main Grid Skeleton */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* Left Column - Main Content Skeleton */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* User Petitions Skeleton */}
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="h-6 bg-muted rounded-lg w-32 animate-pulse"></div>
-                <div className="h-8 bg-muted rounded-lg w-24 animate-pulse"></div>
-              </div>
-              <div className="space-y-4">
-                {[...Array(2)].map((_, i) => (
-                  <div key={i} className="border-b border-border pb-4 last:border-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="h-5 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-                        <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                        <div className="h-4 bg-muted rounded-lg w-2/3 animate-pulse"></div>
-                        <div className="flex items-center gap-4 mt-3">
-                          <div className="h-4 bg-muted rounded-lg w-16 animate-pulse"></div>
-                          <div className="h-4 bg-muted rounded-lg w-20 animate-pulse"></div>
-                          <div className="h-6 bg-muted rounded-full w-16 animate-pulse"></div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="h-6 bg-muted rounded-lg w-20 animate-pulse"></div>
-                        <div className="h-2 bg-muted rounded-full w-24 animate-pulse"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Signed Petitions Skeleton */}
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="h-6 bg-muted rounded-lg w-32 animate-pulse"></div>
-                <div className="h-8 bg-muted rounded-lg w-24 animate-pulse"></div>
-              </div>
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="border-b border-border pb-4 last:border-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="h-5 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-4 bg-muted rounded-lg w-20 animate-pulse"></div>
-                          <div className="h-4 bg-muted rounded-lg w-24 animate-pulse"></div>
-                        </div>
-                        <div className="flex items-center gap-4 mt-3">
-                          <div className="h-4 bg-muted rounded-lg w-16 animate-pulse"></div>
-                          <div className="h-4 bg-muted rounded-lg w-20 animate-pulse"></div>
-                          <div className="h-6 bg-muted rounded-full w-16 animate-pulse"></div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="h-6 bg-muted rounded-lg w-20 animate-pulse"></div>
-                        <div className="h-2 bg-muted rounded-full w-24 animate-pulse"></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Sidebar Skeleton */}
-          <div className="space-y-6">
-            {/* Trending at School Skeleton */}
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse"></div>
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 pb-3 border-b border-border last:border-0"
-                  >
-                    <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
-                    <div className="flex-1 space-y-1">
-                      <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                      <div className="h-3 bg-muted rounded-lg w-2/3 animate-pulse"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Activity Skeleton */}
-            <div className="bg-card rounded-lg border border-border p-6">
-              <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse"></div>
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-3 pb-3 border-b border-border last:border-0"
-                  >
-                    <div className="h-8 w-8 bg-muted rounded-full animate-pulse mt-1"></div>
-                    <div className="flex-1 space-y-1">
-                      <div className="h-4 bg-muted rounded-lg w-full animate-pulse"></div>
-                      <div className="h-3 bg-muted rounded-lg w-3/4 animate-pulse"></div>
-                      <div className="h-3 bg-muted rounded-lg w-20 animate-pulse"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="h-80 rounded-2xl bg-muted lg:col-span-2" />
+          <div className="h-64 rounded-2xl bg-muted" />
         </div>
       </div>
     </main>
@@ -163,7 +36,6 @@ function DashboardLoadingState() {
 
 export default function Dashboard() {
   useDocumentTitle("Dashboard")
-
   const { user: currentUser, isLoading: authLoading, isAuthenticated } = useAuth()
 
   const userQuery = useQuery({
@@ -192,8 +64,8 @@ export default function Dashboard() {
               "trending",
               "signaturesCount",
               "goal",
-              "daysLeft",
-              // "insertedAt",
+              "deadline",
+              "insertedAt",
               { category: ["id", "name", "color"] },
               { user: ["firstName", "lastName"] },
             ],
@@ -201,13 +73,14 @@ export default function Dashboard() {
           {
             signatures: [
               "id",
-              // "insertedAt",
+              "insertedAt",
               {
                 petition: [
                   "id",
                   "title",
                   "signaturesCount",
                   "goal",
+                  "isAnonymous",
                   { category: ["name", "color"] },
                   { user: ["firstName", "lastName"] },
                 ],
@@ -229,98 +102,65 @@ export default function Dashboard() {
       const fetchedUser: User = result.data
       return fetchedUser
     },
-    enabled: !!currentUser?.id, // Only run query when we have a user ID
+    enabled: !!currentUser?.id,
   })
 
   const apiUser = userQuery.data
 
-  // Show loading if auth is loading or if we're fetching user data
-  if (authLoading || userQuery.isPending) {
-    return <DashboardLoadingState />
-  }
+  if (authLoading) return <DashboardLoadingState />
 
-  // Redirect to sign-in if not authenticated
   if (!isAuthenticated || !currentUser) {
-    window.location.href = "/sign-in"
-    return <DashboardLoadingState />
+    return (
+      <main className="app-page">
+        <div className="app-empty-state">
+          <h1 className="app-page-heading">Your next chapter starts here.</h1>
+          <p className="app-page-description">Sign in to see your petitions, the ideas you support, and your classrooms.</p>
+          <Button asChild className="mt-6"><a href="/sign-in">Sign in</a></Button>
+        </div>
+      </main>
+    )
   }
 
-  if (userQuery.isError) {
-    return <div>Error: {userQuery.error?.message}</div>
+  if (userQuery.isPending) return <DashboardLoadingState />
+
+  if (userQuery.isError || !apiUser) {
+    return (
+      <main className="app-page">
+        <section id="dashboard-error" className="app-empty-state" role="alert">
+          <h1 className="app-page-heading">Your dashboard couldn’t load.</h1>
+          <p className="app-page-description">Try again to get your latest petitions and signatures.</p>
+          <Button id="dashboard-retry" className="mt-6" onClick={() => userQuery.refetch()} disabled={userQuery.isFetching}>
+            {userQuery.isFetching ? "Trying again…" : "Try again"}
+          </Button>
+        </section>
+      </main>
+    )
   }
 
-  if (!apiUser) {
-    return <DashboardLoadingState />
-  }
-
-  // Use real user data from API
-  const user = {
-    name:
-      apiUser.firstName && apiUser.lastName
-        ? `${apiUser.firstName} ${apiUser.lastName}`
-        : apiUser.email?.split("@")[0] || "User",
-    school: "UC Berkeley", // TODO: Get from user organization when available
-    role: "Student", // TODO: Get from user role when available
-    joinedDate: "January 2024", // TODO: Get from user.created_at when available
-  }
+  const name = apiUser.firstName || apiUser.email?.split("@")[0] || "friend"
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-        {/* Welcome Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2 text-balance">
-              Welcome back, {user.name}
-            </h1>
-            <p className="text-muted-foreground flex items-center gap-2">
-              <Badge variant="secondary" className="font-normal">
-                {user.school}
-              </Badge>
-              <span className="text-sm">
-                {user.role} • Member since {user.joinedDate}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button className="relative p-2 rounded-md">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-                3
-              </span>
-            </Button>
-            <Link to={ROUTES.createPetition}>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Start New Petition
-              </Button>
-            </Link>
-          </div>
+    <main id="dashboard-page" className="app-page">
+      <header className="mb-9 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
+        <div className="min-w-0">
+          <h1 className="app-page-heading break-words">Welcome back, {name}.</h1>
+          <p className="app-page-description">Your ideas, your people, and the change you’re making together.</p>
         </div>
+        <Button asChild className="shrink-0"><Link id="dashboard-create-petition" to={ROUTES.createPetition}><Plus aria-hidden="true" />Start a petition</Link></Button>
+      </header>
 
-        {/* Stats Overview */}
-        <DashboardStats
-          numPetitions={apiUser.numPetitions}
-          numSigned={apiUser.numSigned}
-          numSupporters={apiUser.totalPetitionSignatures}
-        />
+      <DashboardStats numPetitions={apiUser.numPetitions} numSigned={apiUser.numSigned} numSupporters={apiUser.totalPetitionSignatures} />
 
-        {/* Main Grid */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 mt-8">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            <UserPetitions petitions={apiUser.petitions} />
-            <SignedPetitions signedPetitions={apiUser.signatures} />
-          </div>
-
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            <MyClassrooms currentUserId={apiUser.id} />
-            <TrendingAtSchool school={user.school} />
-            <RecentActivity />
-          </div>
+      <div className="mt-9 grid items-start gap-7 lg:grid-cols-3">
+        <div className="min-w-0 space-y-7 lg:col-span-2">
+          <UserPetitions petitions={apiUser.petitions ?? []} />
+          <SignedPetitions signedPetitions={apiUser.signatures ?? []} />
         </div>
+        <aside className="min-w-0 space-y-7" aria-label="Your community">
+          <MyClassrooms currentUserId={apiUser.id} />
+          <CampusIdeas />
+          <RecentActivity petitions={apiUser.petitions ?? []} signatures={apiUser.signatures ?? []} />
+        </aside>
       </div>
     </main>
   )
