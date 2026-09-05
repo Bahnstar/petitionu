@@ -1,3 +1,4 @@
+import { AuthLink } from "../components/auth-link"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { Plus } from "lucide-react"
@@ -95,7 +96,7 @@ export default function ClassroomsPage() {
         <section id="classrooms-sign-in" className="app-empty-state">
           <h1 className="app-page-heading">Find your people.</h1>
           <p className="app-page-description">Sign in to join your class, share ideas, and see what you can change together.</p>
-          <Button asChild className="mt-6"><a href="/sign-in">Sign in</a></Button>
+          <Button asChild className="mt-6"><AuthLink>Sign in</AuthLink></Button>
         </section>
       </main>
     )
@@ -142,12 +143,12 @@ export default function ClassroomsPage() {
             <Button asChild variant="outline">
               <a href="#join-code">Join with a code</a>
             </Button>
-            <Button asChild id="create-classroom-link">
+            {(currentUser.role === "professor" || currentUser.role === "admin") && <Button asChild id="create-classroom-link">
               <Link to={ROUTES.classroomNew}>
               <Plus className="w-4 h-4 mr-2" />
               Create classroom
               </Link>
-            </Button>
+            </Button>}
           </div>
         </div>
 

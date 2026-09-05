@@ -19,14 +19,12 @@ interface MemberListProps {
   memberships: Membership[]
   classroomId: string
   canManage?: boolean
-  isProfessor?: boolean
 }
 
 export function MemberList({
   memberships,
   classroomId,
   canManage = false,
-  isProfessor = false,
 }: MemberListProps) {
   const queryClient = useQueryClient()
 
@@ -201,7 +199,7 @@ export function MemberList({
                     {membership.role === "ta" ? "TA" : "Student"}
                   </Badge>
                 </div>
-                {canManage && isProfessor && (
+                {canManage && (
                   <div className="flex items-center gap-2">
                     {membership.role === "student" ? (
                       <Button

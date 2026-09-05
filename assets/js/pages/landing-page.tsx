@@ -1,3 +1,4 @@
+import { AuthLink } from "../components/auth-link"
 import React from "react"
 import { Link } from "react-router-dom"
 import { ROUTES } from "@/lib/routes"
@@ -10,7 +11,7 @@ function LandingAccountLink({ id }: { id: string }) {
 
   return isAuthenticated
     ? <Link id={id} to={ROUTES.dashboard}>My dashboard</Link>
-    : <a id={id} href="/sign-in">Sign in</a>
+    : <AuthLink id={id}>Sign in</AuthLink>
 }
 
 function LandingFooter() {

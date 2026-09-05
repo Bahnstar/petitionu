@@ -42,18 +42,18 @@ try {
       try {
         await page.goto("/", { waitUntil: "domcontentloaded" })
         await page.locator("#landing-header").waitFor()
-        assert.equal(await page.locator('#landing-page a[href="/sign-in"]').count(), 0, `${state}/${size}: do not show Sign in before authentication resolves`)
+        assert.equal(await page.locator('#landing-page a[href^="/sign-in"]').count(), 0, `${state}/${size}: do not show Sign in before authentication resolves`)
         assert.equal(await page.locator(`#landing-header a[href="${home}/petitions"]`).count(), 1, "Browse petitions remains available while authentication loads")
         releaseAuth()
 
-        const accountHref = state === "user" ? `${home}/dashboard` : "/sign-in"
+        const accountHref = state === "user" ? `${home}/dashboard` : `/sign-in?${new URLSearchParams({ return_to: home })}`
         for (const region of ["#landing-header", ".landing-footer"]) {
           const account = page.locator(`${region} a[href="${accountHref}"]`)
           await account.waitFor({ state: "visible" })
           assert.equal(await account.textContent(), state === "user" ? "My dashboard" : "Sign in")
           assert.equal(await page.locator(`${region} a[href="${home}/petitions"]`).isVisible(), true)
         }
-        if (state === "user") assert.equal(await page.locator('#landing-page a[href="/sign-in"]').count(), 0)
+        if (state === "user") assert.equal(await page.locator('#landing-page a[href^="/sign-in"]').count(), 0)
         else assert.equal(await page.locator(`#landing-page a[href="${home}/dashboard"]`).count(), 0)
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "Landing page must fit the viewport")
 
