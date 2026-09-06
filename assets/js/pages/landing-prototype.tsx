@@ -409,9 +409,9 @@ export function FirstStep({ idea, setIdea, startDraft }: LandingProps) {
   )
 }
 
-export const publicLandingVariants: Record<string, React.ComponentType<LandingProps>> = {
+export const publicLandingVariants = {
   D: OpenInvitation,
   E: CampusStory,
   F: FirstStep,
   G: OpenInvitation,
-}
+} satisfies Record<string, React.ComponentType<LandingProps>>

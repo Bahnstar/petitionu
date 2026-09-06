@@ -6,7 +6,7 @@
 - Before using a Mix task, read `mix help <task>`. Available tasks and aliases are discoverable through `mix help` and `mix.exs`.
 - Use `Req` for server-side HTTP requests.
 - Run focused checks for the changed behavior, then `mix precommit` before finishing. Report any blockers and distinguish existing failures from regressions.
-- For frontend changes, also check TypeScript with `cd assets && ./node_modules/.bin/tsc --noEmit` and build with `mix assets.build`; `mix precommit` does not check TypeScript or bundle assets.
+- `mix precommit` also runs frontend formatting, lint, TypeScript, and tooling checks. For frontend changes, additionally build with `mix assets.build`. Run `cd assets && bun run format` to apply formatting. See `docs/frontend-tooling.md` for lint policy and vendored plugin maintenance.
 
 ## Repo-specific boundaries
 

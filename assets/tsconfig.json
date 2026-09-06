@@ -35,5 +35,5 @@
     "noEmit": true,
     "strict": false
   },
-  "include": ["js/**/*", "components/**/*", "lib/**/*"]
+  "include": ["js/**/*", "components/**/*", "lib/**/*", "tests/rpc-fields.mts"]
 }

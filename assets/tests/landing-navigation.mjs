@@ -44,14 +44,20 @@ try {
       await page.route("**/rpc/run", async (route) => {
         const { action } = route.request().postDataJSON()
         if (action === "get_me") await authGate
-        const data =
-          action === "get_me"
-            ? state === "user"
-              ? user
-              : null
-            : action === "get_user_by_id"
-              ? user
-              : []
+        function responseData() {
+          if (action === "get_me") {
+            if (state === "user") {
+              return user
+            }
+            return null
+          }
+          if (action === "get_user_by_id") {
+            return user
+          }
+          return []
+        }
+
+        const data = responseData()
         await route.fulfill({ json: { success: true, data } })
       })
 
@@ -109,6 +115,22 @@ try {
         await page.locator("#landing-header").waitFor()
         await page.locator(`.landing-footer a[href="${home}/petitions"]`).click()
         await page.waitForURL(`${home}/petitions`)
+
+        if (size === "mobile") {
+          const toggle = page.locator("#navigation-toggle")
+          await toggle.click()
+          await page.locator("#mobile-menu").waitFor()
+          await page.keyboard.press("Escape")
+          assert.equal(await toggle.getAttribute("aria-expanded"), "false")
+          assert.equal(await toggle.evaluate((button) => button === document.activeElement), true)
+          await toggle.click()
+          await page.locator(`#mobile-menu a[href="${home}/classrooms"]`).click()
+          await page.waitForURL(`${home}/classrooms`)
+          assert.equal(await page.locator("#mobile-menu").count(), 0)
+          await page.goBack()
+          await page.waitForURL(`${home}/petitions`)
+          assert.equal(await page.locator("#mobile-menu").count(), 0)
+        }
 
         for (const region of ["#landing-header", ".landing-footer"]) {
           await page.goto(home, { waitUntil: "domcontentloaded" })

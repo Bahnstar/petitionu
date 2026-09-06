@@ -1,7 +1,7 @@
 import React from "react"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { buildCSRFHeaders, getPetitions, SuccessDataFunc } from "../ash_rpc"
+import { buildCSRFHeaders, getPetitions } from "../ash_rpc"
 import { HomePrototype } from "./home-prototype"
 import { homePrototypesEnabled } from "../components/prototype-switcher"
 import { useDocumentTitle } from "../hooks/use-document-title"
@@ -38,7 +38,7 @@ function PrototypePage() {
         )
       }
 
-      return result.data as SuccessDataFunc<typeof getPetitions>
+      return result.data
     },
   })
 

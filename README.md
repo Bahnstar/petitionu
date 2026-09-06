@@ -20,7 +20,7 @@ Phoenix serves the application and bundles its assets with esbuild and Tailwind.
 - Elixir and a compatible Erlang/OTP installation. The project declares Elixir `~> 1.15` in `mix.exs`; it does not pin an exact toolchain.
 - PostgreSQL running locally, with permission to create databases and install the `citext` extension.
 - Bun for installing JavaScript dependencies using `assets/bun.lock`.
-- Node.js for the TypeScript CLI and browser test scripts.
+- Node.js 22.18 or later for TypeScript-based lint plugins and browser test scripts.
 
 The default database connection is:
 
@@ -84,18 +84,19 @@ mix test test/petitionu_web/controllers/ash_typescript_rpc_controller_test.exs
 mix precommit
 ```
 
-`mix precommit` compiles with warnings treated as errors, removes unused dependency locks, formats Elixir code, and runs the backend test suite. Tests require PostgreSQL; the `mix test` alias sets up the test database first.
+`mix precommit` compiles with warnings treated as errors, removes unused dependency locks, formats Elixir code, checks frontend formatting, lint rules, and TypeScript, verifies the tooling configuration, and runs the backend test suite. Tests require PostgreSQL; the `mix test` alias sets up the test database first.
 
 For frontend changes, also run:
 
 ```sh
 cd assets
-./node_modules/.bin/tsc --noEmit
+bun run format
+bun run check
 cd ..
 mix assets.build
 ```
 
-`mix precommit` does not type-check TypeScript or build frontend assets. Browser navigation checks are documented in [assets/tests/README.md](assets/tests/README.md).
+`mix precommit` checks frontend source but does not bundle assets. See [frontend tooling](docs/frontend-tooling.md) for the lint policy and [browser checks](assets/tests/README.md) for navigation coverage.
 
 ### Changing resources and RPC contracts
 

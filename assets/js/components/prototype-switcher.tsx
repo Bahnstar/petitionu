@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import React, { useEffect, useCallback, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 
 // Throwaway prototype controls. Require both a development bundle and server opt-in.
@@ -19,23 +19,32 @@ export const homeVariants = [
 export function PrototypeSwitcher({ current, state }: { current: string; state: object }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeSet = homeVariants.find((variant) => variant.key === current)?.set ?? "landing"
-  const variants = homeVariants.filter((variant) => variant.set === activeSet)
+  const variants = useMemo(
+    () => homeVariants.filter((variant) => variant.set === activeSet),
+    [activeSet],
+  )
   const index = Math.max(
     0,
     variants.findIndex((variant) => variant.key === current),
   )
 
-  function selectVariant(key: string) {
-    const params = new URLSearchParams(searchParams)
-    params.set("variant", key)
-    setSearchParams(params, { replace: true, preventScrollReset: true })
-    window.scrollTo(0, 0)
-  }
+  const selectVariant = useCallback(
+    (key: string) => {
+      const params = new URLSearchParams(searchParams)
+      params.set("variant", key)
+      setSearchParams(params, { replace: true, preventScrollReset: true })
+      window.scrollTo(0, 0)
+    },
+    [searchParams, setSearchParams],
+  )
 
-  function cycle(direction: number) {
-    const next = variants[(index + direction + variants.length) % variants.length]
-    selectVariant(next.key)
-  }
+  const cycle = useCallback(
+    (direction: number) => {
+      const next = variants[(index + direction + variants.length) % variants.length]
+      selectVariant(next.key)
+    },
+    [variants, index, selectVariant],
+  )
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -61,7 +70,11 @@ export function PrototypeSwitcher({ current, state }: { current: string; state: 
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [index, activeSet, searchParams, setSearchParams])
+  }, [cycle])
+
+  const variantStyle: React.CSSProperties & { "--prototype-variant-count": number } = {
+    "--prototype-variant-count": variants.length,
+  }
 
   if (!homePrototypesEnabled) return null
 
@@ -91,10 +104,7 @@ export function PrototypeSwitcher({ current, state }: { current: string; state: 
           <pre>{JSON.stringify({ variant: current, ...state }, null, 2)}</pre>
         </details>
       </div>
-      <div
-        className="prototype-switcher-options"
-        style={{ "--prototype-variant-count": variants.length } as React.CSSProperties}
-      >
+      <div className="prototype-switcher-options" style={variantStyle}>
         <button
           id="prototype-previous"
           type="button"

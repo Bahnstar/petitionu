@@ -15,6 +15,21 @@ import { ErrorBoundary } from "../components/ui/error-boundary"
 import { AuthProvider } from "./contexts/auth-context"
 import { DEFAULT_PATH } from "@/lib/routes"
 
+function hasHttpStatus(error: Error): error is Error & { status: number } {
+  return error instanceof Error && "status" in error && typeof error.status === "number"
+}
+
+function hasHttpResponse(error: Error): error is Error & { response: { status: number } } {
+  return (
+    error instanceof Error &&
+    "response" in error &&
+    error.response !== null &&
+    typeof error.response === "object" &&
+    "status" in error.response &&
+    typeof error.response.status === "number"
+  )
+}
+
 // Create a client instance with proper configuration
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,12 +37,10 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: (failureCount, error) => {
         // Don't retry on 4xx client errors
-        if (error instanceof Error) {
-          const status = (error as any).status ?? (error as any).response?.status
-          if (status && status >= 400 && status < 500) {
-            return false
-          }
-        }
+        let status: number | undefined
+        if (hasHttpStatus(error)) status = error.status
+        else if (hasHttpResponse(error)) status = error.response.status
+        if (status >= 400 && status < 500) return false
         return failureCount < 3
       },
       refetchOnWindowFocus: false,

@@ -502,6 +502,26 @@ export function HomePrototype({
     },
   }
 
+  function renderPrototypeHeader() {
+    if (variant === "A") {
+      return <CampaignHeader startDraft={props.startDraft} />
+    }
+    if (variant === "B") {
+      return <BoardHeader startDraft={props.startDraft} />
+    }
+    return <ExplorerHeader startDraft={props.startDraft} />
+  }
+
+  function renderPrototypeContent() {
+    if (variant === "A") {
+      return <CampaignPoster {...props} />
+    }
+    if (variant === "B") {
+      return <CampusBoard {...props} />
+    }
+    return <CauseExplorer {...props} />
+  }
+
   return (
     <div className={`home-prototype hp-variant-${variant}`} id="home-prototype">
       {LandingVariant ? (
@@ -512,13 +532,7 @@ export function HomePrototype({
         />
       ) : (
         <>
-          {variant === "A" ? (
-            <CampaignHeader startDraft={props.startDraft} />
-          ) : variant === "B" ? (
-            <BoardHeader startDraft={props.startDraft} />
-          ) : (
-            <ExplorerHeader startDraft={props.startDraft} />
-          )}
+          {renderPrototypeHeader()}
           <div className="hp-preview-note">
             Design preview{" "}
             <span>
@@ -528,13 +542,7 @@ export function HomePrototype({
               Actions stay in this browser tab.
             </span>
           </div>
-          {variant === "A" ? (
-            <CampaignPoster {...props} />
-          ) : variant === "B" ? (
-            <CampusBoard {...props} />
-          ) : (
-            <CauseExplorer {...props} />
-          )}
+          {renderPrototypeContent()}
         </>
       )}
       <dialog
@@ -542,9 +550,7 @@ export function HomePrototype({
         id="prototype-petition-dialog"
         className="hp-dialog"
         aria-labelledby="prototype-petition-title"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) event.currentTarget.close()
-        }}
+        closedby="any"
       >
         {active ? (
           <>
@@ -586,9 +592,7 @@ export function HomePrototype({
         id="prototype-draft-dialog"
         className="hp-dialog"
         aria-labelledby="prototype-draft-title"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) event.currentTarget.close()
-        }}
+        closedby="any"
       >
         <button
           type="button"
@@ -624,7 +628,7 @@ export function HomePrototype({
             Preview my idea
           </button>
         </form>
-        <p className="hp-dialog-note" role="status">
+        <p role="status" className="hp-dialog-note">
           {draftSaved
             ? `Draft preview: “${draftTitle.trim()}”. Kept in this tab only.`
             : "This is a local draft. It won't be published."}

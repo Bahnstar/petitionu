@@ -1,3 +1,4 @@
+import { useCurrentTime } from "../../hooks/use-current-time"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,7 @@ import { ROUTES } from "@/lib/routes"
 type Petition = CleanResource<PetitionResourceSchema>
 
 export function UserPetitions({ petitions }: { petitions: Petition[] }) {
+  const now = useCurrentTime()
   return (
     <section
       id="dashboard-your-petitions"
@@ -40,7 +42,7 @@ export function UserPetitions({ petitions }: { petitions: Petition[] }) {
             const goal = petition.goal ?? 0
             const progress = goal > 0 ? Math.min(100, Math.max(0, (signatures / goal) * 100)) : 0
             const daysLeft = petition.deadline
-              ? Math.ceil((Date.parse(petition.deadline) - Date.now()) / 86_400_000)
+              ? Math.ceil((Date.parse(petition.deadline) - now) / 86_400_000)
               : null
             return (
               <article key={petition.id} className="py-5 first:pt-0 last:pb-0">

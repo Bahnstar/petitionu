@@ -17,8 +17,10 @@ to skip screenshots. No additional application dependencies are required.
 
 The script checks the root redirect, pending authentication, signed-in and
 signed-out account links, header and footer petition browsing, and navigation
-destinations at desktop and 320px widths. RPC responses are mocked in the
-browser; this does not create accounts or validate server authentication.
+destinations at desktop and 320px widths. Mobile checks verify that Escape restores
+focus to the menu button and navigation closes the menu, including after going back.
+RPC responses are mocked in the browser; this does not create accounts or validate
+server authentication.
 Screenshots omit the development toolbar without changing application code.
 
 The master audit regression checks use the same setup:
