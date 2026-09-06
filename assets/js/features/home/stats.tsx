@@ -9,19 +9,19 @@ export function Stats() {
   ]
 
   return (
-    <section className="py-12 lg:py-16 bg-gradient-to-b from-muted/30 to-background border-y border-border/40">
+    <section className="border-y border-border/40 bg-gradient-to-b from-muted/30 to-background py-12 lg:py-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+        <div className="grid grid-cols-2 gap-8 lg:grid-cols-4 lg:gap-12">
           {stats.map((stat, index) => (
             <div
               key={stat.label}
-              className="text-center animate-in fade-in slide-in-from-bottom-3 duration-700"
+              className="animate-in text-center duration-700 fade-in slide-in-from-bottom-3"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="text-3xl lg:text-5xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text mb-2">
+              <div className="mb-2 bg-gradient-to-br from-primary to-accent bg-clip-text text-3xl font-bold lg:text-5xl">
                 <AnimatedCounter value={stat.value} />
               </div>
-              <div className="text-sm lg:text-base text-muted-foreground font-medium">
+              <div className="text-sm font-medium text-muted-foreground lg:text-base">
                 {stat.label}
               </div>
             </div>

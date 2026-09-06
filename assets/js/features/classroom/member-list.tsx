@@ -21,11 +21,7 @@ interface MemberListProps {
   canManage?: boolean
 }
 
-export function MemberList({
-  memberships,
-  classroomId,
-  canManage = false,
-}: MemberListProps) {
+export function MemberList({ memberships, classroomId, canManage = false }: MemberListProps) {
   const queryClient = useQueryClient()
 
   const approveMutation = useMutation({
@@ -110,15 +106,23 @@ export function MemberList({
     promoteMutation.isPending ||
     demoteMutation.isPending
 
-  const actionError = approveMutation.error || removeMutation.error || promoteMutation.error || demoteMutation.error
+  const actionError =
+    approveMutation.error || removeMutation.error || promoteMutation.error || demoteMutation.error
 
   return (
     <div className="space-y-6">
-      {actionError && <p role="alert" className="rounded-xl border border-destructive/20 p-4 text-sm text-destructive">{actionError.message}</p>}
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/20 p-4 text-sm text-destructive"
+        >
+          {actionError.message}
+        </p>
+      )}
       {pendingMembers.length > 0 && canManage && (
         <Card className="gap-0 rounded-2xl p-6 shadow-none">
-          <h3 className="font-display text-2xl font-normal text-foreground mb-4 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#685649]" />
+          <h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-normal text-foreground">
+            <Clock className="h-5 w-5 text-[#685649]" />
             Join requests ({pendingMembers.length})
           </h3>
           <div className="space-y-3">
@@ -128,14 +132,16 @@ export function MemberList({
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
               >
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  <div className="size-8 shrink-0 bg-secondary rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4" />
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <User className="h-4 w-4" />
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
                       {membership.user?.firstName} {membership.user?.lastName}
                     </p>
-                    <p className="break-all text-xs text-muted-foreground">{membership.user?.email}</p>
+                    <p className="text-xs break-all text-muted-foreground">
+                      {membership.user?.email}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -146,9 +152,9 @@ export function MemberList({
                     disabled={isLoading}
                   >
                     {approveMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Check className="w-4 h-4" />
+                      <Check className="h-4 w-4" />
                     )}
                   </Button>
                   <Button
@@ -159,9 +165,9 @@ export function MemberList({
                     disabled={isLoading}
                   >
                     {removeMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
@@ -172,12 +178,14 @@ export function MemberList({
       )}
 
       <Card className="gap-0 rounded-2xl p-6 shadow-none">
-        <h3 className="font-display text-2xl font-normal text-foreground mb-4 flex items-center gap-2">
-          <User className="w-5 h-5" />
+        <h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-normal text-foreground">
+          <User className="h-5 w-5" />
           Members ({activeMembers.length})
         </h3>
         {activeMembers.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">No members yet. Share the classroom code to invite your students.</p>
+          <p className="py-4 text-center text-muted-foreground">
+            No members yet. Share the classroom code to invite your students.
+          </p>
         ) : (
           <div className="space-y-3">
             {activeMembers.map((membership) => (
@@ -186,14 +194,16 @@ export function MemberList({
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
               >
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  <div className="size-8 shrink-0 bg-secondary rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4" />
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <User className="h-4 w-4" />
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
                       {membership.user?.firstName} {membership.user?.lastName}
                     </p>
-                    <p className="break-all text-xs text-muted-foreground">{membership.user?.email}</p>
+                    <p className="text-xs break-all text-muted-foreground">
+                      {membership.user?.email}
+                    </p>
                   </div>
                   <Badge variant={membership.role === "ta" ? "default" : "secondary"}>
                     {membership.role === "ta" ? "TA" : "Student"}
@@ -211,9 +221,9 @@ export function MemberList({
                         aria-label={`Promote ${membership.user?.firstName || "member"} to TA`}
                       >
                         {promoteMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <ChevronUp className="w-4 h-4" />
+                          <ChevronUp className="h-4 w-4" />
                         )}
                       </Button>
                     ) : (
@@ -226,9 +236,9 @@ export function MemberList({
                         aria-label={`Demote ${membership.user?.firstName || "member"} to student`}
                       >
                         {demoteMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <ChevronDown className="w-4 h-4" />
+                          <ChevronDown className="h-4 w-4" />
                         )}
                       </Button>
                     )}
@@ -241,9 +251,9 @@ export function MemberList({
                       aria-label={`Remove ${membership.user?.firstName || "member"} from classroom`}
                     >
                       {removeMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <X className="w-4 h-4" />
+                        <X className="h-4 w-4" />
                       )}
                     </Button>
                   </div>

@@ -15,14 +15,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const USER_FIELDS = [
-  "id",
-  "email",
-  "firstName",
-  "lastName",
-  "role",
-  "insertedAt",
-] as const
+const USER_FIELDS = ["id", "email", "firstName", "lastName", "role", "insertedAt"] as const
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()

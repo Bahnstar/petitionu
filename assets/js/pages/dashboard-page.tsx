@@ -19,12 +19,21 @@ type User = CleanResource<UserResourceSchema>
 
 function DashboardLoadingState() {
   return (
-    <main id="dashboard-loading" className="app-page" aria-busy="true" aria-label="Loading your dashboard">
-      <p role="status" className="sr-only">Loading your dashboard…</p>
+    <main
+      id="dashboard-loading"
+      className="app-page"
+      aria-busy="true"
+      aria-label="Loading your dashboard"
+    >
+      <p role="status" className="sr-only">
+        Loading your dashboard…
+      </p>
       <div aria-hidden="true" className="space-y-8 motion-safe:animate-pulse">
         <div className="h-14 w-3/4 max-w-md rounded-2xl bg-muted" />
         <div className="grid grid-cols-3 gap-4">
-          {[0, 1, 2].map((index) => <div key={index} className="h-28 rounded-2xl bg-muted" />)}
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="h-28 rounded-2xl bg-muted" />
+          ))}
         </div>
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="h-80 rounded-2xl bg-muted lg:col-span-2" />
@@ -115,8 +124,12 @@ export default function Dashboard() {
       <main className="app-page">
         <div className="app-empty-state">
           <h1 className="app-page-heading">Your next chapter starts here.</h1>
-          <p className="app-page-description">Sign in to see your petitions, the ideas you support, and your classrooms.</p>
-          <Button asChild className="mt-6"><AuthLink>Sign in</AuthLink></Button>
+          <p className="app-page-description">
+            Sign in to see your petitions, the ideas you support, and your classrooms.
+          </p>
+          <Button asChild className="mt-6">
+            <AuthLink>Sign in</AuthLink>
+          </Button>
         </div>
       </main>
     )
@@ -129,8 +142,15 @@ export default function Dashboard() {
       <main className="app-page">
         <section id="dashboard-error" className="app-empty-state" role="alert">
           <h1 className="app-page-heading">Your dashboard couldn’t load.</h1>
-          <p className="app-page-description">Try again to get your latest petitions and signatures.</p>
-          <Button id="dashboard-retry" className="mt-6" onClick={() => userQuery.refetch()} disabled={userQuery.isFetching}>
+          <p className="app-page-description">
+            Try again to get your latest petitions and signatures.
+          </p>
+          <Button
+            id="dashboard-retry"
+            className="mt-6"
+            onClick={() => userQuery.refetch()}
+            disabled={userQuery.isFetching}
+          >
             {userQuery.isFetching ? "Trying again…" : "Try again"}
           </Button>
         </section>
@@ -145,12 +165,23 @@ export default function Dashboard() {
       <header className="mb-9 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
         <div className="min-w-0">
           <h1 className="app-page-heading break-words">Welcome back, {name}.</h1>
-          <p className="app-page-description">Your ideas, your people, and the change you’re making together.</p>
+          <p className="app-page-description">
+            Your ideas, your people, and the change you’re making together.
+          </p>
         </div>
-        <Button asChild className="shrink-0"><Link id="dashboard-create-petition" to={ROUTES.createPetition}><Plus aria-hidden="true" />Start a petition</Link></Button>
+        <Button asChild className="shrink-0">
+          <Link id="dashboard-create-petition" to={ROUTES.createPetition}>
+            <Plus aria-hidden="true" />
+            Start a petition
+          </Link>
+        </Button>
       </header>
 
-      <DashboardStats numPetitions={apiUser.numPetitions} numSigned={apiUser.numSigned} numSupporters={apiUser.totalPetitionSignatures} />
+      <DashboardStats
+        numPetitions={apiUser.numPetitions}
+        numSigned={apiUser.numSigned}
+        numSupporters={apiUser.totalPetitionSignatures}
+      />
 
       <div className="mt-9 grid items-start gap-7 lg:grid-cols-3">
         <div className="min-w-0 space-y-7 lg:col-span-2">
@@ -160,7 +191,10 @@ export default function Dashboard() {
         <aside className="min-w-0 space-y-7" aria-label="Your community">
           <MyClassrooms currentUserId={apiUser.id} />
           <CampusIdeas />
-          <RecentActivity petitions={apiUser.petitions ?? []} signatures={apiUser.signatures ?? []} />
+          <RecentActivity
+            petitions={apiUser.petitions ?? []}
+            signatures={apiUser.signatures ?? []}
+          />
         </aside>
       </div>
     </main>

@@ -35,23 +35,23 @@ function ClassroomDetailLoadingState() {
   return (
     <main className="min-h-screen bg-background">
       <div className="app-page">
-        <div className="h-6 bg-muted rounded-lg w-32 mb-6 animate-pulse" />
-        <div className="h-10 bg-muted rounded-lg w-64 mb-2 animate-pulse" />
-        <div className="h-4 bg-muted rounded-lg w-full max-w-96 mb-8 animate-pulse" />
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="mb-6 h-6 w-32 animate-pulse rounded-lg bg-muted" />
+        <div className="mb-2 h-10 w-64 animate-pulse rounded-lg bg-muted" />
+        <div className="mb-8 h-4 w-full max-w-96 animate-pulse rounded-lg bg-muted" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-card rounded-2xl border p-6">
-                <div className="h-6 bg-muted rounded-lg w-48 mb-4 animate-pulse" />
-                <div className="h-4 bg-muted rounded-lg w-full mb-2 animate-pulse" />
-                <div className="h-4 bg-muted rounded-lg w-3/4 animate-pulse" />
+              <div key={i} className="rounded-2xl border bg-card p-6">
+                <div className="mb-4 h-6 w-48 animate-pulse rounded-lg bg-muted" />
+                <div className="mb-2 h-4 w-full animate-pulse rounded-lg bg-muted" />
+                <div className="h-4 w-3/4 animate-pulse rounded-lg bg-muted" />
               </div>
             ))}
           </div>
           <div className="space-y-6">
-            <div className="bg-card rounded-2xl border p-6">
-              <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse" />
-              <div className="h-10 bg-muted rounded-lg w-full animate-pulse" />
+            <div className="rounded-2xl border bg-card p-6">
+              <div className="mb-4 h-6 w-32 animate-pulse rounded-lg bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
             </div>
           </div>
         </div>
@@ -237,7 +237,7 @@ export default function ClassroomDetailPage() {
       <main className="min-h-screen bg-background">
         <div className="app-page">
           <div className="app-empty-state" role="alert">
-            <h1 className="font-display text-3xl mb-3">This classroom couldn’t load</h1>
+            <h1 className="mb-3 font-display text-3xl">This classroom couldn’t load</h1>
             <p className="text-destructive">Error: {classroomQuery.error?.message}</p>
             <Button onClick={() => navigate(ROUTES.classrooms)} className="mt-4">
               Back to classrooms
@@ -252,9 +252,14 @@ export default function ClassroomDetailPage() {
   const petitions = petitionsQuery.data || []
   const memberships = membershipsQuery.data || []
   const isProfessor = classroom?.professorId === currentUserId
-  const isActiveTa = !!currentUserId && memberships.some((membership) =>
-    membership.user?.id === currentUserId && membership.role === "ta" && membership.status === "active"
-  )
+  const isActiveTa =
+    !!currentUserId &&
+    memberships.some(
+      (membership) =>
+        membership.user?.id === currentUserId &&
+        membership.role === "ta" &&
+        membership.status === "active",
+    )
   const canManage = isProfessor || isActiveTa
 
   return (
@@ -263,22 +268,20 @@ export default function ClassroomDetailPage() {
         {/* Back Link */}
         <Link
           to={ROUTES.classrooms}
-          className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          className="mb-6 inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="mr-2 h-4 w-4" />
           Back to classrooms
         </Link>
 
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-3 mb-3">
-              <h1 className="app-page-heading">
-                {classroom?.name}
-              </h1>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <h1 className="app-page-heading">{classroom?.name}</h1>
               {classroom?.archived && (
                 <Badge variant="secondary">
-                  <Archive className="w-3 h-3 mr-1" />
+                  <Archive className="mr-1 h-3 w-3" />
                   Archived
                 </Badge>
               )}
@@ -286,13 +289,13 @@ export default function ClassroomDetailPage() {
             {classroom?.description && (
               <p className="app-page-description max-w-2xl">{classroom.description}</p>
             )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-5 text-sm text-muted-foreground">
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
+                <Users className="h-4 w-4" />
                 {classroom?.memberCount ?? 0} members
               </span>
               <span className="flex items-center gap-1">
-                <FileText className="w-4 h-4" />
+                <FileText className="h-4 w-4" />
                 {classroom?.petitionCount ?? 0} petitions
               </span>
               <span>
@@ -309,9 +312,9 @@ export default function ClassroomDetailPage() {
                   disabled={unarchiveMutation.isPending}
                 >
                   {unarchiveMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Archive className="w-4 h-4 mr-2" />
+                    <Archive className="mr-2 h-4 w-4" />
                   )}
                   Unarchive
                 </Button>
@@ -322,9 +325,9 @@ export default function ClassroomDetailPage() {
                   disabled={archiveMutation.isPending}
                 >
                   {archiveMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Archive className="w-4 h-4 mr-2" />
+                    <Archive className="mr-2 h-4 w-4" />
                   )}
                   Archive
                 </Button>
@@ -334,54 +337,67 @@ export default function ClassroomDetailPage() {
         </div>
 
         {(archiveMutation.error || unarchiveMutation.error) && (
-          <p role="alert" className="mb-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+          <p
+            role="alert"
+            className="mb-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
+          >
             {archiveMutation.error?.message || unarchiveMutation.error?.message}
           </p>
         )}
-        {classroom?.archived && <p className="mb-6 rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">This classroom is archived. You can still browse its petitions and members.</p>}
+        {classroom?.archived && (
+          <p className="mb-6 rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+            This classroom is archived. You can still browse its petitions and members.
+          </p>
+        )}
 
         {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Left Column - Petitions */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6 lg:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-3xl font-normal text-foreground">Petitions</h2>
               {(classroom?.allowStudentPetitions || isProfessor) && (
-                  <Button asChild>
-                    <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                    <Plus className="w-4 h-4 mr-2" />
+                <Button asChild>
+                  <Link to={ROUTES.createPetitionWithClassroom(id!)}>
+                    <Plus className="mr-2 h-4 w-4" />
                     Start a petition
-                    </Link>
-                  </Button>
+                  </Link>
+                </Button>
               )}
             </div>
 
             {petitionsQuery.isPending ? (
               <div className="space-y-4">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="bg-card rounded-2xl border p-6 animate-pulse">
-                    <div className="h-6 bg-muted rounded w-3/4 mb-4" />
-                    <div className="h-4 bg-muted rounded w-full mb-2" />
-                    <div className="h-4 bg-muted rounded w-2/3" />
+                  <div key={i} className="animate-pulse rounded-2xl border bg-card p-6">
+                    <div className="mb-4 h-6 w-3/4 rounded bg-muted" />
+                    <div className="mb-2 h-4 w-full rounded bg-muted" />
+                    <div className="h-4 w-2/3 rounded bg-muted" />
                   </div>
                 ))}
               </div>
             ) : petitionsQuery.isError ? (
               <div className="app-empty-state" role="alert">
-                <p className="text-sm text-destructive mb-4">Petitions couldn’t load. {petitionsQuery.error.message}</p>
-                <Button variant="outline" onClick={() => petitionsQuery.refetch()}>Try again</Button>
+                <p className="mb-4 text-sm text-destructive">
+                  Petitions couldn’t load. {petitionsQuery.error.message}
+                </p>
+                <Button variant="outline" onClick={() => petitionsQuery.refetch()}>
+                  Try again
+                </Button>
               </div>
             ) : petitions.length === 0 ? (
               <Card className="gap-0 rounded-2xl p-8 text-center shadow-none">
-                <h3 className="font-display text-3xl mb-3">What could your class change?</h3>
-                <p className="text-sm text-muted-foreground mb-6">No petitions here yet. Every shared idea starts with one voice.</p>
+                <h3 className="mb-3 font-display text-3xl">What could your class change?</h3>
+                <p className="mb-6 text-sm text-muted-foreground">
+                  No petitions here yet. Every shared idea starts with one voice.
+                </p>
                 {(classroom?.allowStudentPetitions || isProfessor) && (
-                    <Button asChild>
-                      <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                      <Plus className="w-4 h-4 mr-2" />
+                  <Button asChild>
+                    <Link to={ROUTES.createPetitionWithClassroom(id!)}>
+                      <Plus className="mr-2 h-4 w-4" />
                       Start the first petition
-                      </Link>
-                    </Button>
+                    </Link>
+                  </Button>
                 )}
               </Card>
             ) : (
@@ -398,12 +414,14 @@ export default function ClassroomDetailPage() {
             {/* Join code (Professor only) */}
             {isProfessor && (
               <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
-                <h3 className="font-display text-2xl font-normal text-foreground mb-4">Join code</h3>
-                <p className="text-sm text-muted-foreground mb-3">
+                <h3 className="mb-4 font-display text-2xl font-normal text-foreground">
+                  Join code
+                </h3>
+                <p className="mb-3 text-sm text-muted-foreground">
                   Share this code with students to let them join the classroom.
                 </p>
-                <div className="bg-white/70 rounded-xl p-4 mb-4">
-                  <code className="select-all text-sm break-all">{classroom?.joinCode}</code>
+                <div className="mb-4 rounded-xl bg-white/70 p-4">
+                  <code className="text-sm break-all select-all">{classroom?.joinCode}</code>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -415,12 +433,12 @@ export default function ClassroomDetailPage() {
                   >
                     {copied ? (
                       <>
-                        <Check className="w-4 h-4 mr-2" />
+                        <Check className="mr-2 h-4 w-4" />
                         Copied!
                       </>
                     ) : (
                       <>
-                        <Copy className="w-4 h-4 mr-2" />
+                        <Copy className="mr-2 h-4 w-4" />
                         Copy
                       </>
                     )}
@@ -434,29 +452,40 @@ export default function ClassroomDetailPage() {
                     title="Generate a new join code"
                   >
                     {regenerateMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <RefreshCw className="w-4 h-4" />
+                      <RefreshCw className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
-                <p className="mt-3 text-xs leading-relaxed text-[#685649]">Generating a new code replaces this one. Share the new code with anyone who hasn’t joined yet.</p>
-                {copyError && <p role="alert" className="mt-3 text-xs text-destructive">Couldn’t copy. Select the code above to copy it manually.</p>}
-                {regenerateMutation.error && <p role="alert" className="mt-3 text-xs text-destructive">{regenerateMutation.error.message}</p>}
+                <p className="mt-3 text-xs leading-relaxed text-[#685649]">
+                  Generating a new code replaces this one. Share the new code with anyone who hasn’t
+                  joined yet.
+                </p>
+                {copyError && (
+                  <p role="alert" className="mt-3 text-xs text-destructive">
+                    Couldn’t copy. Select the code above to copy it manually.
+                  </p>
+                )}
+                {regenerateMutation.error && (
+                  <p role="alert" className="mt-3 text-xs text-destructive">
+                    {regenerateMutation.error.message}
+                  </p>
+                )}
               </Card>
             )}
 
             {/* Members */}
             {membershipsQuery.isPending ? (
               <Card className="gap-0 rounded-2xl p-6 shadow-none">
-                <div className="h-6 bg-muted rounded w-32 mb-4 animate-pulse" />
+                <div className="mb-4 h-6 w-32 animate-pulse rounded bg-muted" />
                 <div className="space-y-3">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
+                      <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
                       <div className="flex-1">
-                        <div className="h-4 bg-muted rounded w-3/4 mb-1 animate-pulse" />
-                        <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
+                        <div className="mb-1 h-4 w-3/4 animate-pulse rounded bg-muted" />
+                        <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
                       </div>
                     </div>
                   ))}
@@ -464,15 +493,15 @@ export default function ClassroomDetailPage() {
               </Card>
             ) : membershipsQuery.isError ? (
               <Card className="gap-0 rounded-2xl p-6 shadow-none" role="alert">
-                <p className="mb-4 text-sm text-destructive">Members couldn’t load. {membershipsQuery.error.message}</p>
-                <Button variant="outline" onClick={() => membershipsQuery.refetch()}>Try again</Button>
+                <p className="mb-4 text-sm text-destructive">
+                  Members couldn’t load. {membershipsQuery.error.message}
+                </p>
+                <Button variant="outline" onClick={() => membershipsQuery.refetch()}>
+                  Try again
+                </Button>
               </Card>
             ) : (
-              <MemberList
-                memberships={memberships}
-                classroomId={id!}
-                canManage={canManage}
-              />
+              <MemberList memberships={memberships} classroomId={id!} canManage={canManage} />
             )}
           </div>
         </div>

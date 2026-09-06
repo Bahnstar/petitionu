@@ -7,11 +7,11 @@ Throwaway exploration on the existing `/ash-typescript` home page. Question: sho
 Start with `mix phx.server`, then open `http://localhost:4000/ash-typescript?variant=A`.
 Use `?variant=A`, `B`, or `C`, the three named buttons in the floating comparison bar, its arrows, or the left/right keys. Search params survive switching; switching returns to the top to reveal the complete design. Inputs and dialogs keep their keyboard controls. Without a variant param the original home page and header render.
 
-| Variant | Color tokens | Type | Layout and intention |
-| --- | --- | --- | --- |
-| A: Campaign poster | Cobalt `#3536CD`, lime paper `#F2FF9D`, lavender `#EFEDFF`, ink `#2C2C70`, white `#FFFFFF` | Impact display; Geist body | `[large left-aligned ask / tilted campaign ticket]` above cause filters and small campaign posters. The campaign itself is the memorable object. |
-| B: Campus board | Paper `#FAF9FC`, plum `#6740AD`, lilac `#ECE5F9`, ink `#24233F`, muted `#746F83` | Geist throughout | `[cause navigation / petition feed / starting guidance]`. Left-aligned, compact and author-led, for returning students. |
-| C: Cause explorer | Blush `#FCF6FA`, mauve `#EAE0EF`, forest `#486755`, ink `#453448`, white `#FFFFFF` | Newsreader headings; Geist controls | `[centered question + cause choices]` above `[selection list / expanded petition]`. Invite a student into a cause before asking for a signature. |
+| Variant            | Color tokens                                                                               | Type                                | Layout and intention                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A: Campaign poster | Cobalt `#3536CD`, lime paper `#F2FF9D`, lavender `#EFEDFF`, ink `#2C2C70`, white `#FFFFFF` | Impact display; Geist body          | `[large left-aligned ask / tilted campaign ticket]` above cause filters and small campaign posters. The campaign itself is the memorable object. |
+| B: Campus board    | Paper `#FAF9FC`, plum `#6740AD`, lilac `#ECE5F9`, ink `#24233F`, muted `#746F83`           | Geist throughout                    | `[cause navigation / petition feed / starting guidance]`. Left-aligned, compact and author-led, for returning students.                          |
+| C: Cause explorer  | Blush `#FCF6FA`, mauve `#EAE0EF`, forest `#486755`, ink `#453448`, white `#FFFFFF`         | Newsreader headings; Geist controls | `[centered question + cause choices]` above `[selection list / expanded petition]`. Invite a student into a cause before asking for a signature. |
 
 Plan critique: a second set of campaign cards would only restyle A, so B uses a continuous feed and C a selectable list/detail browser. Counts belong to petitions; there is no generic hero stats strip. Only A uses display typography as a graphic object.
 

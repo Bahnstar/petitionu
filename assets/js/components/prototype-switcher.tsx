@@ -20,7 +20,10 @@ export function PrototypeSwitcher({ current, state }: { current: string; state: 
   const [searchParams, setSearchParams] = useSearchParams()
   const activeSet = homeVariants.find((variant) => variant.key === current)?.set ?? "landing"
   const variants = homeVariants.filter((variant) => variant.set === activeSet)
-  const index = Math.max(0, variants.findIndex((variant) => variant.key === current))
+  const index = Math.max(
+    0,
+    variants.findIndex((variant) => variant.key === current),
+  )
 
   function selectVariant(key: string) {
     const params = new URLSearchParams(searchParams)
@@ -38,10 +41,18 @@ export function PrototypeSwitcher({ current, state }: { current: string; state: 
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target
       if (
-        event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
         (target instanceof HTMLElement &&
-          (target.isContentEditable || target.closest("input, textarea, select, [role='dialog'], [role='slider'], [role='tablist']")))
-      ) return
+          (target.isContentEditable ||
+            target.closest(
+              "input, textarea, select, [role='dialog'], [role='slider'], [role='tablist']",
+            )))
+      )
+        return
 
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault()
@@ -55,29 +66,59 @@ export function PrototypeSwitcher({ current, state }: { current: string; state: 
   if (!homePrototypesEnabled) return null
 
   return (
-    <aside id="prototype-switcher" className="prototype-switcher" aria-label="Design prototype controls">
+    <aside
+      id="prototype-switcher"
+      className="prototype-switcher"
+      aria-label="Design prototype controls"
+    >
       <div className="prototype-switcher-top">
         <label className="prototype-set-label" htmlFor="prototype-set">
           <span className="sr-only">Prototype set</span>
-          <select id="prototype-set" value={activeSet} onChange={(event) => selectVariant(event.target.value === "landing" ? "D" : "A")}>
+          <select
+            id="prototype-set"
+            value={activeSet}
+            onChange={(event) => selectVariant(event.target.value === "landing" ? "D" : "A")}
+          >
             <option value="landing">Landing pages · D–G</option>
             <option value="earlier">Earlier explorations · A–C</option>
           </select>
         </label>
-        <span className="prototype-current-name" aria-live="polite">{current} / {variants[index].name}</span>
+        <span className="prototype-current-name" aria-live="polite">
+          {current} / {variants[index].name}
+        </span>
         <details className="prototype-state">
           <summary>State</summary>
           <pre>{JSON.stringify({ variant: current, ...state }, null, 2)}</pre>
         </details>
       </div>
-      <div className="prototype-switcher-options" style={{ "--prototype-variant-count": variants.length } as React.CSSProperties}>
-        <button id="prototype-previous" type="button" onClick={() => cycle(-1)} aria-label="Previous design">←</button>
+      <div
+        className="prototype-switcher-options"
+        style={{ "--prototype-variant-count": variants.length } as React.CSSProperties}
+      >
+        <button
+          id="prototype-previous"
+          type="button"
+          onClick={() => cycle(-1)}
+          aria-label="Previous design"
+        >
+          ←
+        </button>
         {variants.map((variant) => (
-          <button id={`prototype-select-${variant.key}`} key={variant.key} className="prototype-variant-option" type="button" aria-pressed={current === variant.key} onClick={() => selectVariant(variant.key)}>
-            <span>{variant.key}</span><strong>{variant.name}</strong>
+          <button
+            id={`prototype-select-${variant.key}`}
+            key={variant.key}
+            className="prototype-variant-option"
+            type="button"
+            aria-pressed={current === variant.key}
+            onClick={() => selectVariant(variant.key)}
+          >
+            <span>{variant.key}</span>
+            <strong>{variant.name}</strong>
           </button>
         ))}
-        <button id="prototype-next" type="button" onClick={() => cycle(1)} aria-label="Next design">→</button>
+        <button id="prototype-next" type="button" onClick={() => cycle(1)} aria-label="Next design">
+          →
+        </button>
       </div>
     </aside>
   )

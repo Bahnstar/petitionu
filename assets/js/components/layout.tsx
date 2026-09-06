@@ -17,7 +17,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     let target: HTMLElement | null = null
     if (hash) {
-      try { target = document.getElementById(decodeURIComponent(hash.slice(1))) } catch { /* Ignore malformed fragments. */ }
+      try {
+        target = document.getElementById(decodeURIComponent(hash.slice(1)))
+      } catch {
+        /* Ignore malformed fragments. */
+      }
     }
     if (target) {
       target.setAttribute("tabindex", "-1")
@@ -30,14 +34,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [key, hash, navigationType])
 
   if (pathname.replace(/\/$/, "") === ROUTES.home) {
-    return <main id="main-content" tabIndex={-1} className="focus:outline-none">{children}</main>
+    return (
+      <main id="main-content" tabIndex={-1} className="focus:outline-none">
+        {children}
+      </main>
+    )
   }
 
   return (
     <div className="app-shell">
-      <a href="#main-content" className="app-skip-link">Skip to content</a>
+      <a href="#main-content" className="app-skip-link">
+        Skip to content
+      </a>
       <Header />
-      <div id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">{children}</div>
+      <div id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+        {children}
+      </div>
       <Footer />
     </div>
   )

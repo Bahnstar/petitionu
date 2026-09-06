@@ -9,32 +9,32 @@ export function CreatePetitionCTA() {
   ]
 
   return (
-    <section className="py-16 lg:py-24 bg-muted/30">
+    <section className="bg-muted/30 py-16 lg:py-24">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl lg:text-5xl font-bold text-foreground mb-6 text-balance">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="mb-6 text-3xl font-bold text-balance text-foreground lg:text-5xl">
             Ready to drive change on campus?
           </h2>
-          <p className="text-lg text-muted-foreground mb-12 text-pretty leading-relaxed">
+          <p className="mb-12 text-lg leading-relaxed text-pretty text-muted-foreground">
             Starting a petition is simple. Follow these steps to make your voice heard and create
             meaningful impact.
           </p>
 
-          <div className="grid sm:grid-cols-2 gap-6 mb-12 text-left">
+          <div className="mb-12 grid gap-6 text-left sm:grid-cols-2">
             {steps.map((step, index) => (
-              <div key={index} className="flex gap-4 items-start">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-primary" />
+              <div key={index} className="flex items-start gap-4">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <div className="font-semibold text-foreground mb-1">Step {index + 1}</div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{step}</p>
+                  <div className="mb-1 font-semibold text-foreground">Step {index + 1}</div>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{step}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <button className="bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">
+          <button className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90">
             Create Your Petition
           </button>
         </div>

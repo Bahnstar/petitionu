@@ -3,7 +3,7 @@ import { Search, Sparkles } from "lucide-react"
 
 export function Hero() {
   return (
-    <section className="relative py-20 lg:py-32 overflow-hidden">
+    <section className="relative overflow-hidden py-20 lg:py-32">
       <div className="absolute inset-0 -z-10 opacity-[0.03]">
         <div
           className="absolute inset-0"
@@ -14,40 +14,40 @@ export function Hero() {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-3 duration-700">
-            <Sparkles className="w-4 h-4" />
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="mb-6 inline-flex animate-in items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary duration-700 fade-in slide-in-from-bottom-3">
+            <Sparkles className="h-4 w-4" />
             Join 8,492 students creating change
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-foreground mb-6 text-balance leading-[1.1] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+          <h1 className="mb-6 animate-in text-4xl leading-[1.1] font-bold text-balance text-foreground delay-100 duration-700 fade-in slide-in-from-bottom-4 sm:text-5xl lg:text-7xl">
             Transform campus life through{" "}
-            <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
+            <span className="animate-gradient bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] bg-clip-text text-transparent">
               collective action
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-muted-foreground mb-8 lg:mb-12 text-pretty max-w-2xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200">
+          <p className="mx-auto mb-8 max-w-2xl animate-in text-lg leading-relaxed text-pretty text-muted-foreground delay-200 duration-700 slide-in-from-bottom-5 fade-in sm:text-xl lg:mb-12">
             Join thousands of students making meaningful change. Create petitions, gather support,
             and drive real improvements to your university experience.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
-            <button className="bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-all w-full sm:w-auto shadow-lg shadow-primary/20 p-2 rounded-md">
+          <div className="mb-12 flex animate-in flex-col items-center justify-center gap-4 delay-300 duration-700 fade-in slide-in-from-bottom-6 sm:flex-row">
+            <button className="w-full rounded-md bg-primary p-2 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105 hover:bg-primary/90 sm:w-auto">
               Start a Petition
             </button>
-            <button className="w-full sm:w-auto hover:scale-105 transition-all p-2 rounded-md">
+            <button className="w-full rounded-md p-2 transition-all hover:scale-105 sm:w-auto">
               View All Petitions
             </button>
           </div>
 
-          <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-7 duration-700 delay-500">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <div className="mx-auto max-w-2xl animate-in delay-500 duration-700 fade-in slide-in-from-bottom-7">
+            <div className="group relative">
+              <Search className="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
               <input
                 type="text"
                 placeholder="Search for petitions..."
-                className="w-full pl-12 pr-4 py-4 rounded-lg border border-input bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm hover:shadow-md"
+                className="w-full rounded-lg border border-input bg-card py-4 pr-4 pl-12 text-foreground shadow-sm transition-all placeholder:text-muted-foreground hover:shadow-md focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
             </div>
           </div>

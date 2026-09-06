@@ -11,7 +11,11 @@ export const HomePage = () => {
   useDocumentTitle("Your campus. Your say.")
   const [searchParams] = useSearchParams()
 
-  if (process.env.NODE_ENV === "development" && homePrototypesEnabled && searchParams.has("variant")) {
+  if (
+    process.env.NODE_ENV === "development" &&
+    homePrototypesEnabled &&
+    searchParams.has("variant")
+  ) {
     return <PrototypePage />
   }
 

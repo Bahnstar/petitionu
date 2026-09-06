@@ -6,12 +6,21 @@ export function Footer() {
     <footer className="app-footer">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-5">
-          <Link to={ROUTES.home} className="app-brand text-[25px]">PetitionU</Link>
+          <Link to={ROUTES.home} className="app-brand text-[25px]">
+            PetitionU
+          </Link>
           <p className="text-xs text-muted-foreground">A place for student voices.</p>
         </div>
-        <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-6 text-xs text-muted-foreground">
-          <Link to={ROUTES.petitions} className="py-2 hover:underline underline-offset-4">Browse petitions</Link>
-          <Link to={ROUTES.classrooms} className="py-2 hover:underline underline-offset-4">Classrooms</Link>
+        <nav
+          aria-label="Footer navigation"
+          className="flex flex-wrap items-center gap-6 text-xs text-muted-foreground"
+        >
+          <Link to={ROUTES.petitions} className="py-2 underline-offset-4 hover:underline">
+            Browse petitions
+          </Link>
+          <Link to={ROUTES.classrooms} className="py-2 underline-offset-4 hover:underline">
+            Classrooms
+          </Link>
         </nav>
       </div>
     </footer>
