@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": false,
+  "printWidth": 100,
+  "trailingComma": "all",
+  "tabWidth": 2,
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "sortImports": false,
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "./css/app.css",
+    "functions": ["cn", "clsx", "cva"]
+  },
+  "ignorePatterns": ["js/ash_rpc.ts", "js/ash_types.ts", "vendor/**", "tools/oxlint/anti-slop/**"]
+}

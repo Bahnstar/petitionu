@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button"
 export function Header() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const { pathname } = useLocation()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [menuPath, setMenuPath] = useState<string | null>(null)
+  const mobileOpen = menuPath === pathname
+  if (menuPath !== null && menuPath !== pathname) setMenuPath(null)
   const menuButton = useRef<HTMLButtonElement>(null)
   const mobileOpenRef = useRef(mobileOpen)
 
@@ -17,12 +19,9 @@ export function Header() {
     mobileOpenRef.current = mobileOpen
   }, [mobileOpen])
   useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && mobileOpenRef.current) {
-        setMobileOpen(false)
+        setMenuPath(null)
         menuButton.current?.focus()
       }
     }
@@ -35,6 +34,32 @@ export function Header() {
     { label: "Classrooms", to: ROUTES.classrooms },
     ...(isAuthenticated ? [{ label: "Your dashboard", to: ROUTES.dashboard }] : []),
   ]
+
+  function renderAccountLinks() {
+    if (isAuthenticated && user) {
+      return (
+        <>
+          <Link
+            to={ROUTES.dashboard}
+            className="max-w-28 truncate text-sm text-muted-foreground"
+            title={user.firstName || user.email}
+          >
+            {user.firstName || user.email}
+          </Link>
+          <Button asChild variant="ghost" size="sm">
+            <a href="/sign-out">
+              <LogOut aria-hidden="true" />
+              Sign out
+            </a>
+          </Button>
+        </>
+      )
+    }
+    if (!isLoading) {
+      return <AuthLink className="app-nav-link">Sign in</AuthLink>
+    }
+    return null
+  }
 
   return (
     <header id="app-header" className="app-header">
@@ -50,27 +75,7 @@ export function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden items-center gap-3 xl:flex">
-            {isAuthenticated && user ? (
-              <>
-                <Link
-                  to={ROUTES.dashboard}
-                  className="max-w-28 truncate text-sm text-muted-foreground"
-                  title={user.firstName || user.email}
-                >
-                  {user.firstName || user.email}
-                </Link>
-                <Button asChild variant="ghost" size="sm">
-                  <a href="/sign-out">
-                    <LogOut aria-hidden="true" />
-                    Sign out
-                  </a>
-                </Button>
-              </>
-            ) : !isLoading ? (
-              <AuthLink className="app-nav-link">Sign in</AuthLink>
-            ) : null}
-          </div>
+          <div className="hidden items-center gap-3 xl:flex">{renderAccountLinks()}</div>
           <Button asChild className="hidden sm:inline-flex">
             <Link id="header-create-petition" to={ROUTES.createPetition}>
               Start a petition
@@ -80,7 +85,7 @@ export function Header() {
             id="navigation-toggle"
             ref={menuButton}
             type="button"
-            onClick={() => setMobileOpen((open) => !open)}
+            onClick={() => setMenuPath(mobileOpen ? null : pathname)}
             aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
@@ -105,7 +110,7 @@ export function Header() {
               key={item.to}
               to={item.to}
               className="app-nav-link"
-              onClick={() => setMobileOpen(false)}
+              onClick={() => setMenuPath(null)}
             >
               {item.label}
             </NavLink>
@@ -113,7 +118,7 @@ export function Header() {
           <NavLink
             to={ROUTES.createPetition}
             className="app-nav-link"
-            onClick={() => setMobileOpen(false)}
+            onClick={() => setMenuPath(null)}
           >
             Start a petition
           </NavLink>

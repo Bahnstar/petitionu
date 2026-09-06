@@ -141,6 +141,31 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
       </main>
     )
 
+  function classroomMessage() {
+    if (classroomQuery.isSuccess) {
+      return `This petition will be shared with ${classroomQuery.data.name}.`
+    }
+    if (classroomQuery.isError) {
+      return classroomQuery.error.message
+    }
+    return "Creating a classroom petition."
+  }
+
+  function renderPublishButton() {
+    return (
+      <Button
+        id="publish-petition"
+        type="submit"
+        disabled={
+          !isFormValid || isSubmitting || !user || !!(classroomId && !classroomQuery.isSuccess)
+        }
+        className="flex-1 sm:flex-none"
+      >
+        {isSubmitting ? "Publishing…" : "Publish petition"}
+      </Button>
+    )
+  }
+
   return (
     <main id="create-petition-page" className="app-page">
       <header className="mb-10 max-w-2xl">
@@ -170,11 +195,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
           </p>
           {classroomId ? (
             <p id="petition-classroom-context" className="mb-6 rounded-xl bg-secondary p-4 text-sm">
-              {classroomQuery.isSuccess
-                ? `This petition will be shared with ${classroomQuery.data.name}.`
-                : classroomQuery.isError
-                  ? classroomQuery.error.message
-                  : "Creating a classroom petition."}
+              {classroomMessage()}
             </p>
           ) : null}
           {!authLoading && !user ? (
@@ -293,19 +314,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
               make.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button
-                id="publish-petition"
-                type="submit"
-                disabled={
-                  !isFormValid ||
-                  isSubmitting ||
-                  !user ||
-                  !!(classroomId && !classroomQuery.isSuccess)
-                }
-                className="flex-1 sm:flex-none"
-              >
-                {isSubmitting ? "Publishing…" : "Publish petition"}
-              </Button>
+              {renderPublishButton()}
               <Button type="button" variant="outline" asChild>
                 <Link to={returnPath}>Cancel</Link>
               </Button>

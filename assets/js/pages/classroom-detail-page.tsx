@@ -260,7 +260,238 @@ export default function ClassroomDetailPage() {
         membership.role === "ta" &&
         membership.status === "active",
     )
+
   const canManage = isProfessor || isActiveTa
+
+  function renderPetitions() {
+    if (petitionsQuery.isPending) {
+      return (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="animate-pulse rounded-2xl border bg-card p-6">
+              <div className="mb-4 h-6 w-3/4 rounded bg-muted" />
+              <div className="mb-2 h-4 w-full rounded bg-muted" />
+              <div className="h-4 w-2/3 rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (petitionsQuery.isError) {
+      return (
+        <div className="app-empty-state" role="alert">
+          <p className="mb-4 text-sm text-destructive">
+            Petitions couldn’t load. {petitionsQuery.error.message}
+          </p>
+          <Button variant="outline" onClick={() => petitionsQuery.refetch()}>
+            Try again
+          </Button>
+        </div>
+      )
+    }
+    if (petitions.length === 0) {
+      return (
+        <Card className="gap-0 rounded-2xl p-8 text-center shadow-none">
+          <h3 className="mb-3 font-display text-3xl">What could your class change?</h3>
+          <p className="mb-6 text-sm text-muted-foreground">
+            No petitions here yet. Every shared idea starts with one voice.
+          </p>
+          {(classroom?.allowStudentPetitions || isProfessor) && (
+            <Button asChild>
+              <Link to={ROUTES.createPetitionWithClassroom(id!)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Start the first petition
+              </Link>
+            </Button>
+          )}
+        </Card>
+      )
+    }
+    return (
+      <div className="grid gap-4">
+        {petitions.map((petition) => (
+          <PetitionCard key={petition.id} petition={petition} />
+        ))}
+      </div>
+    )
+  }
+
+  function renderMembers() {
+    if (membershipsQuery.isPending) {
+      return (
+        <Card className="gap-0 rounded-2xl p-6 shadow-none">
+          <div className="mb-4 h-6 w-32 animate-pulse rounded bg-muted" />
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+                <div className="flex-1">
+                  <div className="mb-1 h-4 w-3/4 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )
+    }
+    if (membershipsQuery.isError) {
+      return (
+        <Card className="gap-0 rounded-2xl p-6 shadow-none" role="alert">
+          <p className="mb-4 text-sm text-destructive">
+            Members couldn’t load. {membershipsQuery.error.message}
+          </p>
+          <Button variant="outline" onClick={() => membershipsQuery.refetch()}>
+            Try again
+          </Button>
+        </Card>
+      )
+    }
+    return <MemberList memberships={memberships} classroomId={id!} canManage={canManage} />
+  }
+
+  function renderClassroomHeader() {
+    return (
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <h1 className="app-page-heading">{classroom?.name}</h1>
+            {classroom?.archived && (
+              <Badge variant="secondary">
+                <Archive className="mr-1 h-3 w-3" />
+                Archived
+              </Badge>
+            )}
+          </div>
+          {classroom?.description && (
+            <p className="app-page-description max-w-2xl">{classroom.description}</p>
+          )}
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Users className="h-4 w-4" />
+              {classroom?.memberCount ?? 0} members
+            </span>
+            <span className="flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              {classroom?.petitionCount ?? 0} petitions
+            </span>
+            <span>
+              Professor: {classroom?.professor?.firstName} {classroom?.professor?.lastName}
+            </span>
+          </div>
+        </div>
+
+        {isProfessor && (
+          <div className="flex items-center gap-2">
+            {classroom?.archived ? (
+              <Button
+                onClick={() => unarchiveMutation.mutate()}
+                disabled={unarchiveMutation.isPending}
+              >
+                {unarchiveMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Archive className="mr-2 h-4 w-4" />
+                )}
+                Unarchive
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => archiveMutation.mutate()}
+                disabled={archiveMutation.isPending}
+              >
+                {archiveMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Archive className="mr-2 h-4 w-4" />
+                )}
+                Archive
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderJoinCode() {
+    return (
+      isProfessor && (
+        <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
+          <h3 className="mb-4 font-display text-2xl font-normal text-foreground">Join code</h3>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Share this code with students to let them join the classroom.
+          </p>
+          <div className="mb-4 rounded-xl bg-white/70 p-4">
+            <code className="text-sm break-all select-all">{classroom?.joinCode}</code>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyJoinCode}
+              className="flex-1"
+              aria-live="polite"
+            >
+              {copied ? (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => regenerateMutation.mutate()}
+              disabled={regenerateMutation.isPending}
+              aria-label="Generate a new join code"
+              title="Generate a new join code"
+            >
+              {regenerateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[#685649]">
+            Generating a new code replaces this one. Share the new code with anyone who hasn’t
+            joined yet.
+          </p>
+          {copyError && (
+            <p role="alert" className="mt-3 text-xs text-destructive">
+              Couldn’t copy. Select the code above to copy it manually.
+            </p>
+          )}
+          {regenerateMutation.error && (
+            <p role="alert" className="mt-3 text-xs text-destructive">
+              {regenerateMutation.error.message}
+            </p>
+          )}
+        </Card>
+      )
+    )
+  }
+
+  function renderArchiveError() {
+    return (
+      (archiveMutation.error || unarchiveMutation.error) && (
+        <p
+          role="alert"
+          className="mb-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
+        >
+          {archiveMutation.error?.message || unarchiveMutation.error?.message}
+        </p>
+      )
+    )
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -275,75 +506,9 @@ export default function ClassroomDetailPage() {
         </Link>
 
         {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="mb-3 flex flex-wrap items-center gap-3">
-              <h1 className="app-page-heading">{classroom?.name}</h1>
-              {classroom?.archived && (
-                <Badge variant="secondary">
-                  <Archive className="mr-1 h-3 w-3" />
-                  Archived
-                </Badge>
-              )}
-            </div>
-            {classroom?.description && (
-              <p className="app-page-description max-w-2xl">{classroom.description}</p>
-            )}
-            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                {classroom?.memberCount ?? 0} members
-              </span>
-              <span className="flex items-center gap-1">
-                <FileText className="h-4 w-4" />
-                {classroom?.petitionCount ?? 0} petitions
-              </span>
-              <span>
-                Professor: {classroom?.professor?.firstName} {classroom?.professor?.lastName}
-              </span>
-            </div>
-          </div>
+        {renderClassroomHeader()}
 
-          {isProfessor && (
-            <div className="flex items-center gap-2">
-              {classroom?.archived ? (
-                <Button
-                  onClick={() => unarchiveMutation.mutate()}
-                  disabled={unarchiveMutation.isPending}
-                >
-                  {unarchiveMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Archive className="mr-2 h-4 w-4" />
-                  )}
-                  Unarchive
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => archiveMutation.mutate()}
-                  disabled={archiveMutation.isPending}
-                >
-                  {archiveMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Archive className="mr-2 h-4 w-4" />
-                  )}
-                  Archive
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {(archiveMutation.error || unarchiveMutation.error) && (
-          <p
-            role="alert"
-            className="mb-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
-          >
-            {archiveMutation.error?.message || unarchiveMutation.error?.message}
-          </p>
-        )}
+        {renderArchiveError()}
         {classroom?.archived && (
           <p className="mb-6 rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
             This classroom is archived. You can still browse its petitions and members.
@@ -366,143 +531,16 @@ export default function ClassroomDetailPage() {
               )}
             </div>
 
-            {petitionsQuery.isPending ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="animate-pulse rounded-2xl border bg-card p-6">
-                    <div className="mb-4 h-6 w-3/4 rounded bg-muted" />
-                    <div className="mb-2 h-4 w-full rounded bg-muted" />
-                    <div className="h-4 w-2/3 rounded bg-muted" />
-                  </div>
-                ))}
-              </div>
-            ) : petitionsQuery.isError ? (
-              <div className="app-empty-state" role="alert">
-                <p className="mb-4 text-sm text-destructive">
-                  Petitions couldn’t load. {petitionsQuery.error.message}
-                </p>
-                <Button variant="outline" onClick={() => petitionsQuery.refetch()}>
-                  Try again
-                </Button>
-              </div>
-            ) : petitions.length === 0 ? (
-              <Card className="gap-0 rounded-2xl p-8 text-center shadow-none">
-                <h3 className="mb-3 font-display text-3xl">What could your class change?</h3>
-                <p className="mb-6 text-sm text-muted-foreground">
-                  No petitions here yet. Every shared idea starts with one voice.
-                </p>
-                {(classroom?.allowStudentPetitions || isProfessor) && (
-                  <Button asChild>
-                    <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Start the first petition
-                    </Link>
-                  </Button>
-                )}
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {petitions.map((petition) => (
-                  <PetitionCard key={petition.id} petition={petition} />
-                ))}
-              </div>
-            )}
+            {renderPetitions()}
           </div>
 
           {/* Right Column - Info & Members */}
           <div className="space-y-6">
             {/* Join code (Professor only) */}
-            {isProfessor && (
-              <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
-                <h3 className="mb-4 font-display text-2xl font-normal text-foreground">
-                  Join code
-                </h3>
-                <p className="mb-3 text-sm text-muted-foreground">
-                  Share this code with students to let them join the classroom.
-                </p>
-                <div className="mb-4 rounded-xl bg-white/70 p-4">
-                  <code className="text-sm break-all select-all">{classroom?.joinCode}</code>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={copyJoinCode}
-                    className="flex-1"
-                    aria-live="polite"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => regenerateMutation.mutate()}
-                    disabled={regenerateMutation.isPending}
-                    aria-label="Generate a new join code"
-                    title="Generate a new join code"
-                  >
-                    {regenerateMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-[#685649]">
-                  Generating a new code replaces this one. Share the new code with anyone who hasn’t
-                  joined yet.
-                </p>
-                {copyError && (
-                  <p role="alert" className="mt-3 text-xs text-destructive">
-                    Couldn’t copy. Select the code above to copy it manually.
-                  </p>
-                )}
-                {regenerateMutation.error && (
-                  <p role="alert" className="mt-3 text-xs text-destructive">
-                    {regenerateMutation.error.message}
-                  </p>
-                )}
-              </Card>
-            )}
+            {renderJoinCode()}
 
             {/* Members */}
-            {membershipsQuery.isPending ? (
-              <Card className="gap-0 rounded-2xl p-6 shadow-none">
-                <div className="mb-4 h-6 w-32 animate-pulse rounded bg-muted" />
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
-                      <div className="flex-1">
-                        <div className="mb-1 h-4 w-3/4 animate-pulse rounded bg-muted" />
-                        <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            ) : membershipsQuery.isError ? (
-              <Card className="gap-0 rounded-2xl p-6 shadow-none" role="alert">
-                <p className="mb-4 text-sm text-destructive">
-                  Members couldn’t load. {membershipsQuery.error.message}
-                </p>
-                <Button variant="outline" onClick={() => membershipsQuery.refetch()}>
-                  Try again
-                </Button>
-              </Card>
-            ) : (
-              <MemberList memberships={memberships} classroomId={id!} canManage={canManage} />
-            )}
+            {renderMembers()}
           </div>
         </div>
       </div>

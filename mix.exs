@@ -104,7 +104,13 @@ defmodule Petitionu.MixProject do
         "esbuild petitionu --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "cmd --cd assets bun run check",
+        "test"
+      ]
     ]
   end
 end

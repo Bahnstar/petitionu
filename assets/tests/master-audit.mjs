@@ -1,5 +1,6 @@
 // Uses the running app with field-selective RPC fixtures; no database writes.
 import assert from "node:assert/strict"
+import { isPrimitiveField } from "./rpc-fields.mts"
 import { createRequire } from "node:module"
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
@@ -63,7 +64,7 @@ function select(value, fields) {
   if (Array.isArray(value)) return value.map((item) => select(item, fields))
   return Object.fromEntries(
     fields.flatMap((field) =>
-      typeof field === "string"
+      isPrimitiveField(field)
         ? [[field, value[field]]]
         : Object.entries(field).map(([key, nested]) => [key, select(value[key], nested)]),
     ),

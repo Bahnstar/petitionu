@@ -1,3 +1,4 @@
+import { useCurrentTime } from "../hooks/use-current-time"
 import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
@@ -20,6 +21,7 @@ import { ROUTES } from "@/lib/routes"
 type Petition = CleanResource<PetitionResourceSchema>
 
 function PetitionContent({ petition }: { petition: Petition }) {
+  const now = useCurrentTime()
   const { user, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
   const [commentText, setCommentText] = useState("")
@@ -94,12 +96,217 @@ function PetitionContent({ petition }: { petition: Petition }) {
   const goal = petition.goal ?? 0
   const progress = goal > 0 ? Math.min(100, Math.max(0, (signatureCount / goal) * 100)) : 0
   const daysLeft = petition.deadline
-    ? Math.max(0, Math.ceil((new Date(petition.deadline).getTime() - Date.now()) / 86_400_000))
+    ? Math.max(0, Math.ceil((new Date(petition.deadline).getTime() - now) / 86_400_000))
     : null
   const closed =
-    petition.status !== "open" || !!(petition.deadline && new Date(petition.deadline) <= new Date())
+    petition.status !== "open" ||
+    !!(petition.deadline && new Date(petition.deadline).getTime() <= now)
   const signed =
     signatureMutation.isSuccess || signatures.some((signature) => signature.userId === user?.id)
+
+  function renderStatusBadge() {
+    if (petition.status === "victory") {
+      return <span className="rounded-full bg-[#f5cfdc] px-3 py-1.5 text-[#663e51]">Victory</span>
+    }
+    if (closed) {
+      return <span className="rounded-full border border-border px-3 py-1.5">Closed</span>
+    }
+    if (petition.trending) {
+      return (
+        <span className="rounded-full bg-[#f7e8d2] px-3 py-1.5 text-[#685649]">
+          Gathering support
+        </span>
+      )
+    }
+    return null
+  }
+
+  function renderCommentForm() {
+    if (petition.allowComments) {
+      if (user) {
+        return (
+          <form
+            id="petition-comment-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (commentText.trim() && !commentMutation.isPending)
+                commentMutation.mutate(commentText.trim())
+            }}
+            className="app-panel mb-6 space-y-4"
+          >
+            <Label htmlFor="petition-comment">Add to the conversation</Label>
+            <Textarea
+              id="petition-comment"
+              placeholder="Share a thought, a question, or why this matters to you."
+              rows={4}
+              value={commentText}
+              onChange={(event) => setCommentText(event.target.value)}
+              required
+              className="resize-y"
+            />
+            {commentMutation.isError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {commentMutation.error.message}
+              </p>
+            ) : null}
+            {commentMutation.isSuccess ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                Your comment has been posted.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">Keep it respectful and constructive.</p>
+              <Button
+                id="post-comment"
+                type="submit"
+                disabled={!commentText.trim() || commentMutation.isPending}
+              >
+                {commentMutation.isPending ? "Posting…" : "Post comment"}
+              </Button>
+            </div>
+          </form>
+        )
+      }
+      return (
+        <p className="mb-6 text-sm text-muted-foreground">
+          <AuthLink className="font-medium text-primary underline underline-offset-4">
+            Sign in
+          </AuthLink>{" "}
+          to join the conversation.
+        </p>
+      )
+    }
+    return (
+      <p className="mb-6 text-sm text-muted-foreground">
+        Comments are turned off for this petition.
+      </p>
+    )
+  }
+
+  function signatureHeading() {
+    if (signed) {
+      return "You're part of this."
+    }
+    if (closed) {
+      return "A shared idea."
+    }
+    return "Add your voice."
+  }
+
+  function renderSignatureForm() {
+    if (signed) {
+      return (
+        <div role="status" className="text-sm leading-7">
+          <span
+            className="mr-2 hero-check-circle size-5 align-middle text-primary"
+            aria-hidden="true"
+          />
+          Your signature is counted. Help this idea reach more people by sharing it.
+        </div>
+      )
+    }
+    if (closed) {
+      return (
+        <p className="text-sm leading-7 text-muted-foreground">
+          {petition.status === "victory"
+            ? "This petition has been marked as a victory. Thank you to everyone who spoke up."
+            : "This petition is no longer accepting signatures."}
+        </p>
+      )
+    }
+    if (authLoading) {
+      return (
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading your account…
+        </p>
+      )
+    }
+    if (user) {
+      return (
+        <form
+          id="sign-petition-form"
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!signatureMutation.isPending) signatureMutation.mutate()
+          }}
+        >
+          <p className="text-sm text-muted-foreground">
+            Signing as{" "}
+            <span className="font-medium text-foreground">{user.firstName || user.email}</span>
+          </p>
+          <Label htmlFor="signature-reason">
+            Why are you signing?{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Textarea
+            id="signature-reason"
+            rows={3}
+            value={signatureReason}
+            onChange={(event) => setSignatureReason(event.target.value)}
+            placeholder="Tell your community why this matters."
+          />
+          {signatureMutation.isError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {signatureMutation.error.message}
+            </p>
+          ) : null}
+          <Button
+            id="sign-petition"
+            type="submit"
+            className="w-full"
+            disabled={signatureMutation.isPending}
+          >
+            {signatureMutation.isPending ? "Adding your signature…" : "Sign this petition"}
+          </Button>
+          <p className="text-xs leading-6 text-muted-foreground">
+            Your reason for signing will appear on this petition.
+          </p>
+        </form>
+      )
+    }
+    return (
+      <div className="space-y-4">
+        <p className="text-sm leading-7 text-muted-foreground">
+          Sign in to stand behind this idea and add your signature.
+        </p>
+        <Button className="w-full" asChild>
+          <AuthLink>Sign in to support</AuthLink>
+        </Button>
+      </div>
+    )
+  }
+
+  function renderSignaturePanel() {
+    return (
+      <section id="petition-signature-panel" className="app-panel">
+        <h2 className="mb-5 font-display text-3xl tracking-tight">{signatureHeading()}</h2>
+        <p className="text-sm text-muted-foreground">
+          <strong className="mr-2 font-display text-5xl font-normal tracking-tight text-foreground">
+            {signatureCount.toLocaleString()}
+          </strong>{" "}
+          signatures
+        </p>
+        <div
+          role={goal > 0 ? "progressbar" : undefined}
+          aria-label={goal > 0 ? "Signature goal" : undefined}
+          aria-valuenow={goal > 0 ? Math.round(progress) : undefined}
+          aria-valuemin={goal > 0 ? 0 : undefined}
+          aria-valuemax={goal > 0 ? 100 : undefined}
+          className="mt-5 mb-3 h-2 overflow-hidden rounded-full bg-secondary"
+        >
+          <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "Every voice counts"}
+          {petition.deadline && !closed
+            ? ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`
+            : ""}
+        </p>
+        <div className="mt-6 border-t border-border pt-6">{renderSignatureForm()}</div>
+      </section>
+    )
+  }
 
   return (
     <main id="petition-detail-page" className="app-page">
@@ -117,17 +324,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               <span className="rounded-full bg-secondary px-3 py-1.5">
                 {petition.category?.name ?? "General"}
               </span>
-              {petition.status === "victory" ? (
-                <span className="rounded-full bg-[#f5cfdc] px-3 py-1.5 text-[#663e51]">
-                  Victory
-                </span>
-              ) : closed ? (
-                <span className="rounded-full border border-border px-3 py-1.5">Closed</span>
-              ) : petition.trending ? (
-                <span className="rounded-full bg-[#f7e8d2] px-3 py-1.5 text-[#685649]">
-                  Gathering support
-                </span>
-              ) : null}
+              {renderStatusBadge()}
             </div>
             <h1 className="app-page-heading break-words">{petition.title}</h1>
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs leading-6 text-muted-foreground">
@@ -227,63 +424,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               The conversation{" "}
               <span className="font-sans text-sm text-muted-foreground">({comments.length})</span>
             </h2>
-            {petition.allowComments ? (
-              user ? (
-                <form
-                  id="petition-comment-form"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    if (commentText.trim() && !commentMutation.isPending)
-                      commentMutation.mutate(commentText.trim())
-                  }}
-                  className="app-panel mb-6 space-y-4"
-                >
-                  <Label htmlFor="petition-comment">Add to the conversation</Label>
-                  <Textarea
-                    id="petition-comment"
-                    placeholder="Share a thought, a question, or why this matters to you."
-                    rows={4}
-                    value={commentText}
-                    onChange={(event) => setCommentText(event.target.value)}
-                    required
-                    className="resize-y"
-                  />
-                  {commentMutation.isError ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {commentMutation.error.message}
-                    </p>
-                  ) : null}
-                  {commentMutation.isSuccess ? (
-                    <p role="status" className="text-sm text-muted-foreground">
-                      Your comment has been posted.
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">
-                      Keep it respectful and constructive.
-                    </p>
-                    <Button
-                      id="post-comment"
-                      type="submit"
-                      disabled={!commentText.trim() || commentMutation.isPending}
-                    >
-                      {commentMutation.isPending ? "Posting…" : "Post comment"}
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <p className="mb-6 text-sm text-muted-foreground">
-                  <AuthLink className="font-medium text-primary underline underline-offset-4">
-                    Sign in
-                  </AuthLink>{" "}
-                  to join the conversation.
-                </p>
-              )
-            ) : (
-              <p className="mb-6 text-sm text-muted-foreground">
-                Comments are turned off for this petition.
-              </p>
-            )}
+            {renderCommentForm()}
             <div className="divide-y divide-border">
               {comments.map((comment) => (
                 <div key={comment.id} className="py-5">
@@ -308,106 +449,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
           </section>
         </article>
         <aside className="lg:sticky lg:top-8">
-          <section id="petition-signature-panel" className="app-panel">
-            <h2 className="mb-5 font-display text-3xl tracking-tight">
-              {signed ? "You're part of this." : closed ? "A shared idea." : "Add your voice."}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              <strong className="mr-2 font-display text-5xl font-normal tracking-tight text-foreground">
-                {signatureCount.toLocaleString()}
-              </strong>{" "}
-              signatures
-            </p>
-            <div
-              role={goal > 0 ? "progressbar" : undefined}
-              aria-label={goal > 0 ? "Signature goal" : undefined}
-              aria-valuenow={goal > 0 ? Math.round(progress) : undefined}
-              aria-valuemin={goal > 0 ? 0 : undefined}
-              aria-valuemax={goal > 0 ? 100 : undefined}
-              className="mt-5 mb-3 h-2 overflow-hidden rounded-full bg-secondary"
-            >
-              <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "Every voice counts"}
-              {petition.deadline && !closed
-                ? ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`
-                : ""}
-            </p>
-            <div className="mt-6 border-t border-border pt-6">
-              {signed ? (
-                <div role="status" className="text-sm leading-7">
-                  <span
-                    className="mr-2 hero-check-circle size-5 align-middle text-primary"
-                    aria-hidden="true"
-                  />
-                  Your signature is counted. Help this idea reach more people by sharing it.
-                </div>
-              ) : closed ? (
-                <p className="text-sm leading-7 text-muted-foreground">
-                  {petition.status === "victory"
-                    ? "This petition has been marked as a victory. Thank you to everyone who spoke up."
-                    : "This petition is no longer accepting signatures."}
-                </p>
-              ) : authLoading ? (
-                <p role="status" className="text-sm text-muted-foreground">
-                  Loading your account…
-                </p>
-              ) : user ? (
-                <form
-                  id="sign-petition-form"
-                  className="space-y-4"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    if (!signatureMutation.isPending) signatureMutation.mutate()
-                  }}
-                >
-                  <p className="text-sm text-muted-foreground">
-                    Signing as{" "}
-                    <span className="font-medium text-foreground">
-                      {user.firstName || user.email}
-                    </span>
-                  </p>
-                  <Label htmlFor="signature-reason">
-                    Why are you signing?{" "}
-                    <span className="font-normal text-muted-foreground">(optional)</span>
-                  </Label>
-                  <Textarea
-                    id="signature-reason"
-                    rows={3}
-                    value={signatureReason}
-                    onChange={(event) => setSignatureReason(event.target.value)}
-                    placeholder="Tell your community why this matters."
-                  />
-                  {signatureMutation.isError ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {signatureMutation.error.message}
-                    </p>
-                  ) : null}
-                  <Button
-                    id="sign-petition"
-                    type="submit"
-                    className="w-full"
-                    disabled={signatureMutation.isPending}
-                  >
-                    {signatureMutation.isPending ? "Adding your signature…" : "Sign this petition"}
-                  </Button>
-                  <p className="text-xs leading-6 text-muted-foreground">
-                    Your reason for signing will appear on this petition.
-                  </p>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm leading-7 text-muted-foreground">
-                    Sign in to stand behind this idea and add your signature.
-                  </p>
-                  <Button className="w-full" asChild>
-                    <AuthLink>Sign in to support</AuthLink>
-                  </Button>
-                </div>
-              )}
-            </div>
-          </section>
+          {renderSignaturePanel()}
           <Button
             id="share-petition"
             variant="outline"
@@ -464,13 +506,13 @@ export default function PetitionIndexPage() {
       })
       if (result.success === false)
         throw new Error("This petition couldn't be loaded. Please try again.")
-      return (result.data[0] as Petition | undefined) ?? null
+      return result.data[0] ?? null
     },
   })
   useDocumentTitle(petitionQuery.data?.title ?? "Petition")
   if (petitionQuery.isPending)
     return (
-      <main className="app-page" role="status" aria-label="Loading petition">
+      <main role="status" className="app-page" aria-label="Loading petition">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-6 motion-safe:animate-pulse">
             <div className="h-10 w-2/3 rounded bg-muted" />

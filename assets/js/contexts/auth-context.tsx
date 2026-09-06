@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(`Failed to fetch user: ${result.errors.map((e) => e.message).join(", ")}`)
       }
 
-      return result.data as CurrentUser
+      return result.data
     },
     staleTime: 10 * 60 * 1000, // 10 minutes - user data doesn't change often
     retry: false, // Don't retry if user is not authenticated
@@ -60,25 +60,4 @@ export function useAuth(): AuthContextType {
     throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
-}
-
-/**
- * Hook that requires authentication - throws if user is not authenticated.
- * Use this in components that should only be rendered for authenticated users.
- */
-export function useRequireAuth(): CurrentUser {
-  const { user, isLoading, isAuthenticated } = useAuth()
-
-  if (isLoading) {
-    throw new Promise(() => {}) // Suspense-compatible loading
-  }
-
-  if (!isAuthenticated || !user) {
-    // Redirect to login or throw an error
-    // For now, we'll redirect to the sign-in page
-    window.location.href = "/sign-in"
-    throw new Error("Authentication required")
-  }
-
-  return user
 }

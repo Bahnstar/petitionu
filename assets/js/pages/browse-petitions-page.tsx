@@ -1,3 +1,4 @@
+import { useCurrentTime } from "../hooks/use-current-time"
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Input } from "@/components/ui/input"
@@ -26,6 +27,7 @@ const SORT_OPTIONS = [
 type Petition = CleanResource<PetitionResourceSchema>
 
 export default function BrowsePetitionsPage() {
+  const now = useCurrentTime()
   useDocumentTitle("Browse Petitions")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -54,7 +56,7 @@ export default function BrowsePetitionsPage() {
       })
       if (result.success === false)
         throw new Error("We couldn't load the petitions. Please try again.")
-      return result.data as Petition[]
+      return result.data
     },
   })
   const categoryQuery = useQuery({
@@ -82,7 +84,6 @@ export default function BrowsePetitionsPage() {
         case "newest":
           return (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")
         case "ending-soon": {
-          const now = Date.now()
           const deadline = (petition: Petition) =>
             petition.status === "open" &&
             petition.deadline &&
@@ -102,6 +103,82 @@ export default function BrowsePetitionsPage() {
   const clearFilters = () => {
     setSearchQuery("")
     setSelectedCategory("all")
+  }
+
+  function renderPetitions() {
+    if (petitionsQuery.isPending) {
+      return (
+        <div
+          role="status"
+          aria-label="Loading petitions"
+          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
+        >
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="app-panel min-h-80 space-y-6 motion-safe:animate-pulse">
+              <div className="h-6 w-24 rounded-full bg-muted" />
+              <div className="h-9 w-3/4 rounded bg-muted" />
+              <div className="h-20 rounded bg-muted" />
+              <div className="h-2 rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (petitionsQuery.isError) {
+      return (
+        <div role="alert" className="app-empty-state">
+          <h2 className="font-display text-3xl">Petitions couldn't load.</h2>
+          <p className="mt-3 mb-6 text-sm text-muted-foreground">Please try again in a moment.</p>
+          <Button onClick={() => petitionsQuery.refetch()}>Try again</Button>
+        </div>
+      )
+    }
+    return (
+      <>
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <p role="status" className="text-sm text-muted-foreground">
+            {filteredPetitions.length} {filteredPetitions.length === 1 ? "petition" : "petitions"}
+            {hasFilters ? " found" : " to explore"}
+          </p>
+          {hasFilters ? (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          ) : null}
+        </div>
+        {filteredPetitions.length > 0 ? (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {filteredPetitions.map((petition) => (
+              <PetitionCard key={petition.id} petition={petition} />
+            ))}
+          </div>
+        ) : (
+          <div id="petitions-empty" className="app-empty-state">
+            <span
+              className="mb-5 hero-chat-bubble-left-right size-9 text-primary"
+              aria-hidden="true"
+            />
+            <h2 className="font-display text-3xl">
+              {hasFilters ? "No ideas found just yet." : "Your idea could be the first."}
+            </h2>
+            <p className="mt-3 mb-6 text-sm text-muted-foreground">
+              {hasFilters
+                ? "Try a different search or explore all petitions."
+                : "Turn that thing you keep talking about into one clear ask."}
+            </p>
+            {hasFilters ? (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link to={ROUTES.createPetition}>Start a petition</Link>
+              </Button>
+            )}
+          </div>
+        )}
+      </>
+    )
   }
 
   return (
@@ -189,73 +266,7 @@ export default function BrowsePetitionsPage() {
         ) : null}
       </section>
 
-      {petitionsQuery.isPending ? (
-        <div
-          role="status"
-          aria-label="Loading petitions"
-          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
-        >
-          {[0, 1, 2].map((item) => (
-            <div key={item} className="app-panel min-h-80 space-y-6 motion-safe:animate-pulse">
-              <div className="h-6 w-24 rounded-full bg-muted" />
-              <div className="h-9 w-3/4 rounded bg-muted" />
-              <div className="h-20 rounded bg-muted" />
-              <div className="h-2 rounded bg-muted" />
-            </div>
-          ))}
-        </div>
-      ) : petitionsQuery.isError ? (
-        <div role="alert" className="app-empty-state">
-          <h2 className="font-display text-3xl">Petitions couldn't load.</h2>
-          <p className="mt-3 mb-6 text-sm text-muted-foreground">Please try again in a moment.</p>
-          <Button onClick={() => petitionsQuery.refetch()}>Try again</Button>
-        </div>
-      ) : (
-        <>
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <p role="status" className="text-sm text-muted-foreground">
-              {filteredPetitions.length} {filteredPetitions.length === 1 ? "petition" : "petitions"}
-              {hasFilters ? " found" : " to explore"}
-            </p>
-            {hasFilters ? (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            ) : null}
-          </div>
-          {filteredPetitions.length > 0 ? (
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {filteredPetitions.map((petition) => (
-                <PetitionCard key={petition.id} petition={petition} />
-              ))}
-            </div>
-          ) : (
-            <div id="petitions-empty" className="app-empty-state">
-              <span
-                className="mb-5 hero-chat-bubble-left-right size-9 text-primary"
-                aria-hidden="true"
-              />
-              <h2 className="font-display text-3xl">
-                {hasFilters ? "No ideas found just yet." : "Your idea could be the first."}
-              </h2>
-              <p className="mt-3 mb-6 text-sm text-muted-foreground">
-                {hasFilters
-                  ? "Try a different search or explore all petitions."
-                  : "Turn that thing you keep talking about into one clear ask."}
-              </p>
-              {hasFilters ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link to={ROUTES.createPetition}>Start a petition</Link>
-                </Button>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      {renderPetitions()}
     </main>
   )
 }
