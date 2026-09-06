@@ -6,12 +6,12 @@ The user liked aspects of A and C, rejected B's app interface, and requested thr
 
 ## Design plan
 
-| Concept | Tokens | Type | Structure |
-| --- | --- | --- | --- |
-| D: Open invitation | Lilac `#E7E2FA`, purple `#463397`, yellow `#F5EDAC`, blue paper `#D5E7F5`, white `#FFFFFF` | Newsreader headline, Geist navigation and copy, Impact placards | `[inset header] / [placard · centered invitation · placard] / [three steps] / [closing invitation]` |
-| E: Campus story | Forest `#173D32`, chalk `#F5F7F2`, leaf `#D9E6CC`, white `#FFFFFF`, ink `#203B30` | Newsreader editorial display, Geist body | `[navigation over photograph] / [left-aligned invitation over campus scene] / [editorial explanation] / [how it works]` |
-| F: First step | Mist `#F1F8F7`, evergreen `#204C48`, rose `#F5CFDC`, paper `#F7E8D2`, white `#FFFFFF` | Geist heading and body, Newsreader sample letter | `[minimal header] / [reassurance + CTA / changing sample letter] / [simple process] / [questions]` |
-| G: Mint invitation | Mist `#F1F8F7`, evergreen `#204C48`, rose `#F5CFDC`, paper `#F7E8D2`, white `#FFFFFF` | D's Newsreader headline, Geist copy, Impact placard | D's centered invitation, pill header, placards, and lower sections with F's palette. |
+| Concept            | Tokens                                                                                     | Type                                                            | Structure                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| D: Open invitation | Lilac `#E7E2FA`, purple `#463397`, yellow `#F5EDAC`, blue paper `#D5E7F5`, white `#FFFFFF` | Newsreader headline, Geist navigation and copy, Impact placards | `[inset header] / [placard · centered invitation · placard] / [three steps] / [closing invitation]`                     |
+| E: Campus story    | Forest `#173D32`, chalk `#F5F7F2`, leaf `#D9E6CC`, white `#FFFFFF`, ink `#203B30`          | Newsreader editorial display, Geist body                        | `[navigation over photograph] / [left-aligned invitation over campus scene] / [editorial explanation] / [how it works]` |
+| F: First step      | Mist `#F1F8F7`, evergreen `#204C48`, rose `#F5CFDC`, paper `#F7E8D2`, white `#FFFFFF`      | Geist heading and body, Newsreader sample letter                | `[minimal header] / [reassurance + CTA / changing sample letter] / [simple process] / [questions]`                      |
+| G: Mint invitation | Mist `#F1F8F7`, evergreen `#204C48`, rose `#F5CFDC`, paper `#F7E8D2`, white `#FFFFFF`      | D's Newsreader headline, Geist copy, Impact placard             | D's centered invitation, pill header, placards, and lower sections with F's palette.                                    |
 
 Plan critique: D borrows the movement feeling of A but removes petition cards, counts, and filters. E changes the primary visual entirely to a human campus scene. F uses a sample letter to make starting feel achievable; the interaction is an example idea, not a signed-in workspace. No dashboard chrome, record lists, social proof statistics, or invented testimonials appear in D–F.
 

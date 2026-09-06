@@ -56,8 +56,10 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
 
   return (
     <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
-      <h3 className="font-display text-3xl font-normal text-foreground mb-3">Find your class.</h3>
-      <p className="mb-6 text-sm leading-relaxed text-[#685649]">Have a code from your professor? You’re one step away from joining the conversation.</p>
+      <h3 className="mb-3 font-display text-3xl font-normal text-foreground">Find your class.</h3>
+      <p className="mb-6 text-sm leading-relaxed text-[#685649]">
+        Have a code from your professor? You’re one step away from joining the conversation.
+      </p>
       <form id="join-classroom-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="join-code">Join code</Label>
@@ -79,24 +81,32 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
             className="bg-white"
             disabled={joinMutation.isPending}
           />
-          {error && <p id="join-code-error" role="alert" className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p id="join-code-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
 
         <Button type="submit" disabled={joinMutation.isPending} className="w-full">
           {joinMutation.isPending ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Joining...
             </>
           ) : (
             <>
-              <LogIn className="w-4 h-4 mr-2" />
+              <LogIn className="mr-2 h-4 w-4" />
               Join classroom
             </>
           )}
         </Button>
       </form>
-      {joinedName && <p role="status" className="mt-4 text-sm">You’ve joined {joinedName}.</p>}
+      {joinedName && (
+        <p role="status" className="mt-4 text-sm">
+          You’ve joined {joinedName}.
+        </p>
+      )}
     </Card>
   )
 }

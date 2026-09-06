@@ -13,8 +13,12 @@ export function Header() {
   const menuButton = useRef<HTMLButtonElement>(null)
   const mobileOpenRef = useRef(mobileOpen)
 
-  useEffect(() => { mobileOpenRef.current = mobileOpen }, [mobileOpen])
-  useEffect(() => { setMobileOpen(false) }, [pathname])
+  useEffect(() => {
+    mobileOpenRef.current = mobileOpen
+  }, [mobileOpen])
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && mobileOpenRef.current) {
@@ -38,37 +42,102 @@ export function Header() {
         <Link to={ROUTES.home} className="app-brand" aria-label="PetitionU home">
           PetitionU<span aria-hidden="true">✳</span>
         </Link>
-        <nav aria-label="Main navigation" className="hidden xl:flex items-center gap-1">
-          {navItems.map((item) => <NavLink key={item.to} to={item.to} className="app-nav-link">{item.label}</NavLink>)}
+        <nav aria-label="Main navigation" className="hidden items-center gap-1 xl:flex">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className="app-nav-link">
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden xl:flex items-center gap-3">
+          <div className="hidden items-center gap-3 xl:flex">
             {isAuthenticated && user ? (
               <>
-                <Link to={ROUTES.dashboard} className="max-w-28 truncate text-sm text-muted-foreground" title={user.firstName || user.email}>{user.firstName || user.email}</Link>
-                <Button asChild variant="ghost" size="sm"><a href="/sign-out"><LogOut aria-hidden="true" />Sign out</a></Button>
+                <Link
+                  to={ROUTES.dashboard}
+                  className="max-w-28 truncate text-sm text-muted-foreground"
+                  title={user.firstName || user.email}
+                >
+                  {user.firstName || user.email}
+                </Link>
+                <Button asChild variant="ghost" size="sm">
+                  <a href="/sign-out">
+                    <LogOut aria-hidden="true" />
+                    Sign out
+                  </a>
+                </Button>
               </>
-            ) : !isLoading ? <AuthLink className="app-nav-link">Sign in</AuthLink> : null}
+            ) : !isLoading ? (
+              <AuthLink className="app-nav-link">Sign in</AuthLink>
+            ) : null}
           </div>
-          <Button asChild className="hidden sm:inline-flex"><Link id="header-create-petition" to={ROUTES.createPetition}>Start a petition</Link></Button>
+          <Button asChild className="hidden sm:inline-flex">
+            <Link id="header-create-petition" to={ROUTES.createPetition}>
+              Start a petition
+            </Link>
+          </Button>
           <button
-            id="navigation-toggle" ref={menuButton} type="button"
+            id="navigation-toggle"
+            ref={menuButton}
+            type="button"
             onClick={() => setMobileOpen((open) => !open)}
             aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-            aria-expanded={mobileOpen} aria-controls="mobile-menu"
-            className="xl:hidden inline-flex size-11 items-center justify-center rounded-full hover:bg-muted"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-menu"
+            className="inline-flex size-11 items-center justify-center rounded-full hover:bg-muted xl:hidden"
           >
-            {mobileOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+            {mobileOpen ? (
+              <X className="size-5" aria-hidden="true" />
+            ) : (
+              <Menu className="size-5" aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>
       {mobileOpen && (
-        <nav id="mobile-menu" aria-label="Mobile navigation" className="xl:hidden mt-3 flex flex-col gap-1 border-t border-border pt-3">
-          {navItems.map((item) => <NavLink key={item.to} to={item.to} className="app-nav-link" onClick={() => setMobileOpen(false)}>{item.label}</NavLink>)}
-          <NavLink to={ROUTES.createPetition} className="app-nav-link" onClick={() => setMobileOpen(false)}>Start a petition</NavLink>
-          {!isLoading && <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-            {isAuthenticated && user ? <><span className="min-w-0 truncate px-3 text-sm text-muted-foreground">{user.firstName || user.email}</span><a href="/sign-out" className="app-nav-link">Sign out</a></> : <><AuthLink className="app-nav-link">Sign in</AuthLink><Button asChild size="sm"><AuthLink page="/register">Create an account</AuthLink></Button></>}
-          </div>}
+        <nav
+          id="mobile-menu"
+          aria-label="Mobile navigation"
+          className="mt-3 flex flex-col gap-1 border-t border-border pt-3 xl:hidden"
+        >
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className="app-nav-link"
+              onClick={() => setMobileOpen(false)}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+          <NavLink
+            to={ROUTES.createPetition}
+            className="app-nav-link"
+            onClick={() => setMobileOpen(false)}
+          >
+            Start a petition
+          </NavLink>
+          {!isLoading && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+              {isAuthenticated && user ? (
+                <>
+                  <span className="min-w-0 truncate px-3 text-sm text-muted-foreground">
+                    {user.firstName || user.email}
+                  </span>
+                  <a href="/sign-out" className="app-nav-link">
+                    Sign out
+                  </a>
+                </>
+              ) : (
+                <>
+                  <AuthLink className="app-nav-link">Sign in</AuthLink>
+                  <Button asChild size="sm">
+                    <AuthLink page="/register">Create an account</AuthLink>
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </nav>
       )}
     </header>

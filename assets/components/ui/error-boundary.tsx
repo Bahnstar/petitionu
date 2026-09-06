@@ -41,28 +41,30 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default error UI
       return (
-        <div id="application-error" role="alert" className="flex min-h-[70vh] items-center justify-center bg-background px-5 py-12">
+        <div
+          id="application-error"
+          role="alert"
+          className="flex min-h-[70vh] items-center justify-center bg-background px-5 py-12"
+        >
           <div className="app-panel w-full max-w-lg text-center">
-            <h1 className="font-display text-4xl leading-tight tracking-tight text-foreground mb-3">
+            <h1 className="mb-3 font-display text-4xl leading-tight tracking-tight text-foreground">
               Let’s try that again.
             </h1>
-            
-            <p className="text-muted-foreground mb-6">
+
+            <p className="mb-6 text-muted-foreground">
               This page couldn’t load. Try again, or refresh the page to get a fresh start.
             </p>
 
             {process.env.NODE_ENV === "development" && this.state.error && (
               <details className="mb-6 text-left">
-                <summary className="cursor-pointer text-sm text-muted-foreground mb-2">
+                <summary className="mb-2 cursor-pointer text-sm text-muted-foreground">
                   Error details (development only)
                 </summary>
-                <div className="mt-2 p-3 bg-muted rounded text-xs font-mono overflow-auto max-h-32">
-                  <div className="text-red-600 font-semibold mb-2">
+                <div className="mt-2 max-h-32 overflow-auto rounded bg-muted p-3 font-mono text-xs">
+                  <div className="mb-2 font-semibold text-red-600">
                     {this.state.error.name}: {this.state.error.message}
                   </div>
-                  <div className="text-red-500 whitespace-pre-wrap">
-                    {this.state.error.stack}
-                  </div>
+                  <div className="whitespace-pre-wrap text-red-500">{this.state.error.stack}</div>
                   {this.state.errorInfo && (
                     <div className="mt-2 text-red-500">
                       <div className="font-semibold">Component Stack:</div>
@@ -75,23 +77,23 @@ export class ErrorBoundary extends Component<Props, State> {
               </details>
             )}
 
-            <div className="flex flex-wrap gap-3 justify-center">
-              <Button 
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button
                 id="application-error-retry"
                 onClick={this.handleReset}
                 variant="outline"
                 className="flex items-center gap-2"
               >
-                <RefreshCw aria-hidden="true" className="w-4 h-4" />
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
                 Try again
               </Button>
-              
-              <Button 
+
+              <Button
                 id="application-error-refresh"
                 onClick={() => window.location.reload()}
                 className="flex items-center gap-2"
               >
-                <RefreshCw aria-hidden="true" className="w-4 h-4" />
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
                 Refresh page
               </Button>
             </div>

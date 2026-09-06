@@ -20,22 +20,22 @@ export function ClassroomList({
   if (classrooms.length === 0) {
     return (
       <div className="app-empty-state">
-        <h3 className="font-display text-3xl mb-3">Your class belongs here.</h3>
-        <p className="text-muted-foreground mb-4">{emptyMessage}</p>
+        <h3 className="mb-3 font-display text-3xl">Your class belongs here.</h3>
+        <p className="mb-4 text-muted-foreground">{emptyMessage}</p>
         {showCreateButton && (
-            <Button asChild>
-              <Link to={ROUTES.classroomNew}>
-              <Plus className="w-4 h-4 mr-2" />
+          <Button asChild>
+            <Link to={ROUTES.classroomNew}>
+              <Plus className="mr-2 h-4 w-4" />
               Create your first classroom
-              </Link>
-            </Button>
+            </Link>
+          </Button>
         )}
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
       {classrooms.map((classroom) => (
         <ClassroomCard
           key={classroom.id}

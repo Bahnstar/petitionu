@@ -16,36 +16,36 @@ function ClassroomsLoadingState() {
     <main className="min-h-screen bg-background">
       <div className="app-page">
         {/* Header Skeleton */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="h-10 lg:h-12 bg-muted rounded-lg w-48 mb-2 animate-pulse" />
-            <div className="h-4 bg-muted rounded-lg w-full max-w-72 animate-pulse" />
+            <div className="mb-2 h-10 w-48 animate-pulse rounded-lg bg-muted lg:h-12" />
+            <div className="h-4 w-full max-w-72 animate-pulse rounded-lg bg-muted" />
           </div>
-          <div className="h-10 bg-muted rounded-lg w-40 animate-pulse" />
+          <div className="h-10 w-40 animate-pulse rounded-lg bg-muted" />
         </div>
 
         {/* Grid Skeleton */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-card rounded-2xl border border-border p-6">
-                  <div className="h-6 bg-muted rounded-lg w-24 mb-4 animate-pulse" />
-                  <div className="h-6 bg-muted rounded-lg w-3/4 mb-2 animate-pulse" />
-                  <div className="h-4 bg-muted rounded-lg w-full mb-4 animate-pulse" />
+                <div key={i} className="rounded-2xl border border-border bg-card p-6">
+                  <div className="mb-4 h-6 w-24 animate-pulse rounded-lg bg-muted" />
+                  <div className="mb-2 h-6 w-3/4 animate-pulse rounded-lg bg-muted" />
+                  <div className="mb-4 h-4 w-full animate-pulse rounded-lg bg-muted" />
                   <div className="flex gap-4">
-                    <div className="h-4 bg-muted rounded-lg w-24 animate-pulse" />
-                    <div className="h-4 bg-muted rounded-lg w-24 animate-pulse" />
+                    <div className="h-4 w-24 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-4 w-24 animate-pulse rounded-lg bg-muted" />
                   </div>
                 </div>
               ))}
             </div>
           </div>
           <div>
-            <div className="bg-card rounded-2xl border border-border p-6">
-              <div className="h-6 bg-muted rounded-lg w-32 mb-4 animate-pulse" />
-              <div className="h-10 bg-muted rounded-lg w-full mb-4 animate-pulse" />
-              <div className="h-10 bg-muted rounded-lg w-full animate-pulse" />
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="mb-4 h-6 w-32 animate-pulse rounded-lg bg-muted" />
+              <div className="mb-4 h-10 w-full animate-pulse rounded-lg bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
             </div>
           </div>
         </div>
@@ -95,8 +95,12 @@ export default function ClassroomsPage() {
       <main className="app-page">
         <section id="classrooms-sign-in" className="app-empty-state">
           <h1 className="app-page-heading">Find your people.</h1>
-          <p className="app-page-description">Sign in to join your class, share ideas, and see what you can change together.</p>
-          <Button asChild className="mt-6"><AuthLink>Sign in</AuthLink></Button>
+          <p className="app-page-description">
+            Sign in to join your class, share ideas, and see what you can change together.
+          </p>
+          <Button asChild className="mt-6">
+            <AuthLink>Sign in</AuthLink>
+          </Button>
         </section>
       </main>
     )
@@ -111,7 +115,7 @@ export default function ClassroomsPage() {
       <main className="min-h-screen bg-background">
         <div className="app-page">
           <div className="app-empty-state" role="alert">
-            <h1 className="font-display text-3xl mb-3">Your classrooms couldn’t load</h1>
+            <h1 className="mb-3 font-display text-3xl">Your classrooms couldn’t load</h1>
             <p className="text-destructive">Error: {classroomsQuery.error?.message}</p>
             <Button onClick={() => classroomsQuery.refetch()} className="mt-4">
               Try again
@@ -130,11 +134,9 @@ export default function ClassroomsPage() {
     <main className="min-h-screen bg-background">
       <div className="app-page">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="app-page-heading mb-3">
-              My classrooms
-            </h1>
+            <h1 className="app-page-heading mb-3">My classrooms</h1>
             <p className="app-page-description">
               A shared space for your class and the ideas you care about.
             </p>
@@ -143,35 +145,34 @@ export default function ClassroomsPage() {
             <Button asChild variant="outline">
               <a href="#join-code">Join with a code</a>
             </Button>
-            {(currentUser.role === "professor" || currentUser.role === "admin") && <Button asChild id="create-classroom-link">
-              <Link to={ROUTES.classroomNew}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create classroom
-              </Link>
-            </Button>}
+            {(currentUser.role === "professor" || currentUser.role === "admin") && (
+              <Button asChild id="create-classroom-link">
+                <Link to={ROUTES.classroomNew}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create classroom
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Left Column - Classrooms */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="space-y-8 lg:col-span-2">
             {/* Owned Classrooms */}
             {ownedClassrooms.length > 0 && (
               <section>
-                <h2 className="font-display text-3xl font-normal text-foreground mb-4">
+                <h2 className="mb-4 font-display text-3xl font-normal text-foreground">
                   Classrooms you teach
                 </h2>
-                <ClassroomList
-                  classrooms={ownedClassrooms}
-                  currentUserId={currentUserId}
-                />
+                <ClassroomList classrooms={ownedClassrooms} currentUserId={currentUserId} />
               </section>
             )}
 
             {/* Member Classrooms */}
             <section>
-              <h2 className="font-display text-3xl font-normal text-foreground mb-4">
+              <h2 className="mb-4 font-display text-3xl font-normal text-foreground">
                 Classrooms you’ve joined
               </h2>
               <ClassroomList
@@ -184,9 +185,7 @@ export default function ClassroomsPage() {
 
           {/* Right Column - Join Form */}
           <div>
-            <JoinClassroomForm
-              onSuccess={() => classroomsQuery.refetch()}
-            />
+            <JoinClassroomForm onSuccess={() => classroomsQuery.refetch()} />
           </div>
         </div>
       </div>
