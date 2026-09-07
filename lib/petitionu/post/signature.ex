@@ -2,6 +2,7 @@ defmodule Petitionu.Post.Signature do
   use Ash.Resource,
     domain: Petitionu.Post,
     data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer],
     extensions: [AshTypescript.Resource]
 
   postgres do
@@ -23,7 +24,34 @@ defmodule Petitionu.Post.Signature do
 
     create :create do
       primary? true
-      accept [:reason, :ip_address, :user_agent, :is_verified, :petition_id, :user_id]
+      accept [:reason, :petition_id]
+      validate Petitionu.Post.Validations.Participant
+      change relate_actor(:user)
+      change set_attribute(:is_verified, true)
+      change {Petitionu.Post.Changes.CheckPetition, mode: :signature}
+    end
+  end
+
+  policies do
+    policy action(:create) do
+      authorize_if actor_present()
+    end
+
+    policy action(:destroy) do
+      authorize_if expr(user_id == ^actor(:id))
+    end
+
+    policy action_type(:read) do
+      forbid_unless expr(is_nil(petition.hidden_at))
+      authorize_if expr(is_nil(petition.classroom_id))
+      authorize_if expr(petition.classroom.professor_id == ^actor(:id))
+
+      authorize_if expr(
+                     exists(
+                       petition.classroom.memberships,
+                       user_id == ^actor(:id) and status == :active
+                     )
+                   )
     end
   end
 
@@ -32,20 +60,21 @@ defmodule Petitionu.Post.Signature do
 
     attribute :reason, :string do
       public? true
+      constraints max_length: 2000
     end
 
     attribute :ip_address, :string do
-      public? true
+      public? false
       description "IP Address for fraud prevention"
     end
 
     attribute :user_agent, :string do
-      public? true
+      public? false
     end
 
     attribute :is_verified, :boolean do
       public? true
-      default true
+      default false
     end
 
     timestamps public?: true
@@ -59,7 +88,9 @@ defmodule Petitionu.Post.Signature do
 
     belongs_to :user, Petitionu.Accounts.User do
       allow_nil? false
-      public? true
+      public? false
+      attribute_public? false
+      filterable? false
     end
   end
 

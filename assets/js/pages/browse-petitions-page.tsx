@@ -1,3 +1,4 @@
+import { useAuth } from "../contexts/auth-context"
 import { useCurrentTime } from "../hooks/use-current-time"
 import { useState } from "react"
 import { Link } from "react-router-dom"
@@ -27,13 +28,58 @@ const SORT_OPTIONS = [
 type Petition = CleanResource<PetitionResourceSchema>
 
 export default function BrowsePetitionsPage() {
+  function renderCampusScope() {
+    if (user?.organizationId) {
+      return (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-2" aria-label="Campus scope">
+            <Button
+              id="my-campus"
+              variant={campusScope === "mine" ? "default" : "outline"}
+              aria-pressed={campusScope === "mine"}
+              onClick={() => setCampusScope("mine")}
+            >
+              My campus
+            </Button>
+            <Button
+              id="all-campuses"
+              variant={campusScope === "all" ? "default" : "outline"}
+              aria-pressed={campusScope === "all"}
+              onClick={() => setCampusScope("all")}
+            >
+              All campuses
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {campusScope === "mine" ? user.organization?.name : "Ideas from every campus"}
+          </p>
+        </div>
+      )
+    }
+    if (user) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          <Link to="/ash-typescript/profile" className="underline underline-offset-4">
+            Complete your profile
+          </Link>{" "}
+          to find your campus. Showing all campuses.
+        </p>
+      )
+    }
+    return null
+  }
+
   const now = useCurrentTime()
   useDocumentTitle("Browse Petitions")
+  const { user, isLoading: authLoading } = useAuth()
+  const [campusScope, setCampusScope] = useState("mine")
+  const organizationId = campusScope === "mine" ? user?.organizationId : null
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [sortBy, setSortBy] = useState("trending")
   const petitionsQuery = useQuery({
-    queryKey: ["petitions"],
+    queryKey: ["petitions", { organizationId: organizationId ?? null }],
+    enabled: !authLoading,
     queryFn: async () => {
       const result = await getPetitions({
         fields: [
@@ -52,6 +98,7 @@ export default function BrowsePetitionsPage() {
           "insertedAt",
           { category: ["id", "name"] },
         ],
+        filter: organizationId ? { organizationId: { eq: organizationId } } : undefined,
         headers: buildCSRFHeaders(),
       })
       if (result.success === false)
@@ -199,6 +246,7 @@ export default function BrowsePetitionsPage() {
       </header>
 
       <section aria-label="Find petitions" className="mb-8 space-y-5">
+        {renderCampusScope()}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <span

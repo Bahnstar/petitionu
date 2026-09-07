@@ -7,9 +7,9 @@ import {
   createComment,
   createSignature,
   getPetitions,
-  PetitionResourceSchema,
+  type GetPetitionsFields,
 } from "../ash_rpc"
-import { CleanResource } from "@/lib/types"
+import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -18,9 +18,62 @@ import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 
-type Petition = CleanResource<PetitionResourceSchema>
+async function loadPetition(id: string | undefined) {
+  const result = await getPetitions({
+    fields: [
+      "id",
+      "title",
+      "description",
+      "status",
+      "classroomId",
+      "organizationId",
+      "hasSigned",
+      "canManage",
+      "goal",
+      "signaturesCount",
+      "daysLeft",
+      "trending",
+      "author",
+      "allowComments",
+      "isAnonymous",
+      "deadline",
+      "insertedAt",
+      { category: ["id", "name"] },
+      { comments: ["id", "text", "insertedAt", "author"] },
+      { signatures: ["id", "reason", "insertedAt"] },
+      { updates: ["id", "title", "body", "insertedAt"] },
+    ] as const satisfies GetPetitionsFields,
+    filter: { id: { eq: id } },
+    headers: buildCSRFHeaders(),
+  })
+  if (result.success === false)
+    throw new Error("This petition couldn't be loaded. Please try again.")
+  return result.data[0] ?? null
+}
+
+type Petition = NonNullable<Awaited<ReturnType<typeof loadPetition>>>
 
 function PetitionContent({ petition }: { petition: Petition }) {
+  function renderPetitionMetadata() {
+    return (
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs leading-6 text-muted-foreground">
+        <span>
+          Started by{" "}
+          {petition.isAnonymous ? "Anonymous" : petition.author || "a campus community member"}
+        </span>
+        {petition.insertedAt ? (
+          <span>
+            {new Date(petition.insertedAt).toLocaleDateString(undefined, {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ) : null}
+      </div>
+    )
+  }
+
   const now = useCurrentTime()
   const { user, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
@@ -37,6 +90,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
   }
   const commentMutation = useMutation({
     mutationFn: async (text: string) => {
+      if (!user?.emailVerified || !user.profileComplete)
+        throw new Error("Complete your profile before commenting.")
       const result = await createComment({
         input: { text, petitionId: petition.id },
         headers: buildCSRFHeaders(),
@@ -54,9 +109,10 @@ function PetitionContent({ petition }: { petition: Petition }) {
   })
   const signatureMutation = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error("Sign in to add your signature.")
+      if (!user?.emailVerified || !user.profileComplete)
+        throw new Error("Complete your profile before signing.")
       const result = await createSignature({
-        input: { petitionId: petition.id, userId: user.id, reason: signatureReason.trim() || null },
+        input: { petitionId: petition.id, reason: signatureReason.trim() || null },
         fields: ["id"],
         headers: buildCSRFHeaders(),
       })
@@ -101,8 +157,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
   const closed =
     petition.status !== "open" ||
     !!(petition.deadline && new Date(petition.deadline).getTime() <= now)
-  const signed =
-    signatureMutation.isSuccess || signatures.some((signature) => signature.userId === user?.id)
+  const canParticipate = !!(user?.emailVerified && user.profileComplete)
+  const signed = signatureMutation.isSuccess || petition.hasSigned
 
   function renderStatusBadge() {
     if (petition.status === "victory") {
@@ -123,6 +179,13 @@ function PetitionContent({ petition }: { petition: Petition }) {
 
   function renderCommentForm() {
     if (petition.allowComments) {
+      if (closed)
+        return (
+          <p className="mb-6 text-sm text-muted-foreground">
+            This petition is no longer accepting comments.
+          </p>
+        )
+      if (user && !canParticipate) return renderParticipationMessage("comment")
       if (user) {
         return (
           <form
@@ -193,6 +256,18 @@ function PetitionContent({ petition }: { petition: Petition }) {
     return "Add your voice."
   }
 
+  function renderParticipationMessage(action: string) {
+    return (
+      <p className="mb-6 text-sm leading-7 text-muted-foreground">
+        Confirm your email and{" "}
+        <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">
+          complete your profile
+        </Link>{" "}
+        to {action}.
+      </p>
+    )
+  }
+
   function renderSignatureForm() {
     if (signed) {
       return (
@@ -221,6 +296,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
         </p>
       )
     }
+    if (user && !canParticipate) return renderParticipationMessage("sign this petition")
     if (user) {
       return (
         <form
@@ -327,24 +403,11 @@ function PetitionContent({ petition }: { petition: Petition }) {
               {renderStatusBadge()}
             </div>
             <h1 className="app-page-heading break-words">{petition.title}</h1>
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs leading-6 text-muted-foreground">
-              <span>
-                Started by{" "}
-                {petition.isAnonymous
-                  ? "Anonymous"
-                  : petition.author || "a campus community member"}
-              </span>
-              {petition.insertedAt ? (
-                <span>
-                  {new Date(petition.insertedAt).toLocaleDateString(undefined, {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-              ) : null}
-            </div>
+            {renderPetitionMetadata()}
           </header>
+          {petition.canManage ? (
+            <PetitionOwnerControls petition={petition} canPublishUpdate={canParticipate} />
+          ) : null}
           <section aria-labelledby="petition-story-heading" className="border-y border-border py-8">
             <h2 id="petition-story-heading" className="mb-4 font-display text-3xl tracking-tight">
               The change we're asking for.
@@ -430,9 +493,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
                 <div key={comment.id} className="py-5">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="font-medium">
-                      {[comment.user?.firstName, comment.user?.lastName]
-                        .filter(Boolean)
-                        .join(" ") || "A campus community member"}
+                      {comment.author || "A campus community member"}
                     </span>
                     {comment.insertedAt ? (
                       <span className="text-muted-foreground">
@@ -479,35 +540,7 @@ export default function PetitionIndexPage() {
   const { id } = useParams()
   const petitionQuery = useQuery({
     queryKey: ["petition", id],
-    queryFn: async () => {
-      const result = await getPetitions({
-        fields: [
-          "id",
-          "title",
-          "description",
-          "status",
-          "classroomId",
-          "goal",
-          "signaturesCount",
-          "daysLeft",
-          "trending",
-          "author",
-          "allowComments",
-          "isAnonymous",
-          "deadline",
-          "insertedAt",
-          { category: ["id", "name"] },
-          { comments: ["id", "text", "insertedAt", { user: ["firstName", "lastName"] }] },
-          { signatures: ["id", "reason", "userId", "insertedAt"] },
-          { updates: ["id", "title", "body", "insertedAt"] },
-        ],
-        filter: { id: { eq: id } },
-        headers: buildCSRFHeaders(),
-      })
-      if (result.success === false)
-        throw new Error("This petition couldn't be loaded. Please try again.")
-      return result.data[0] ?? null
-    },
+    queryFn: () => loadPetition(id),
   })
   useDocumentTitle(petitionQuery.data?.title ?? "Petition")
   if (petitionQuery.isPending)

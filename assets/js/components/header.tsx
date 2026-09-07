@@ -40,7 +40,7 @@ export function Header() {
       return (
         <>
           <Link
-            to={ROUTES.dashboard}
+            to={ROUTES.profile}
             className="max-w-28 truncate text-sm text-muted-foreground"
             title={user.firstName || user.email}
           >
@@ -126,9 +126,9 @@ export function Header() {
             <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
               {isAuthenticated && user ? (
                 <>
-                  <span className="min-w-0 truncate px-3 text-sm text-muted-foreground">
-                    {user.firstName || user.email}
-                  </span>
+                  <Link to={ROUTES.profile} className="app-nav-link">
+                    Your profile
+                  </Link>
                   <a href="/sign-out" className="app-nav-link">
                     Sign out
                   </a>

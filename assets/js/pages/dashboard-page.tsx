@@ -77,7 +77,7 @@ export default function Dashboard() {
               "deadline",
               "insertedAt",
               { category: ["id", "name", "color"] },
-              { user: ["firstName", "lastName"] },
+              "author",
             ],
           },
           {
@@ -92,10 +92,9 @@ export default function Dashboard() {
                   "goal",
                   "isAnonymous",
                   { category: ["name", "color"] },
-                  { user: ["firstName", "lastName"] },
+                  "author",
                 ],
               },
-              { user: ["firstName", "lastName"] },
             ],
           },
         ],
@@ -176,6 +175,15 @@ export default function Dashboard() {
           </Link>
         </Button>
       </header>
+
+      {!currentUser.emailVerified || !currentUser.profileComplete ? (
+        <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">
+          Confirm your email and complete your campus profile to publish, sign, or comment.{" "}
+          <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">
+            Complete your profile
+          </Link>
+        </p>
+      ) : null}
 
       <DashboardStats
         numPetitions={apiUser.numPetitions}

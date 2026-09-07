@@ -56,6 +56,8 @@ export default function CreateClassroomPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!currentUser?.emailVerified || !currentUser.profileComplete || createMutation.isPending)
+      return
     const newErrors: Record<string, string> = {}
 
     if (!formData.name.trim()) {
@@ -91,6 +93,22 @@ export default function CreateClassroomPage() {
           </p>
           <Button asChild className="mt-6">
             <AuthLink>Sign in</AuthLink>
+          </Button>
+        </section>
+      </main>
+    )
+  }
+
+  if (!currentUser.emailVerified || !currentUser.profileComplete) {
+    return (
+      <main className="app-page">
+        <section className="app-empty-state">
+          <h1 className="app-page-heading">Get ready to create your classroom.</h1>
+          <p className="app-page-description">
+            Confirm your email and complete your campus profile before creating a classroom.
+          </p>
+          <Button asChild className="mt-6">
+            <Link to="/ash-typescript/profile">Complete your profile</Link>
           </Button>
         </section>
       </main>

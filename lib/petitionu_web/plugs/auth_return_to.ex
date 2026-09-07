@@ -25,7 +25,8 @@ defmodule PetitionuWeb.AuthReturnTo do
   # Keep destinations inside the React application, excluding authentication loops
   # and encoded path separators that browsers may interpret differently.
   def safe_destination(destination) when is_binary(destination) do
-    with {:ok, %{scheme: nil, host: nil, path: path}} when is_binary(path) <- URI.new(destination),
+    with {:ok, %{scheme: nil, host: nil, path: path}} when is_binary(path) <-
+           URI.new(destination),
          path = URI.decode(path),
          true <- path == "/ash-typescript" or String.starts_with?(path, "/ash-typescript/"),
          false <- String.contains?(path, ["\\", "//", "/../", "/./"]),
