@@ -1,10 +1,28 @@
-export type PetitionDraft = { title: string; description: string; categoryId: string; goal: string }
+export type PetitionDraft = {
+  title: string
+  description: string
+  categoryId: string
+  goal: string
+  deadline: string
+  allowComments: boolean
+  isAnonymous: boolean
+}
 
-const emptyDraft: PetitionDraft = { title: "", description: "", categoryId: "", goal: "1000" }
+const emptyDraft: PetitionDraft = {
+  title: "",
+  description: "",
+  categoryId: "",
+  goal: "1000",
+  deadline: "",
+  allowComments: true,
+  isAnonymous: false,
+}
 const draftKey = (classroomId: string | null) =>
   `petitionu:petition-draft:v1:${classroomId ?? "public"}`
 
-function isPetitionDraft(value: unknown): value is PetitionDraft {
+function isPetitionDraft(
+  value: unknown,
+): value is Pick<PetitionDraft, "title" | "description" | "categoryId" | "goal"> {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -19,15 +37,27 @@ function isPetitionDraft(value: unknown): value is PetitionDraft {
   )
 }
 
+function isString(value: unknown): value is string {
+  return typeof value === "string"
+}
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean"
+}
+
 export function readPetitionDraft(classroomId: string | null): PetitionDraft {
   try {
-    const draft = JSON.parse(sessionStorage.getItem(draftKey(classroomId)) ?? "null")
+    const draft: unknown = JSON.parse(sessionStorage.getItem(draftKey(classroomId)) ?? "null")
     if (isPetitionDraft(draft)) {
       return {
         title: draft.title,
         description: draft.description,
         categoryId: draft.categoryId,
         goal: draft.goal,
+        deadline: "deadline" in draft && isString(draft.deadline) ? draft.deadline : "",
+        allowComments:
+          "allowComments" in draft && isBoolean(draft.allowComments) ? draft.allowComments : true,
+        isAnonymous:
+          "isAnonymous" in draft && isBoolean(draft.isAnonymous) ? draft.isAnonymous : false,
       }
     }
   } catch {

@@ -27,8 +27,8 @@ defmodule Petitionu.Post.CommentTest do
       })
       |> Ash.create!(authorize?: false)
 
-    user = create_user("alice@example.com")
-    other_user = create_user("bob@example.com")
+    user = create_user("alice@example.com", organization)
+    other_user = create_user("bob@example.com", organization)
 
     petition =
       Petition
@@ -44,7 +44,7 @@ defmodule Petitionu.Post.CommentTest do
     %{user: user, other_user: other_user, petition: petition}
   end
 
-  defp create_user(email) do
+  defp create_user(email, organization) do
     User
     |> Ash.Changeset.for_create(:register_with_password, %{
       email: email,
@@ -52,6 +52,12 @@ defmodule Petitionu.Post.CommentTest do
       password_confirmation: "password123"
     })
     |> Ash.create!(authorize?: false)
+    |> Ash.Seed.update!(%{
+      first_name: "Test",
+      last_name: "Student",
+      confirmed_at: DateTime.utc_now(),
+      organization_id: organization.id
+    })
   end
 
   defp create_comment(text, petition, user) do
@@ -104,7 +110,7 @@ defmodule Petitionu.Post.CommentTest do
         Comment
         |> Ash.Changeset.for_create(:create, %{text: "anon", petition_id: petition.id})
 
-      assert_raise Ash.Error.Forbidden, fn ->
+      assert_raise Ash.Error.Invalid, fn ->
         Ash.create!(changeset)
       end
     end

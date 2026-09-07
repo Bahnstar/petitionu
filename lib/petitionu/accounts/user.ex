@@ -60,11 +60,22 @@ defmodule Petitionu.Accounts.User do
   end
 
   field_policies do
-    field_policy [:email, :role, :graduation_year] do
+    field_policy [
+      :email,
+      :role,
+      :graduation_year,
+      :organization_id,
+      :email_verified,
+      :profile_complete
+    ] do
       authorize_if {AshAuthentication.Checks.AshAuthenticationInteraction, []}
       authorize_if expr(id == ^actor(:id))
       authorize_if actor_attribute_equals(:role, :superadmin)
-      authorize_if expr(organization_id == ^actor(:organization_id) and ^actor(:role) == :admin)
+
+      authorize_if expr(
+                     not is_nil(organization_id) and organization_id == ^actor(:organization_id) and
+                       ^actor(:role) == :admin
+                   )
     end
 
     field_policy [
@@ -73,10 +84,7 @@ defmodule Petitionu.Accounts.User do
       :num_petition_signees,
       :total_petition_signatures
     ] do
-      authorize_if {AshAuthentication.Checks.AshAuthenticationInteraction, []}
       authorize_if expr(id == ^actor(:id))
-      authorize_if actor_attribute_equals(:role, :superadmin)
-      authorize_if expr(organization_id == ^actor(:organization_id) and ^actor(:role) == :admin)
     end
 
     field_policy :* do
@@ -96,10 +104,6 @@ defmodule Petitionu.Accounts.User do
   actions do
     defaults [:read]
 
-    # update :update do
-    #       primary? true
-    #       accept [:first_name, :last_name, :student_id, :graduation_year]
-    #     end
     read :read_users do
       primary? true
     end
@@ -108,7 +112,7 @@ defmodule Petitionu.Accounts.User do
       get_by :id
       argument :include_stats, :boolean, default: false
 
-      prepare fn query, context ->
+      prepare fn query, _context ->
         load_user_stats(query, Ash.Query.get_argument(query, :include_stats))
       end
     end
@@ -263,6 +267,22 @@ defmodule Petitionu.Accounts.User do
       accept [:first_name, :last_name, :student_id, :graduation_year]
     end
 
+    update :update_my_profile do
+      accept [:first_name, :last_name, :graduation_year]
+      require_atomic? false
+      change filter(expr(id == ^actor(:id)))
+      validate present([:first_name, :last_name])
+      validate string_length(:first_name, min: 1, max: 100)
+      validate string_length(:last_name, min: 1, max: 100)
+
+      validate compare(:graduation_year,
+                 greater_than_or_equal_to: 1900,
+                 less_than_or_equal_to: 2100
+               )
+
+      change Petitionu.Accounts.User.Changes.AssignCampus
+    end
+
     update :set_role do
       description "Admin action to set a user's role"
       accept [:role]
@@ -346,14 +366,28 @@ defmodule Petitionu.Accounts.User do
       authorize_if always()
     end
 
-    # Only admins can set user roles
     policy action(:set_role) do
-      authorize_if actor_attribute_equals(:role, :admin)
       authorize_if actor_attribute_equals(:role, :superadmin)
+
+      authorize_if expr(
+                     ^actor(:role) == :admin and role != :superadmin and
+                       not is_nil(organization_id) and organization_id == ^actor(:organization_id)
+                   )
+    end
+
+    policy action(:update_my_profile) do
+      authorize_if expr(id == ^actor(:id))
     end
 
     policy action_type(:read) do
-      authorize_if always()
+      authorize_if action([:sign_in_with_password, :sign_in_with_token])
+      authorize_if expr(id == ^actor(:id))
+      authorize_if actor_attribute_equals(:role, :superadmin)
+
+      authorize_if expr(
+                     ^actor(:role) == :admin and not is_nil(organization_id) and
+                       organization_id == ^actor(:organization_id)
+                   )
     end
   end
 
@@ -402,14 +436,21 @@ defmodule Petitionu.Accounts.User do
   end
 
   relationships do
-    belongs_to :organization, Petitionu.Accounts.Organization
+    belongs_to :organization, Petitionu.Accounts.Organization do
+      public? true
+      attribute_public? true
+    end
 
     has_many :petitions, Petitionu.Post.Petition do
       public? true
+      filterable? false
+      filter expr(user_id == ^actor(:id))
     end
 
     has_many :signatures, Petitionu.Post.Signature do
       public? true
+      filterable? false
+      filter expr(user_id == ^actor(:id))
     end
 
     has_many :classroom_memberships, Petitionu.Post.ClassroomMembership do
@@ -423,22 +464,44 @@ defmodule Petitionu.Accounts.User do
   end
 
   calculations do
+    calculate :email_verified, :boolean, expr(not is_nil(confirmed_at)) do
+      public? true
+    end
+
+    calculate :profile_complete,
+              :boolean,
+              expr(
+                not is_nil(confirmed_at) and not is_nil(organization_id) and
+                  not is_nil(first_name) and first_name != "" and
+                  not is_nil(last_name) and last_name != ""
+              ) do
+      public? true
+    end
+
     calculate :total_petition_signatures, :integer, expr(count(petitions.signatures)) do
       public? true
+      filterable? false
+      sortable? false
     end
   end
 
   aggregates do
     count :num_petitions, :petitions do
       public? true
+      filterable? false
+      sortable? false
     end
 
     count :num_signed, :signatures do
       public? true
+      filterable? false
+      sortable? false
     end
 
     count :num_petition_signees, :signatures do
       public? true
+      filterable? false
+      sortable? false
     end
   end
 

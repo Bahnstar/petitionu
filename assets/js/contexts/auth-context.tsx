@@ -1,9 +1,8 @@
 import React, { createContext, useContext, ReactNode } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { getMe, buildCSRFHeaders, UserResourceSchema } from "../ash_rpc"
-import { CleanResource } from "@/lib/types"
+import { getMe, buildCSRFHeaders, GetMeFields, InferGetMeResult } from "../ash_rpc"
 
-export type CurrentUser = CleanResource<UserResourceSchema>
+export type CurrentUser = InferGetMeResult<typeof USER_FIELDS>
 
 interface AuthContextType {
   user: CurrentUser | null
@@ -15,7 +14,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const USER_FIELDS = ["id", "email", "firstName", "lastName", "role", "insertedAt"] as const
+export const USER_FIELDS = [
+  "id",
+  "email",
+  "firstName",
+  "lastName",
+  "role",
+  "insertedAt",
+  "graduationYear",
+  "emailVerified",
+  "profileComplete",
+  "organizationId",
+  { organization: ["id", "name"] },
+] satisfies GetMeFields
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
@@ -29,8 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (result.success === false) {
-        // If user is not authenticated, return null (not an error)
-        // The RPC will return no data if there's no actor
         if (result.errors.some((e) => e.message?.includes("not found") || e.type === "not_found")) {
           return null
         }
@@ -39,8 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return result.data
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes - user data doesn't change often
-    retry: false, // Don't retry if user is not authenticated
+    staleTime: 60 * 1000,
+    retry: false,
   })
 
   const value: AuthContextType = {

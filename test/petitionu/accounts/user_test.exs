@@ -40,47 +40,25 @@ defmodule Petitionu.Accounts.UserTest do
   end
 
   describe "reading users" do
-    test "(a) anonymous read of users succeeds and returns first/last name but not email/role/stats" do
-      other =
-        create_user!(
-          email: "other-user@example.com",
-          first_name: "Jane",
-          last_name: "Doe",
-          student_id: "S12345",
-          graduation_year: 2025,
-          role: :admin
-        )
+    test "anonymous user reads return no profiles or inverse activity" do
+      create_user!(email: "other-user@example.com", first_name: "Jane", last_name: "Doe")
 
       users =
         Accounts.User
         |> for_read(:read_users)
-        |> load([:num_petitions, :num_signed, :num_petition_signees])
-        |> load(:total_petition_signatures)
+        |> load([
+          :petitions,
+          :signatures,
+          :num_petitions,
+          :num_signed,
+          :total_petition_signatures
+        ])
         |> Ash.read!(actor: nil)
 
-      assert users != []
-
-      anonymous_view = Enum.find(users, &(&1.id == other.id))
-      refute is_nil(anonymous_view)
-
-      assert anonymous_view.first_name == "Jane"
-      assert anonymous_view.last_name == "Doe"
-
-      assert %Ash.ForbiddenField{} = anonymous_view.email
-      assert %Ash.ForbiddenField{} = anonymous_view.role
-      assert %Ash.ForbiddenField{} = anonymous_view.graduation_year
-      assert %Ash.ForbiddenField{} = anonymous_view.num_petitions
-      assert %Ash.ForbiddenField{} = anonymous_view.num_signed
-      assert %Ash.ForbiddenField{} = anonymous_view.num_petition_signees
-      assert %Ash.ForbiddenField{} = anonymous_view.total_petition_signatures
-
-      public_attrs =
-        Accounts.User
-        |> Ash.Resource.Info.public_attributes()
-        |> Enum.map(& &1.name)
-
+      assert users == []
+      public_attrs = Accounts.User |> Ash.Resource.Info.public_attributes() |> Enum.map(& &1.name)
       refute :student_id in public_attrs
-      assert :hashed_password not in public_attrs
+      refute :hashed_password in public_attrs
     end
 
     test "(b) a user reading their own record sees email/role/stats" do
@@ -112,7 +90,7 @@ defmodule Petitionu.Accounts.UserTest do
       assert own_view.num_petition_signees == 0
     end
 
-    test "(c) reading another user's record by id hides email/role/stats" do
+    test "reading another user by id returns no profile" do
       actor = create_user!(email: "reader@example.com", first_name: "Reader", last_name: "One")
 
       other =
@@ -128,22 +106,27 @@ defmodule Petitionu.Accounts.UserTest do
         |> for_read(:read_by_id, %{id: other.id, include_stats: true})
         |> Ash.read_one!(actor: actor)
 
-      refute is_nil(other_view)
-      assert other_view.first_name == "Target"
-      assert other_view.last_name == "Two"
-
-      assert %Ash.ForbiddenField{} = other_view.email
-      assert %Ash.ForbiddenField{} = other_view.role
-      assert %Ash.ForbiddenField{} = other_view.num_petitions
-      assert %Ash.ForbiddenField{} = other_view.num_signed
-      assert %Ash.ForbiddenField{} = other_view.num_petition_signees
-      assert %Ash.ForbiddenField{} = other_view.total_petition_signatures
+      assert is_nil(other_view)
     end
 
     test "(d) set_role still requires an admin actor" do
-      admin = create_user!(email: "admin-role@example.com", role: :admin)
+      organization = create_organization!()
+
+      admin =
+        create_user!(
+          email: "admin-role@example.com",
+          role: :admin,
+          organization_id: organization.id
+        )
+
       student = create_user!(email: "student-role@example.com", role: :student)
-      target = create_user!(email: "target-role@example.com", role: :student)
+
+      target =
+        create_user!(
+          email: "target-role@example.com",
+          role: :student,
+          organization_id: organization.id
+        )
 
       assert {:error, %Ash.Error.Forbidden{}} =
                target
@@ -205,7 +188,7 @@ defmodule Petitionu.Accounts.UserTest do
 
       assert to_string(target_view.email) == "org-target@example.com"
       assert target_view.role == :student
-      assert target_view.num_petitions == 0
+      assert %Ash.ForbiddenField{} = target_view.num_petitions
     end
 
     test "an admin cannot read sensitive fields outside their organization" do
@@ -231,9 +214,7 @@ defmodule Petitionu.Accounts.UserTest do
         |> for_read(:read_by_id, %{id: target.id, include_stats: true})
         |> Ash.read_one!(actor: admin)
 
-      assert %Ash.ForbiddenField{} = target_view.email
-      assert %Ash.ForbiddenField{} = target_view.role
-      assert %Ash.ForbiddenField{} = target_view.num_petitions
+      assert is_nil(target_view)
     end
 
     test "a superadmin can read sensitive fields across organizations" do
@@ -254,7 +235,7 @@ defmodule Petitionu.Accounts.UserTest do
 
       assert to_string(target_view.email) == "global-target@example.com"
       assert target_view.role == :student
-      assert target_view.num_petitions == 0
+      assert %Ash.ForbiddenField{} = target_view.num_petitions
     end
   end
 

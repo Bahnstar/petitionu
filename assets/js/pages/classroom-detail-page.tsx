@@ -61,6 +61,40 @@ function ClassroomDetailLoadingState() {
 }
 
 export default function ClassroomDetailPage() {
+  function renderPetitionHeading() {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-3xl font-normal text-foreground">Petitions</h2>
+        {!classroom?.archived &&
+          currentUser?.emailVerified &&
+          currentUser.profileComplete &&
+          (classroom?.allowStudentPetitions || isProfessor) && (
+            <Button asChild>
+              <Link to={ROUTES.createPetitionWithClassroom(id!)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Start a petition
+              </Link>
+            </Button>
+          )}
+      </div>
+    )
+  }
+
+  function renderParticipationNotice() {
+    if (currentUser && (!currentUser.emailVerified || !currentUser.profileComplete)) {
+      return (
+        <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">
+          Confirm your email and{" "}
+          <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">
+            complete your profile
+          </Link>{" "}
+          to participate.
+        </p>
+      )
+    }
+    return null
+  }
+
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -86,7 +120,6 @@ export default function ClassroomDetailPage() {
           "memberCount",
           "petitionCount",
           "professorId",
-          { professor: ["id", "firstName", "lastName", "email"] },
         ],
         headers: buildCSRFHeaders(),
       })
@@ -119,7 +152,6 @@ export default function ClassroomDetailPage() {
           "isAnonymous",
           "deadline",
           { category: ["id", "name", "color"] },
-          { user: ["id", "firstName", "lastName"] },
         ],
         headers: buildCSRFHeaders(),
       })
@@ -139,13 +171,7 @@ export default function ClassroomDetailPage() {
     queryFn: async () => {
       const result = await getMembershipsForClassroom({
         input: { classroomId: id! },
-        fields: [
-          "id",
-          "role",
-          "status",
-          "joinedAt",
-          { user: ["id", "firstName", "lastName", "email"] },
-        ],
+        fields: ["id", "role", "status", "joinedAt", "memberName", { user: ["id"] }],
         headers: buildCSRFHeaders(),
       })
 
@@ -296,14 +322,17 @@ export default function ClassroomDetailPage() {
           <p className="mb-6 text-sm text-muted-foreground">
             No petitions here yet. Every shared idea starts with one voice.
           </p>
-          {(classroom?.allowStudentPetitions || isProfessor) && (
-            <Button asChild>
-              <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Start the first petition
-              </Link>
-            </Button>
-          )}
+          {!classroom?.archived &&
+            currentUser?.emailVerified &&
+            currentUser.profileComplete &&
+            (classroom?.allowStudentPetitions || isProfessor) && (
+              <Button asChild>
+                <Link to={ROUTES.createPetitionWithClassroom(id!)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Start the first petition
+                </Link>
+              </Button>
+            )}
         </Card>
       )
     }
@@ -347,7 +376,14 @@ export default function ClassroomDetailPage() {
         </Card>
       )
     }
-    return <MemberList memberships={memberships} classroomId={id!} canManage={canManage} />
+    return (
+      <MemberList
+        memberships={memberships}
+        classroomId={id!}
+        canManage={canManage}
+        canChangeRoles={isProfessor}
+      />
+    )
   }
 
   function renderClassroomHeader() {
@@ -375,9 +411,7 @@ export default function ClassroomDetailPage() {
               <FileText className="h-4 w-4" />
               {classroom?.petitionCount ?? 0} petitions
             </span>
-            <span>
-              Professor: {classroom?.professor?.firstName} {classroom?.professor?.lastName}
-            </span>
+            <span>Led by your professor</span>
           </div>
         </div>
 
@@ -509,6 +543,7 @@ export default function ClassroomDetailPage() {
         {renderClassroomHeader()}
 
         {renderArchiveError()}
+        {renderParticipationNotice()}
         {classroom?.archived && (
           <p className="mb-6 rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
             This classroom is archived. You can still browse its petitions and members.
@@ -519,17 +554,7 @@ export default function ClassroomDetailPage() {
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Left Column - Petitions */}
           <div className="space-y-6 lg:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-3xl font-normal text-foreground">Petitions</h2>
-              {(classroom?.allowStudentPetitions || isProfessor) && (
-                <Button asChild>
-                  <Link to={ROUTES.createPetitionWithClassroom(id!)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Start a petition
-                  </Link>
-                </Button>
-              )}
-            </div>
+            {renderPetitionHeading()}
 
             {renderPetitions()}
           </div>
