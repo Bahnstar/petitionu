@@ -21,6 +21,15 @@ export function Footer() {
           <Link to={ROUTES.classrooms} className="py-2 underline-offset-4 hover:underline">
             Classrooms
           </Link>
+          <Link to={ROUTES.support} className="py-2 underline-offset-4 hover:underline">
+            Support
+          </Link>
+          <Link to={ROUTES.privacy} className="py-2 underline-offset-4 hover:underline">
+            Privacy
+          </Link>
+          <Link to={ROUTES.communityRules} className="py-2 underline-offset-4 hover:underline">
+            Community rules
+          </Link>
         </nav>
       </div>
     </footer>

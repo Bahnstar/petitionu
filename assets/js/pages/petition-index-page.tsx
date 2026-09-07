@@ -1,3 +1,4 @@
+import { ReportContent } from "../features/moderation/report-content"
 import { useCurrentTime } from "../hooks/use-current-time"
 import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
@@ -479,6 +480,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               </p>
             )}
           </section>
+          <ReportContent petitionId={petition.id} />
           <section id="petition-comments" aria-labelledby="petition-comments-heading">
             <h2
               id="petition-comments-heading"
@@ -504,6 +506,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
                   <p className="text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
                     {comment.text}
                   </p>
+                  <ReportContent petitionId={petition.id} commentId={comment.id} />
                 </div>
               ))}
             </div>
