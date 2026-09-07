@@ -8,6 +8,10 @@ export const ROUTES = {
   createPetitionWithClassroom: (classroomId: string) =>
     `${DEFAULT_PATH}/create?classroomId=${classroomId}`,
   profile: `${DEFAULT_PATH}/profile`,
+  support: `${DEFAULT_PATH}/support`,
+  moderation: `${DEFAULT_PATH}/moderation`,
+  privacy: `${DEFAULT_PATH}/privacy`,
+  communityRules: `${DEFAULT_PATH}/community-rules`,
   dashboard: `${DEFAULT_PATH}/dashboard`,
   classrooms: `${DEFAULT_PATH}/classrooms`,
   classroom: (id: string) => `${DEFAULT_PATH}/classrooms/${id}`,

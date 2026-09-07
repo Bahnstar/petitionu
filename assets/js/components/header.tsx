@@ -32,6 +32,9 @@ export function Header() {
   const navItems = [
     { label: "Browse petitions", to: ROUTES.petitions },
     { label: "Classrooms", to: ROUTES.classrooms },
+    ...(user?.role === "admin" || user?.role === "superadmin"
+      ? [{ label: "Moderation", to: ROUTES.moderation }]
+      : []),
     ...(isAuthenticated ? [{ label: "Your dashboard", to: ROUTES.dashboard }] : []),
   ]
 

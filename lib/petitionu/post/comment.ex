@@ -17,6 +17,11 @@ defmodule Petitionu.Post.Comment do
   actions do
     defaults [:read, :destroy]
 
+    update :moderator_hide do
+      accept []
+      change set_attribute(:hidden_at, &DateTime.utc_now/0)
+    end
+
     create :create do
       primary? true
       accept [:text, :parent_comment_id, :petition_id]
@@ -36,6 +41,16 @@ defmodule Petitionu.Post.Comment do
   end
 
   policies do
+    policy action(:moderator_hide) do
+      authorize_if actor_attribute_equals(:role, :superadmin)
+
+      authorize_if expr(
+                     not is_nil(petition.organization_id) and
+                       petition.organization_id == ^actor(:organization_id) and
+                       ^actor(:role) == :admin
+                   )
+    end
+
     policy action_type(:read) do
       forbid_unless expr(is_nil(hidden_at) and is_nil(petition.hidden_at))
       authorize_if expr(is_nil(petition.classroom_id))

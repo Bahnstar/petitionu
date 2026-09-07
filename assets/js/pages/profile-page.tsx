@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Link } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -114,6 +115,11 @@ function ProfileForm({ user }: { user: CurrentUser }) {
               I confirmed my email
             </Button>
           )}
+          <p className="text-sm">
+            <Link className="underline underline-offset-4" to="/ash-typescript/support">
+              Need help with your email or campus?
+            </Link>
+          </p>
         </div>
         <form id="profile-form" onSubmit={submit} className="space-y-5">
           <div className="space-y-2">
