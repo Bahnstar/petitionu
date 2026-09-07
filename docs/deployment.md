@@ -1,12 +1,14 @@
 # Deploy PetitionU
 
-Build the release on the same operating system and architecture as the production host. Use Elixir 1.18.4, Erlang/OTP 27.3, Node 22, and Bun 1.4.0. Use PostgreSQL 16 or later. Native dependencies require a C compiler and make during the build.
+Build the release on the same operating system and architecture as the production host. CI builds on Ubuntu 24.04 with Elixir 1.18.4, Erlang/OTP 27.3, Node 22, and Bun 1.4.0. Use PostgreSQL 16 or later. Native dependencies require a C compiler and make during the build.
 
 ## Build a release
 
-1. Install the toolchain versions listed above and PostgreSQL client tools.
+1. Install the pinned CI toolchain and PostgreSQL client tools.
 2. Run `scripts/build-release.sh` from a clean checkout.
 3. Copy `_build/prod/petitionu-release.tar.gz` to the host and extract it into a new release directory. The archive preserves executable permissions and includes the Erlang runtime.
+
+CI also runs the backend tests, TypeScript check, asset build, and disposable backup and release checks. CI uploads the release for seven days. Extract the release archive inside the downloaded artifact before using it.
 
 To test the packaged release locally, set `PGHOST`, `PGUSER`, and, when needed, `PGPASSWORD` to a disposable PostgreSQL server and run `python3 scripts/release-smoke.py`. It creates a temporary database, applies migrations twice, checks HTTP 200, then checks HTTP 503 with an unreachable database. It stops its own release processes and removes only its temporary database. It uses dummy mail credentials and sends no email.
 
@@ -42,6 +44,8 @@ Copy backups to encrypted storage outside the database host. Limit access to ope
 Run `scripts/backup-smoke.sh` with `PGHOST`, `PGUSER`, and, when needed, `PGPASSWORD` pointing to a disposable PostgreSQL server. It creates source and restored databases with unique names, verifies a restored migration record, and removes only those databases when it exits.
 
 Test a real archive with `scripts/restore-smoke.sh /secure/backups/petitionu-TIMESTAMP.dump` against the disposable server. It restores into a new database and checks that migration records exist. It never restores over an existing database.
+
+To verify application data in a quiet local development database, run `python3 scripts/backup-restore-check.py petitionu_dev` with `PGHOST` and `PGUSER` set to its disposable PostgreSQL server. It backs up that database, restores into a new database, compares counts for nine application and migration tables, and removes only the temporary restore. Pause writes while running it so the source counts and backup describe the same state. This checks restoration and row counts, not every stored value.
 
 For incident recovery, restore the selected archive into a new empty production database with `pg_restore --exit-on-error --no-owner --no-acl`. Validate petition, signature, and user counts and log in with a controlled account. Change `DATABASE_URL` to the restored database only after validation. Record the backup timestamp and any lost writes.
 
