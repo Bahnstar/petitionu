@@ -35,3 +35,5 @@ petitionu-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Browser verification screenshots are uploaded as CI artifacts.
+/docs/mvp/screenshots/

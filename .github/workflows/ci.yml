@@ -1,0 +1,112 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [master]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.3'
+          elixir-version: '1.18.4'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-otp27-elixir1.18-${{ hashFiles('mix.lock') }}
+      - run: mix help deps.get && mix deps.get
+      - run: python3 scripts/check-dependency-advisories.py
+      - run: bun install --frozen-lockfile
+        working-directory: assets
+      - run: mix help precommit && mix precommit
+      - run: git diff --exit-code
+      - run: ./node_modules/.bin/tsc --noEmit
+        working-directory: assets
+      - run: mix help assets.setup && mix assets.setup
+      - run: mix help assets.build && mix assets.build
+      - name: Install browser acceptance tools
+        run: |
+          npm install --prefix /tmp/petitionu-playwright playwright@1.63.0
+          /tmp/petitionu-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Verify real browser workflows
+        env:
+          MIX_ENV: dev
+          PORT: '4001'
+          BASE_URL: http://localhost:4001
+          PLAYWRIGHT_MODULE: /tmp/petitionu-playwright/node_modules/playwright
+        run: |
+          mix help deps.get
+          mix deps.get
+          mix help compile
+          mix compile --warnings-as-errors
+          mix help ash.setup
+          mix ash.setup
+          mix help run
+          mix run scripts/mvp-seed.exs
+          mix help phx.server
+          mix phx.server > /tmp/petitionu-mvp-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:4001/healthz > /dev/null; then break; fi
+            sleep 2
+          done
+          node assets/tests/mvp.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: petitionu-browser-acceptance
+          path: |
+            docs/mvp/screenshots/
+            /tmp/petitionu-mvp-browser-report.json
+            /tmp/petitionu-mvp-server.log
+          retention-days: 7
+      - run: python3 scripts/backup-restore-check.py petitionu_dev
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+      - run: scripts/backup-smoke.sh
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+      - run: scripts/build-release.sh
+      - run: python3 scripts/release-smoke.py
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petitionu-linux-release
+          path: _build/prod/petitionu-release.tar.gz
+          retention-days: 7
