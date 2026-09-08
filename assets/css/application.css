@@ -56,34 +56,6 @@
     text-decoration: none;
     white-space: nowrap;
   }
-  .app-header {
-    position: relative;
-    z-index: 40;
-    width: calc(100% - 10%);
-    max-width: 1360px;
-    margin: 22px auto 0;
-    padding: 14px 24px;
-    border: 1px solid var(--border);
-    border-radius: 40px;
-    background: var(--card);
-  }
-  .app-nav-link {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 10px 14px;
-    border-radius: 24px;
-    color: var(--muted-foreground);
-    font-size: 13px;
-    transition:
-      background 150ms,
-      color 150ms;
-  }
-  .app-nav-link:hover,
-  .app-nav-link[aria-current="page"] {
-    color: var(--foreground);
-    background: var(--muted);
-  }
   .app-skip-link {
     position: fixed;
     top: 8px;
@@ -221,12 +193,6 @@
   @media (max-width: 767px) {
     .app-page {
       padding: 36px 20px 56px;
-    }
-    .app-header {
-      width: calc(100% - 32px);
-      margin-top: 16px;
-      padding: 12px 16px;
-      border-radius: 24px;
     }
     .app-panel {
       padding: 22px;

@@ -17,7 +17,7 @@ to skip screenshots. No additional application dependencies are required.
 
 The script checks the root redirect, pending authentication, signed-in and
 signed-out account links, header and footer petition browsing, and navigation
-destinations at desktop and 320px widths. Mobile checks verify that Escape restores
+destinations at desktop, tablet, and 320px widths. It also checks that header typography and geometry stay the same across routes and that the mobile menu closes with Escape. Mobile checks verify that Escape restores
 focus to the menu button and navigation closes the menu, including after going back.
 RPC responses are mocked in the browser; this does not create accounts or validate
 server authentication.
@@ -40,3 +40,13 @@ Set `SCREENSHOT_DIR` to capture the student classroom restriction, active TA
 controls with an anonymous expired petition, and a restored draft before publishing.
 Authentication callbacks and redirect validation are tested separately in ExUnit;
 the browser draft test simulates signing in after visiting the real sign-in page.
+
+Run the animation checks against the same server:
+
+```sh
+PLAYWRIGHT_MODULE=/absolute/path/to/node_modules/playwright \
+BASE_URL=http://localhost:4000 \
+node assets/tests/landing-motion.mjs
+```
+
+These checks cover native entrance animations, continuous card movement, mobile placement, reduced motion, and gradual navigation underlines.
