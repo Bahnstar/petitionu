@@ -37,7 +37,7 @@ export type NotificationAttributesOnlySchema = {
 // Organization Schema
 export type OrganizationResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "allowPublicSignatures" | "description" | "domain" | "id" | "insertedAt" | "logoUrl" | "name" | "updatedAt";
+  __primitiveFields: "allowPublicSignatures" | "description" | "domain" | "id" | "insertedAt" | "logoUrl" | "name" | "updatedAt" | "verificationStatus";
   allowPublicSignatures: boolean | null;
   description: string | null;
   domain: string | null;
@@ -46,13 +46,14 @@ export type OrganizationResourceSchema = {
   logoUrl: string | null;
   name: string | null;
   updatedAt: UtcDateTimeUsec;
+  verificationStatus: "approved" | "pending" | "verified";
 };
 
 
 
 export type OrganizationAttributesOnlySchema = {
   __type: "Resource";
-  __primitiveFields: "allowPublicSignatures" | "description" | "domain" | "id" | "insertedAt" | "logoUrl" | "name" | "updatedAt";
+  __primitiveFields: "allowPublicSignatures" | "description" | "domain" | "id" | "insertedAt" | "logoUrl" | "name" | "updatedAt" | "verificationStatus";
   allowPublicSignatures: boolean | null;
   description: string | null;
   domain: string | null;
@@ -61,6 +62,7 @@ export type OrganizationAttributesOnlySchema = {
   logoUrl: string | null;
   name: string | null;
   updatedAt: UtcDateTimeUsec;
+  verificationStatus: "approved" | "pending" | "verified";
 };
 
 
@@ -611,6 +613,16 @@ export type OrganizationFilterInput = {
     greaterThan?: UtcDateTimeUsec;
     lessThanOrEqual?: UtcDateTimeUsec;
     greaterThanOrEqual?: UtcDateTimeUsec;
+  };
+
+  verificationStatus?: {
+    eq?: "approved" | "pending" | "verified";
+    notEq?: "approved" | "pending" | "verified";
+    in?: Array<"approved" | "pending" | "verified">;
+    lessThan?: "approved" | "pending" | "verified";
+    greaterThan?: "approved" | "pending" | "verified";
+    lessThanOrEqual?: "approved" | "pending" | "verified";
+    greaterThanOrEqual?: "approved" | "pending" | "verified";
   };
 
 
@@ -1824,7 +1836,7 @@ export type UpdateFilterInput = {
 export const notificationFilterFields = ["body", "id", "insertedAt", "status", "title", "updatedAt"] as const;
 export type NotificationFilterField = (typeof notificationFilterFields)[number];
 
-export const organizationFilterFields = ["allowPublicSignatures", "description", "domain", "id", "insertedAt", "logoUrl", "name", "updatedAt"] as const;
+export const organizationFilterFields = ["allowPublicSignatures", "description", "domain", "id", "insertedAt", "logoUrl", "name", "updatedAt", "verificationStatus"] as const;
 export type OrganizationFilterField = (typeof organizationFilterFields)[number];
 
 export const preferenceFilterFields = ["id", "insertedAt", "name", "updatedAt", "value"] as const;
@@ -1864,7 +1876,7 @@ export type UpdateFilterField = (typeof updateFilterFields)[number];
 export const notificationSortFields = ["body", "id", "insertedAt", "status", "title", "updatedAt"] as const;
 export type NotificationSortField = (typeof notificationSortFields)[number];
 
-export const organizationSortFields = ["allowPublicSignatures", "description", "domain", "id", "insertedAt", "logoUrl", "name", "updatedAt"] as const;
+export const organizationSortFields = ["allowPublicSignatures", "description", "domain", "id", "insertedAt", "logoUrl", "name", "updatedAt", "verificationStatus"] as const;
 export type OrganizationSortField = (typeof organizationSortFields)[number];
 
 export const preferenceSortFields = ["id", "insertedAt", "name", "updatedAt", "value"] as const;
