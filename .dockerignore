@@ -1,0 +1,15 @@
+.git
+_build
+deps
+assets/node_modules
+.env
+.env.*
+!.env.example
+.agents
+docs
+test
+tmp
+cover
+erl_crash.dump
+priv/static/assets
+priv/static/cache_manifest.json

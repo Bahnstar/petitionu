@@ -2,6 +2,31 @@
 
 Build the release on the same operating system and architecture as the production host. CI builds on Ubuntu 24.04 with Elixir 1.18.4, Erlang/OTP 27.3, Node 22, and Bun 1.4.0. Use PostgreSQL 16 or later. Native dependencies require a C compiler and make during the build.
 
+## Deploy on Railway
+
+Connect the repository and select the branch containing `railway.json` and
+`Dockerfile`. Set Root Directory to `/` and leave Build Command blank. Railway
+reads the Docker build, start command, pre-deploy migration, and `/healthz` check
+from `railway.json`. Remove conflicting dashboard overrides.
+
+Add a PostgreSQL service in the same project. In the app's Variables tab, set
+`DATABASE_URL` to `${{Postgres.DATABASE_URL}}`, replacing `Postgres` with the
+actual database service name. Use `ECTO_IPV6=true` if the database's private
+hostname resolves only to IPv6. Set `POOL_SIZE=5` for the initial deployment.
+
+Generate a public domain under Networking. Set `PHX_HOST` to that hostname,
+without `https://` or a port. Railway supplies `PORT`; the Docker image enables
+`PHX_SERVER`. Configure `SECRET_KEY_BASE`, `TOKEN_SIGNING_SECRET`,
+`RESEND_API_KEY`, `MAIL_FROM`, and `SUPPORT_EMAIL` as described below and in
+`.env.example`. The release requires these variables during migrations too.
+
+Deploy and check that the pre-deploy migration succeeds and `/healthz` returns
+HTTP 200. Test account email workflows before sharing the app. Railway's free
+allowance is limited; inspect resource usage after the first deployment.
+
+See [Railway config as code](https://docs.railway.com/config-as-code) and
+[Docker builds](https://docs.railway.com/builds/dockerfiles).
+
 ## Build a release
 
 1. Install the pinned CI toolchain and PostgreSQL client tools.
