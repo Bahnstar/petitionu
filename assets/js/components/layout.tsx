@@ -33,24 +33,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   }, [key, hash, navigationType])
 
-  if (pathname.replace(/\/$/, "") === ROUTES.home) {
-    return (
-      <main id="main-content" tabIndex={-1} className="focus:outline-none">
-        {children}
-      </main>
-    )
-  }
+  const landing = pathname.replace(/\/$/, "") === ROUTES.home
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${landing ? " app-shell-landing" : ""}`}>
       <a href="#main-content" className="app-skip-link">
         Skip to content
       </a>
-      <Header />
-      <div id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+      <Header landing={landing} />
+      <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
         {children}
-      </div>
-      <Footer />
+      </main>
+      {!landing && <Footer />}
     </div>
   )
 }

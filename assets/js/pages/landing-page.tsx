@@ -1,5 +1,7 @@
 import { AuthLink } from "../components/auth-link"
-import React from "react"
+import React, { useState } from "react"
+import { LazyMotion, domAnimation, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { Link } from "react-router-dom"
 import { ROUTES } from "@/lib/routes"
 import { useAuth } from "../contexts/auth-context"
@@ -33,28 +35,65 @@ function LandingFooter() {
   )
 }
 
+function LandingPlacards() {
+  const reduceMotion = useReducedMotion()
+  const [settled, setSettled] = useState({ left: false, right: false })
+
+  return (
+    <LazyMotion features={domAnimation} strict>
+      <div className="landing-placards" aria-label="Examples of campus changes">
+        <m.figure
+          className="landing-sign landing-sign-left"
+          data-settled={settled.left}
+          initial={reduceMotion ? false : { transform: "var(--landing-sign-enter)" }}
+          whileInView={{ transform: "none" }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: reduceMotion ? 0 : 0.85, ease: [0.25, 0.1, 0.25, 1] }}
+          onAnimationComplete={() => setSettled((value) => ({ ...value, left: true }))}
+        >
+          <span>For the late-night thinkers</span>
+          <strong>
+            Late labs.
+            <br />
+            Later library.
+          </strong>
+          <span className="hero-moon size-9" aria-hidden="true" />
+          <figcaption>A little more time to learn.</figcaption>
+        </m.figure>
+        <m.figure
+          className="landing-sign landing-sign-right"
+          data-settled={settled.right}
+          initial={reduceMotion ? false : { transform: "var(--landing-sign-enter)" }}
+          whileInView={{ transform: "none" }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.85,
+            delay: reduceMotion ? 0 : 0.09,
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
+          onAnimationComplete={() => setSettled((value) => ({ ...value, right: true }))}
+        >
+          <span>For everyone finding their people</span>
+          <strong>
+            More room
+            <br />
+            to belong.
+          </strong>
+          <div className="landing-linked-circles" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </div>
+          <figcaption>Let's make space for each other.</figcaption>
+        </m.figure>
+      </div>
+    </LazyMotion>
+  )
+}
+
 export function LandingPage() {
   return (
     <div id="landing-page" className="landing-page">
-      <header id="landing-header" className="landing-header">
-        <a href="#landing-top" className="landing-brand" aria-label="PetitionU home">
-          PetitionU<span aria-hidden="true">✳</span>
-        </a>
-        <nav aria-label="Main navigation">
-          <Link id="landing-header-browse" to={ROUTES.petitions}>
-            Browse petitions
-          </Link>
-          <a href="#landing-how">How it works</a>
-          <a href="#landing-why">Why PetitionU</a>
-        </nav>
-        <div>
-          <LandingAccountLink id="landing-header-account" />
-          <Link id="landing-header-create" className="landing-cta" to={ROUTES.createPetition}>
-            Start a petition
-          </Link>
-        </div>
-      </header>
-
       <section id="landing-top" className="landing-hero">
         <div className="landing-introduction">
           <p>For the things worth speaking up about.</p>
@@ -76,32 +115,7 @@ export function LandingPage() {
           </div>
           <span className="landing-small-note">One idea is a good place to start.</span>
         </div>
-        <div className="landing-placards" aria-label="Examples of campus changes">
-          <figure className="landing-sign landing-sign-left">
-            <span>For the late-night thinkers</span>
-            <strong>
-              Late labs.
-              <br />
-              Later library.
-            </strong>
-            <span className="hero-moon size-9" aria-hidden="true" />
-            <figcaption>A little more time to learn.</figcaption>
-          </figure>
-          <figure className="landing-sign landing-sign-right">
-            <span>For everyone finding their people</span>
-            <strong>
-              More room
-              <br />
-              to belong.
-            </strong>
-            <div className="landing-linked-circles" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </div>
-            <figcaption>Let's make space for each other.</figcaption>
-          </figure>
-        </div>
+        <LandingPlacards />
         <div className="landing-groundline">
           <span>A small ask</span>
           <span aria-hidden="true">⟶</span>
