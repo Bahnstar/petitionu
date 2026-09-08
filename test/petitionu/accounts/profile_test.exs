@@ -18,7 +18,7 @@ defmodule Petitionu.Accounts.ProfileTest do
   end
 
   defp organization!(domain \\ "campus.edu") do
-    Ash.Seed.seed!(Organization, %{name: "Campus", domain: domain})
+    Ash.Seed.seed!(Organization, %{name: "Campus", domain: domain, verification_status: :approved})
   end
 
   defp save_profile(user, attrs, actor) do
@@ -54,15 +54,27 @@ defmodule Petitionu.Accounts.ProfileTest do
     assert Exception.message(error) =~ "Confirm your email"
   end
 
-  test "unknown, suffix and ambiguous campus domains require support" do
+  test "unknown and suffix campus domains require support; duplicate domains are rejected" do
     organization!("othercampus.edu")
     user = user!()
     assert {:error, error} = save_profile(user, @profile, user)
     assert Exception.message(error) =~ "support"
     organization!()
-    organization!(" CAMPUS.EDU ")
-    assert {:error, error} = save_profile(user, @profile, user)
-    assert Exception.message(error) =~ "support"
+    assert_raise Ash.Error.Invalid, fn -> organization!(" CAMPUS.EDU ") end
+  end
+
+  test "profile completion cannot activate a pending school" do
+    organization = Ash.Seed.seed!(Organization, %{domain: "campus.edu"})
+    user = user!(%{pending_organization_id: organization.id})
+    assert {:error, _} = save_profile(user, @profile, user)
+    assert is_nil(Ash.get!(User, user.id, authorize?: false).organization_id)
+  end
+
+  test "profile completion preserves the verified school assigned from a student subdomain" do
+    organization = organization!()
+    user = user!(%{email: "student@students.campus.edu", organization_id: organization.id})
+    assert {:ok, updated} = save_profile(user, @profile, user)
+    assert updated.organization_id == organization.id
   end
 
   test "required names and optional graduation year are validated" do
@@ -167,7 +179,7 @@ defmodule Petitionu.Accounts.ProfileTest do
 
     for target <- [
           user!(),
-          user!(%{organization_id: organization!().id}),
+          user!(%{organization_id: organization!("other-campus.edu").id}),
           user!(%{organization_id: organization.id, role: :superadmin})
         ] do
       assert {:error, _} =
