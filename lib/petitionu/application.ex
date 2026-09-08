@@ -10,6 +10,7 @@ defmodule Petitionu.Application do
     children = [
       PetitionuWeb.Telemetry,
       Petitionu.Repo,
+      {Oban, Application.fetch_env!(:petitionu, Oban)},
       {DNSCluster, query: Application.get_env(:petitionu, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Petitionu.PubSub},
       # Start a worker by calling: Petitionu.Worker.start_link(arg)

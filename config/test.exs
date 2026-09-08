@@ -1,4 +1,6 @@
 import Config
+config :petitionu, Oban, testing: :manual
+config :petitionu, :school_registry, Petitionu.RegistryStub
 config :petitionu, token_signing_secret: "Tq4jsIKVUGUMemv5i0T6DIWjU7TjwnDI"
 config :bcrypt_elixir, log_rounds: 1
 config :ash, policies: [show_policy_breakdowns?: true], disable_async?: true

@@ -283,6 +283,33 @@ defmodule Petitionu.Accounts.User do
       change Petitionu.Accounts.User.Changes.AssignCampus
     end
 
+    update :assign_organization do
+      accept [:organization_id, :pending_organization_id]
+    end
+
+    update :activate_pending_organization do
+      accept []
+      atomic_upgrade? false
+      require_atomic? false
+      argument :organization_id, :uuid, allow_nil?: false
+      argument :domain, :ci_string, allow_nil?: false
+      argument :email, :ci_string, allow_nil?: false
+
+      change filter(
+               expr(
+                 is_nil(organization_id) and not is_nil(confirmed_at) and
+                   email == ^arg(:email) and pending_organization_id == ^arg(:organization_id) and
+                   exists(
+                     pending_organization,
+                     domain == ^arg(:domain) and verification_status in [:verified, :approved]
+                   )
+               )
+             )
+
+      change set_attribute(:organization_id, arg(:organization_id))
+      change set_attribute(:pending_organization_id, nil)
+    end
+
     update :set_role do
       description "Admin action to set a user's role"
       accept [:role]
@@ -391,6 +418,12 @@ defmodule Petitionu.Accounts.User do
     end
   end
 
+  changes do
+    change Petitionu.Accounts.User.Changes.AssignOrganization,
+      on: [:create, :update],
+      where: [action_is([:confirm, :sign_in_with_magic_link, :reset_password_with_token])]
+  end
+
   attributes do
     uuid_primary_key :id
 
@@ -440,6 +473,8 @@ defmodule Petitionu.Accounts.User do
       public? true
       attribute_public? true
     end
+
+    belongs_to :pending_organization, Petitionu.Accounts.Organization
 
     has_many :petitions, Petitionu.Post.Petition do
       public? true

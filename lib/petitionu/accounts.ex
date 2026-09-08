@@ -44,7 +44,14 @@ defmodule Petitionu.Accounts do
       define :set_user_role, action: :set_role
     end
 
-    resource Petitionu.Accounts.Organization
+    resource Petitionu.Accounts.Organization do
+      define :organization_by_domain, action: :by_domain, args: [:domain], not_found_error?: false
+
+      define :get_or_create_organization_by_domain,
+        action: :get_or_create_by_domain,
+        args: [:domain]
+    end
+
     resource Petitionu.Accounts.Preference
     resource Petitionu.Accounts.Notification
   end

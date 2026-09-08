@@ -7,6 +7,12 @@
 # General application configuration
 import Config
 
+config :petitionu, Oban,
+  repo: Petitionu.Repo,
+  queues: [school_registry: 1],
+  lifeline: [rescue_after: {5, :minutes}],
+  pruner: [max_age: {7, :days}]
+
 config :ash_typescript,
   manifest: Petitionu.AshTypescriptManifest,
   output_file: "assets/js/ash_rpc.ts",
