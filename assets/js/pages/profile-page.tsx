@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Link } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -10,6 +9,7 @@ import { buildCSRFHeaders, updateMyProfile } from "../ash_rpc"
 import { useAuth, type CurrentUser } from "../contexts/auth-context"
 import { AuthLink } from "../components/auth-link"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { ProfileConnection } from "../features/profile/profile-connection"
 
 export default function ProfilePage() {
   useDocumentTitle("Your profile")
@@ -93,34 +93,12 @@ function ProfileForm({ user }: { user: CurrentUser }) {
       <p className="app-page-description mt-3">
         Complete your profile to create petitions, sign, and join your campus community.
       </p>
-      <Card className="mt-8 gap-0 rounded-2xl p-6 shadow-none">
-        <div className="mb-6 space-y-2 border-b border-border pb-6">
-          <p className="text-sm font-medium">{user.email}</p>
-          <p className="text-sm text-muted-foreground">
-            {user.emailVerified
-              ? "Email confirmed"
-              : "Check your inbox and confirm your email before saving your profile."}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {user.organization?.name
-              ? `Campus: ${user.organization.name}`
-              : "Your campus will be matched using your confirmed email address."}
-          </p>
-          {!user.emailVerified && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["currentUser"] })}
-            >
-              I confirmed my email
-            </Button>
-          )}
-          <p className="text-sm">
-            <Link className="underline underline-offset-4" to="/ash-typescript/support">
-              Need help with your email or campus?
-            </Link>
-          </p>
-        </div>
+      <ProfileConnection user={user} />
+      <Card className="mt-6 gap-0 rounded-2xl p-5 shadow-none sm:p-7">
+        <h2 className="text-lg font-semibold">Profile details</h2>
+        <p className="mt-1 mb-6 text-sm text-muted-foreground">
+          The name your campus community will see.
+        </p>
         <form id="profile-form" onSubmit={submit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="profile-first-name">First name</Label>
