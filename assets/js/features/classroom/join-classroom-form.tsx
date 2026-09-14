@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { joinClassroomByCode, buildCSRFHeaders } from "@/js/ash_rpc"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,11 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [joinedName, setJoinedName] = useState<string | null>(null)
   const queryClient = useQueryClient()
+  const codeInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (error) codeInput.current?.focus()
+  }, [error])
 
   const joinMutation = useMutation({
     mutationFn: async (code: string) => {
@@ -47,6 +52,7 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
     e.preventDefault()
     if (!joinCode.trim()) {
       setError("Please enter a join code")
+      codeInput.current?.focus()
       return
     }
     setError(null)
@@ -65,6 +71,8 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
           <Label htmlFor="join-code">Join code</Label>
           <Input
             id="join-code"
+            ref={codeInput}
+            aria-required="true"
             type="text"
             placeholder="Enter or paste your code"
             value={joinCode}
