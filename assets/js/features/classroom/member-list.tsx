@@ -137,7 +137,7 @@ export function MemberList({
                 key={membership.id}
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
               >
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <div className="flex min-w-0 flex-[1_1_12rem] flex-wrap items-center gap-2">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
                     <User className="h-4 w-4" />
                   </div>
@@ -196,7 +196,7 @@ export function MemberList({
                 key={membership.id}
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
               >
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <div className="flex min-w-0 flex-[1_1_12rem] flex-wrap items-center gap-2">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary">
                     <User className="h-4 w-4" />
                   </div>

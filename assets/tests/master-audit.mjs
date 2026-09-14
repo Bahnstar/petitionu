@@ -83,6 +83,7 @@ async function check(name, options, run) {
     viewport: { width: 1440, height: 900 },
     reducedMotion: "reduce",
   })
+  await context.routeWebSocket(/\/phoenix\/live_reload\/socket\//, (socket) => socket.close())
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
   page.setDefaultNavigationTimeout(30000)
@@ -104,14 +105,14 @@ async function check(name, options, run) {
         },
         {
           id: "pending",
-          memberName: "Sam",
+          memberName: options.longContent ? "Sam".repeat(35) : "Sam",
           user: { id: "other", firstName: "Sam" },
           role: "student",
           status: "pending",
         },
         {
           id: "active",
-          memberName: "Jo",
+          memberName: options.longContent ? "Jo".repeat(50) : "Jo",
           user: { id: "active-user", firstName: "Jo" },
           role: "student",
           status: "active",
@@ -141,15 +142,21 @@ async function check(name, options, run) {
     const request = route.request().postDataJSON()
     calls.push(request)
     const currentUser = getCurrentUser()
-    const currentPetition = {
-      ...petition,
-      deadline: getDeadline(),
-      signaturesCount: signatures,
-      hasSigned: signatures > 3,
-      canManage: !!options.owner,
-      ...changes,
-      updates,
+    function getCurrentPetition() {
+      return {
+        ...petition,
+        title: options.longContent ? "Library".repeat(14) : petition.title,
+        description: options.longContent ? "Description".repeat(40) : petition.description,
+        author: options.longContent ? "Author".repeat(20) : petition.author,
+        deadline: getDeadline(),
+        signaturesCount: signatures,
+        hasSigned: signatures > 3,
+        canManage: !!options.owner,
+        ...changes,
+        updates,
+      }
     }
+    const currentPetition = getCurrentPetition()
     if (request.action === "update_petition" && rejectOwnerChange) {
       rejectOwnerChange = false
       await route.fulfill({
@@ -157,63 +164,90 @@ async function check(name, options, run) {
       })
       return
     }
-    let data
-    switch (request.action) {
-      case "get_me":
-        data = currentUser
-        break
-      case "get_user_by_id":
-        data = currentUser
-        break
-      case "get_categories":
-        data = [petition.category]
-        break
-      case "get_my_classrooms":
-        data = [{ ...classroom, petitionCount }]
-        break
-      case "get_classroom_by_id":
-        data = { ...classroom, petitionCount }
-        break
-      case "get_classroom_petitions":
-      case "get_petitions":
-        data = [currentPetition]
-        break
-      case "get_memberships_for_classroom":
-        data = getMemberships()
-        break
-      case "update_petition":
-        Object.assign(changes, request.input)
-        data = { id: petition.id }
-        break
-      case "create_update":
-        updates.push({ id: "update-1", ...request.input })
-        data = { id: "update-1" }
-        break
-      case "close_petition":
-        changes.status = "closed"
-        data = { id: petition.id }
-        break
-      case "mark_petition_victory":
-        changes.status = "victory"
-        data = { id: petition.id }
-        break
-      case "create_signature":
-        signatures++
-        data = { id: "signature-1" }
-        break
-      case "create_classroom_petition":
-      case "create_petition":
-        petitionCount++
-        data = { id: "new-petition" }
-        break
-      case "approve_membership":
-      case "remove_from_classroom":
-        data = { id: request.identity }
-        break
-      default:
-        data = []
+    function getClassroom() {
+      return {
+        ...classroom,
+        petitionCount,
+        name: options.longContent ? "Classroom".repeat(20) : classroom.name,
+        description: options.longContent ? "Description".repeat(30) : "Class discussion",
+        professorId: options.role === "professor" ? user.id : classroom.professorId,
+        joinCode: "a-long-classroom-join-code",
+      }
     }
-    await route.fulfill({ json: { success: true, data: select(data, request.fields) } })
+    if (
+      options.rejectForm &&
+      ["join_classroom_by_code", "create_classroom", "create_petition"].includes(request.action)
+    ) {
+      await route.fulfill({
+        json: {
+          success: false,
+          errors: [{ message: "Please try again. " + "Details".repeat(60) }],
+        },
+      })
+      return
+    }
+    function getResponseData() {
+      let data
+      switch (request.action) {
+        case "get_me":
+          data = currentUser
+          break
+        case "get_user_by_id":
+          data = currentUser
+          break
+        case "get_categories":
+          data = [petition.category]
+          break
+        case "get_my_classrooms":
+          data = [getClassroom()]
+          break
+        case "get_classroom_by_id":
+          data = getClassroom()
+          break
+        case "get_classroom_petitions":
+        case "get_petitions":
+          data = [currentPetition]
+          break
+        case "get_memberships_for_classroom":
+          data = getMemberships()
+          break
+        case "update_petition":
+          Object.assign(changes, request.input)
+          data = { id: petition.id }
+          break
+        case "create_update":
+          updates.push({ id: "update-1", ...request.input })
+          data = { id: "update-1" }
+          break
+        case "close_petition":
+          changes.status = "closed"
+          data = { id: petition.id }
+          break
+        case "mark_petition_victory":
+          changes.status = "victory"
+          data = { id: petition.id }
+          break
+        case "create_signature":
+          signatures++
+          data = { id: "signature-1" }
+          break
+        case "create_classroom_petition":
+        case "create_petition":
+          petitionCount++
+          data = { id: "new-petition" }
+          break
+        case "approve_membership":
+        case "remove_from_classroom":
+          data = { id: request.identity }
+          break
+        default:
+          data = []
+      }
+      return data
+    }
+    await route.fulfill({
+      json: { success: true, data: select(getResponseData(), request.fields) },
+    })
   })
   try {
     await run(page, calls, () => {
@@ -228,6 +262,187 @@ async function check(name, options, run) {
   }
 }
 try {
+  for (const width of [320, 375, 768, 1024]) {
+    await check(
+      `mobile long classroom content at ${width}px`,
+      { longContent: true, role: "professor", open: true },
+      async (page) => {
+        await page.setViewportSize({ width, height: 800 })
+        await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
+        await page.getByRole("heading", { level: 1 }).waitFor()
+        await page
+          .getByRole("button", { name: /^Promote/ })
+          .first()
+          .waitFor()
+        await page.evaluate(() => document.fonts.ready)
+        assert.equal(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          true,
+          "classroom overflows viewport: " +
+            (await page.evaluate(() =>
+              [...document.querySelectorAll("main *")]
+                .filter((e) => e.getBoundingClientRect().right > innerWidth)
+                .slice(0, 12)
+                .map((e) => e.tagName + "." + e.className)
+                .join("\n"),
+            )),
+        )
+        for (const button of await page.locator("main button").all()) {
+          const box = await button.boundingBox()
+          assert.ok(
+            box && box.x >= 0 && box.x + box.width <= width,
+            "classroom control outside viewport",
+          )
+          assert.ok(
+            (await button.getAttribute("aria-label")) || (await button.innerText()).trim(),
+            "control needs accessible name",
+          )
+        }
+        await capture(page, `mobile-classroom-${width}.png`)
+        await page.locator("#petition-petition-1").click()
+        await page.getByRole("heading", { level: 1, name: "Library".repeat(14) }).waitFor()
+        assert.equal(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          true,
+          "petition detail overflows viewport",
+        )
+        await page.goto(`${home}/classrooms`, { waitUntil: "domcontentloaded" })
+        await page.getByRole("heading", { name: "Classroom".repeat(20), exact: true }).waitFor()
+        assert.equal(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          true,
+          "classroom cards overflow viewport",
+        )
+      },
+    )
+  }
+  await check("mobile keyboard navigation retains visible focus", {}, async (page) => {
+    await page.setViewportSize({ width: 320, height: 800 })
+    await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
+    await page.locator("#navigation-toggle").focus()
+    await page.keyboard.press("Enter")
+    await page.keyboard.press("Shift+Tab")
+    await page.keyboard.press("Escape")
+    assert.equal(
+      await page
+        .locator("#navigation-toggle")
+        .evaluate((element) => element === document.activeElement),
+      true,
+    )
+    assert.equal(await page.locator("#navigation-toggle").getAttribute("aria-expanded"), "false")
+    await page.locator("#petition-petition-1").focus()
+    assert.equal(
+      await page.locator("#petition-petition-1 a, #petition-petition-1 button").count(),
+      0,
+    )
+    assert.equal(
+      await page
+        .locator("#petition-petition-1")
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).outlineStyle !== "none" &&
+            parseFloat(getComputedStyle(element).outlineWidth) >= 2,
+        ),
+      true,
+    )
+    await page.keyboard.press("Enter")
+    await page.waitForURL(`${home}/petitions/petition-1`)
+  })
+  await check(
+    "mobile classroom validation focuses the invalid field",
+    { role: "professor" },
+    async (page) => {
+      await page.setViewportSize({ width: 320, height: 800 })
+      await page.goto(`${home}/classrooms/new`, { waitUntil: "domcontentloaded" })
+      await page.locator("#create-classroom-form button[type=submit]").click()
+      await page.locator("#classroom-name-error").waitFor()
+      assert.equal(await page.locator("#name").getAttribute("aria-invalid"), "true")
+      assert.equal(
+        await page.locator("#name").getAttribute("aria-describedby"),
+        "classroom-name-error",
+      )
+      assert.equal(
+        await page.locator("#name").evaluate((element) => element === document.activeElement),
+        true,
+      )
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+      )
+    },
+  )
+  await check("mobile join validation focuses the invalid field", {}, async (page) => {
+    await page.setViewportSize({ width: 320, height: 800 })
+    await page.goto(`${home}/classrooms`, { waitUntil: "domcontentloaded" })
+    await page.locator("#join-classroom-form button[type=submit]").click()
+    await page.locator("#join-code-error").waitFor()
+    assert.equal(
+      await page.locator("#join-code").evaluate((element) => element === document.activeElement),
+      true,
+    )
+  })
+  await check(
+    "mobile server errors wrap within classroom forms",
+    { role: "professor", rejectForm: true },
+    async (page) => {
+      await page.setViewportSize({ width: 320, height: 800 })
+      await page.goto(`${home}/classrooms/new`, { waitUntil: "domcontentloaded" })
+      await page.locator("#name").fill("Campus ideas")
+      await page.locator("#create-classroom-form button[type=submit]").click()
+      await page.locator("#create-classroom-form [role=alert]").waitFor()
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+        "server error overflows viewport",
+      )
+      assert.equal(await page.locator("#name").inputValue(), "Campus ideas")
+      assert.equal(
+        await page
+          .locator("#create-classroom-form [role=alert]")
+          .evaluate((e) => e === document.activeElement),
+        true,
+      )
+      await page.locator("#name").focus()
+      await page.locator("#name").press("End")
+      await page.keyboard.type(" revised")
+      assert.equal(await page.locator("#name").inputValue(), "Campus ideas revised")
+      await page.goto(`${home}/classrooms`, { waitUntil: "domcontentloaded" })
+      await page.locator("#join-code").fill("invalid-code")
+      await page.locator("#join-classroom-form button[type=submit]").click()
+      await page.locator("#join-code-error").waitFor()
+      assert.equal(
+        await page.locator("#join-code").evaluate((e) => e === document.activeElement),
+        true,
+      )
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+        "join error overflows viewport",
+      )
+      await capture(page, "mobile-join-error.png")
+    },
+  )
+  await check("mobile petition server error receives focus", { rejectForm: true }, async (page) => {
+    await page.setViewportSize({ width: 320, height: 800 })
+    await page.goto(`${home}/create`, { waitUntil: "domcontentloaded" })
+    await page.locator("#title").fill("Keep the library open later")
+    await page.locator("#description").fill("Longer hours during finals would help students.")
+    await page.locator("#category").click()
+    await page.getByRole("option", { name: "Campus", exact: true }).click()
+    await page.locator("#publish-petition").click()
+    await page.locator("#petition-submit-error").waitFor()
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+      "petition error overflows viewport",
+    )
+    assert.equal(
+      await page.locator("#petition-submit-error").evaluate((e) => e === document.activeElement),
+      true,
+    )
+    assert.equal(await page.locator("#title").inputValue(), "Keep the library open later")
+    await capture(page, "mobile-petition-error.png")
+  })
   await check(
     "owner edits, posts updates, and confirms closure",
     { owner: true, open: true },

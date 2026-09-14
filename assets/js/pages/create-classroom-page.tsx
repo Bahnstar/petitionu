@@ -1,5 +1,5 @@
 import { AuthLink } from "../components/auth-link"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
 import { ArrowLeft, Loader2 } from "lucide-react"
@@ -26,6 +26,16 @@ export default function CreateClassroomPage() {
     allowStudentPetitions: true,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const nameInput = useRef<HTMLInputElement>(null)
+  const errorSummary = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (errors.name) nameInput.current?.focus()
+  }, [errors.name])
+
+  useEffect(() => {
+    if (errors.general) errorSummary.current?.focus()
+  }, [errors.general])
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -66,6 +76,7 @@ export default function CreateClassroomPage() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
+      nameInput.current?.focus()
       return
     }
 
@@ -157,6 +168,8 @@ export default function CreateClassroomPage() {
           <form id="create-classroom-form" onSubmit={handleSubmit} className="space-y-7">
             {errors.general && (
               <div
+                ref={errorSummary}
+                tabIndex={-1}
                 role="alert"
                 className="rounded-lg border border-destructive/20 bg-destructive/10 p-4"
               >
@@ -170,6 +183,8 @@ export default function CreateClassroomPage() {
               </Label>
               <Input
                 id="name"
+                ref={nameInput}
+                aria-required="true"
                 type="text"
                 placeholder="e.g., Introduction to Political Science"
                 aria-invalid={!!errors.name}

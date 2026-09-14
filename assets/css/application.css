@@ -1,5 +1,9 @@
 /* The landing page's mint invitation, adapted for everyday campus work. */
 @layer components {
+  .app-shell,
+  .auth-page {
+    overflow-wrap: anywhere;
+  }
   .app-shell {
     min-height: 100vh;
     display: flex;

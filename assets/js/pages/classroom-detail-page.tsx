@@ -39,7 +39,7 @@ function ClassroomDetailLoadingState() {
         <div className="mb-2 h-10 w-64 animate-pulse rounded-lg bg-muted" />
         <div className="mb-8 h-4 w-full max-w-96 animate-pulse rounded-lg bg-muted" />
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
+          <div className="min-w-0 space-y-6 lg:col-span-2">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
                 <div className="mb-4 h-6 w-48 animate-pulse rounded-lg bg-muted" />
@@ -389,7 +389,7 @@ export default function ClassroomDetailPage() {
   function renderClassroomHeader() {
     return (
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <h1 className="app-page-heading">{classroom?.name}</h1>
             {classroom?.archived && (
@@ -553,7 +553,7 @@ export default function ClassroomDetailPage() {
         {/* Main Content */}
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Left Column - Petitions */}
-          <div className="space-y-6 lg:col-span-2">
+          <div className="min-w-0 space-y-6 lg:col-span-2">
             {renderPetitionHeading()}
 
             {renderPetitions()}

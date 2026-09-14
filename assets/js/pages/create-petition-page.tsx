@@ -5,7 +5,7 @@ import {
   type PetitionDraft,
 } from "../lib/petition-draft"
 import { AuthLink } from "../components/auth-link"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -79,6 +79,10 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     else savePetitionDraft(classroomId, formData)
   }, [classroomId, formData, createdId])
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const errorSummary = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    if (submitError) errorSummary.current?.focus()
+  }, [submitError])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const categoryQuery = useQuery({
     queryKey: ["categories"],
@@ -250,6 +254,8 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
           {submitError ? (
             <p
               id="petition-submit-error"
+              ref={errorSummary}
+              tabIndex={-1}
               role="alert"
               className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
             >
