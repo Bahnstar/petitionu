@@ -39,6 +39,7 @@ async function openHeaderMenu(page) {
 }
 
 async function headerMetrics(page) {
+  await page.evaluate(() => document.fonts.ready)
   return page.locator(".site-header").evaluate((header) => {
     const measure = (element) => {
       const rect = element.getBoundingClientRect()
@@ -105,8 +106,8 @@ try {
         )
         assert.equal(
           await page.locator(`#landing-header a[href="${home}/petitions"]`).count(),
-          1,
-          "Browse petitions remains available while authentication loads",
+          0,
+          "Browse petitions stays hidden while authentication loads",
         )
         releaseAuth()
 
@@ -121,7 +122,7 @@ try {
           assert.equal(await account.textContent(), state === "user" ? "My dashboard" : "Sign in")
           assert.equal(
             await page.locator(`${region} a[href="${home}/petitions"]`).isVisible(),
-            true,
+            state === "user",
           )
         }
         if (state === "user")
@@ -156,34 +157,39 @@ try {
           })
         }
 
-        await openHeaderMenu(page)
-        await page.locator(`#landing-header a[href="${home}/petitions"]`).click()
-        await page.waitForURL(`${home}/petitions`)
-        assert.equal(
-          await page.evaluate(
-            () => window.originalHeader === document.querySelector(".site-header"),
-          ),
-          true,
-          "Navigation must keep the same header DOM node",
-        )
-        assert.deepEqual(
-          await headerMetrics(page),
-          metrics,
-          "Header, logo, button and Browse link must preserve geometry and typography across routes",
-        )
-        const appHeader = await page.locator("#app-header").boundingBox()
-        assert(
-          Math.abs(appHeader.width - landingHeader.width) < 1,
-          "Application and landing headers must have the same width",
-        )
-        assert(
-          Math.abs(appHeader.x - landingHeader.x) < 1,
-          "Application and landing headers must have the same side margins",
-        )
-        await page.goBack()
-        await page.locator("#landing-header").waitFor()
-        await page.locator(`.landing-footer a[href="${home}/petitions"]`).click()
-        await page.waitForURL(`${home}/petitions`)
+        if (state === "user") {
+          await openHeaderMenu(page)
+          await page.locator(`#landing-header a[href="${home}/petitions"]`).click()
+          await page.waitForURL(`${home}/petitions`)
+          assert.equal(
+            await page.evaluate(
+              () => window.originalHeader === document.querySelector(".site-header"),
+            ),
+            true,
+            "Navigation must keep the same header DOM node",
+          )
+          assert.deepEqual(
+            await headerMetrics(page),
+            metrics,
+            "Header, logo, button and Browse link must preserve geometry and typography across routes",
+          )
+          const appHeader = await page.locator("#app-header").boundingBox()
+          assert(
+            Math.abs(appHeader.width - landingHeader.width) < 1,
+            "Application and landing headers must have the same width",
+          )
+          assert(
+            Math.abs(appHeader.x - landingHeader.x) < 1,
+            "Application and landing headers must have the same side margins",
+          )
+          await page.goBack()
+          await page.locator("#landing-header").waitFor()
+          await page.locator(`.landing-footer a[href="${home}/petitions"]`).click()
+          await page.waitForURL(`${home}/petitions`)
+        } else {
+          await page.goto(`${home}/petitions`)
+          await page.waitForURL("/sign-in")
+        }
 
         for (const region of ["#landing-header", ".landing-footer"]) {
           await page.goto(home, { waitUntil: "domcontentloaded" })

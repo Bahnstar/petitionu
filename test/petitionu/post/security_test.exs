@@ -148,10 +148,10 @@ defmodule Petitionu.Post.SecurityTest do
 
     for actor <- [nil, ctx.owner, ctx.signer] do
       petition =
-        Ash.get!(Petition, ctx.petition.id,
-          actor: actor,
-          load: [:signatures_count, :has_signed, :can_manage, :signatures]
-        )
+        Petition
+        |> Ash.Query.for_read(:get_by_id, %{id: ctx.petition.id}, actor: actor)
+        |> Ash.Query.load([:signatures_count, :has_signed, :can_manage, :signatures])
+        |> Ash.read_one!()
 
       assert petition.signatures_count == 1
       assert petition.has_signed == (actor == ctx.signer)

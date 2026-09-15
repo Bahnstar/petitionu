@@ -1,3 +1,4 @@
+import { AuthLink } from "../components/auth-link"
 import { useAuth } from "../contexts/auth-context"
 import { useCurrentTime } from "../hooks/use-current-time"
 import { useState } from "react"
@@ -28,6 +29,24 @@ const SORT_OPTIONS = [
 type Petition = CleanResource<PetitionResourceSchema>
 
 export default function BrowsePetitionsPage() {
+  const { user, isLoading } = useAuth()
+  if (isLoading)
+    return (
+      <main className="app-page" role="status">
+        Loading your account…
+      </main>
+    )
+  if (!user)
+    return (
+      <main className="app-page">
+        <h1 className="app-page-heading">Sign in to browse petitions</h1>
+        <AuthLink>Sign in</AuthLink>
+      </main>
+    )
+  return <AuthenticatedBrowsePetitionsPage />
+}
+
+function AuthenticatedBrowsePetitionsPage() {
   function renderCampusScope() {
     if (user?.organizationId) {
       return (

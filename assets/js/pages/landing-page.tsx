@@ -21,14 +21,17 @@ function LandingAccountLink({ id }: { id: string }) {
 }
 
 function LandingFooter() {
+  const { isAuthenticated } = useAuth()
   return (
     <footer className="landing-footer">
       <span>PetitionU</span>
       <p>A place for student voices.</p>
       <nav aria-label="Footer navigation">
-        <Link id="landing-footer-browse" to={ROUTES.petitions}>
-          Browse petitions
-        </Link>
+        {isAuthenticated ? (
+          <Link id="landing-footer-browse" to={ROUTES.petitions}>
+            Browse petitions
+          </Link>
+        ) : null}
         <LandingAccountLink id="landing-footer-account" />
       </nav>
     </footer>
