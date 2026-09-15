@@ -7,8 +7,8 @@ import {
   buildCSRFHeaders,
   createComment,
   createSignature,
-  getPetitions,
-  type GetPetitionsFields,
+  getPetitionById,
+  type GetPetitionByIdFields,
 } from "../ash_rpc"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { Button } from "@/components/ui/button"
@@ -19,8 +19,9 @@ import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 
-async function loadPetition(id: string | undefined) {
-  const result = await getPetitions({
+async function loadPetition(id: string, authenticated: boolean) {
+  const result = await getPetitionById({
+    input: { id },
     fields: [
       "id",
       "title",
@@ -40,16 +41,19 @@ async function loadPetition(id: string | undefined) {
       "deadline",
       "insertedAt",
       { category: ["id", "name"] },
-      { comments: ["id", "text", "insertedAt", "author"] },
-      { signatures: ["id", "reason", "insertedAt"] },
-      { updates: ["id", "title", "body", "insertedAt"] },
-    ] as const satisfies GetPetitionsFields,
-    filter: { id: { eq: id } },
+      ...(authenticated
+        ? ([
+            { comments: ["id", "text", "insertedAt", "author"] },
+            { signatures: ["id", "reason", "insertedAt"] },
+            { updates: ["id", "title", "body", "insertedAt"] },
+          ] satisfies GetPetitionByIdFields)
+        : []),
+    ] as const satisfies GetPetitionByIdFields,
     headers: buildCSRFHeaders(),
   })
   if (result.success === false)
     throw new Error("This petition couldn't be loaded. Please try again.")
-  return result.data[0] ?? null
+  return result.data ?? null
 }
 
 type Petition = NonNullable<Awaited<ReturnType<typeof loadPetition>>>
@@ -160,6 +164,91 @@ function PetitionContent({ petition }: { petition: Petition }) {
     !!(petition.deadline && new Date(petition.deadline).getTime() <= now)
   const canParticipate = !!(user?.emailVerified && user.profileComplete)
   const signed = signatureMutation.isSuccess || petition.hasSigned
+
+  function renderBackLink() {
+    return (
+      <Link
+        to={user ? ROUTES.petitions : ROUTES.home}
+        className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+      >
+        <span className="hero-arrow-left size-4" aria-hidden="true" />
+        {user ? "Browse petitions" : "Home"}
+      </Link>
+    )
+  }
+
+  function renderActivity() {
+    return user ? (
+      <>
+        <section aria-labelledby="petition-supporters-heading">
+          <h2
+            id="petition-supporters-heading"
+            className="mb-5 font-display text-3xl tracking-tight"
+          >
+            Voices behind the idea.
+          </h2>
+          {signatures.length > 0 ? (
+            <div className="divide-y divide-border">
+              {[...signatures]
+                .sort((a, b) => (b.insertedAt ?? "").localeCompare(a.insertedAt ?? ""))
+                .slice(0, 5)
+                .map((signature) => (
+                  <div key={signature.id} className="py-5 first:pt-0">
+                    <div className="flex flex-wrap justify-between gap-2 text-xs">
+                      <span className="font-medium">A campus supporter</span>
+                      {signature.insertedAt ? (
+                        <span className="text-muted-foreground">
+                          {new Date(signature.insertedAt).toLocaleDateString()}
+                        </span>
+                      ) : null}
+                    </div>
+                    {signature.reason ? (
+                      <p className="mt-2 text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
+                        “{signature.reason}”
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p className="text-sm leading-7 text-muted-foreground">
+              {closed
+                ? "This petition closed without signatures."
+                : "Be the first to stand behind this idea."}
+            </p>
+          )}
+        </section>
+        <ReportContent petitionId={petition.id} />
+        <section id="petition-comments" aria-labelledby="petition-comments-heading">
+          <h2 id="petition-comments-heading" className="mb-5 font-display text-3xl tracking-tight">
+            The conversation{" "}
+            <span className="font-sans text-sm text-muted-foreground">({comments.length})</span>
+          </h2>
+          {renderCommentForm()}
+          <div className="divide-y divide-border">
+            {comments.map((comment) => (
+              <div key={comment.id} className="py-5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="font-medium">
+                    {comment.author || "A campus community member"}
+                  </span>
+                  {comment.insertedAt ? (
+                    <span className="text-muted-foreground">
+                      {new Date(comment.insertedAt).toLocaleDateString()}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
+                  {comment.text}
+                </p>
+                <ReportContent petitionId={petition.id} commentId={comment.id} />
+              </div>
+            ))}
+          </div>
+        </section>
+      </>
+    ) : null
+  }
 
   function renderStatusBadge() {
     if (petition.status === "victory") {
@@ -348,7 +437,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
           Sign in to stand behind this idea and add your signature.
         </p>
         <Button className="w-full" asChild>
-          <AuthLink>Sign in to support</AuthLink>
+          <AuthLink id="sign-petition">Sign this petition</AuthLink>
         </Button>
       </div>
     )
@@ -387,13 +476,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
 
   return (
     <main id="petition-detail-page" className="app-page">
-      <Link
-        to={ROUTES.petitions}
-        className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
-      >
-        <span className="hero-arrow-left size-4" aria-hidden="true" />
-        Browse petitions
-      </Link>
+      {renderBackLink()}
       <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12">
         <article className="min-w-0 space-y-9">
           <header>
@@ -442,75 +525,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               </div>
             </section>
           ) : null}
-          <section aria-labelledby="petition-supporters-heading">
-            <h2
-              id="petition-supporters-heading"
-              className="mb-5 font-display text-3xl tracking-tight"
-            >
-              Voices behind the idea.
-            </h2>
-            {signatures.length > 0 ? (
-              <div className="divide-y divide-border">
-                {[...signatures]
-                  .sort((a, b) => (b.insertedAt ?? "").localeCompare(a.insertedAt ?? ""))
-                  .slice(0, 5)
-                  .map((signature) => (
-                    <div key={signature.id} className="py-5 first:pt-0">
-                      <div className="flex flex-wrap justify-between gap-2 text-xs">
-                        <span className="font-medium">A campus supporter</span>
-                        {signature.insertedAt ? (
-                          <span className="text-muted-foreground">
-                            {new Date(signature.insertedAt).toLocaleDateString()}
-                          </span>
-                        ) : null}
-                      </div>
-                      {signature.reason ? (
-                        <p className="mt-2 text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
-                          “{signature.reason}”
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-sm leading-7 text-muted-foreground">
-                {closed
-                  ? "This petition closed without signatures."
-                  : "Be the first to stand behind this idea."}
-              </p>
-            )}
-          </section>
-          <ReportContent petitionId={petition.id} />
-          <section id="petition-comments" aria-labelledby="petition-comments-heading">
-            <h2
-              id="petition-comments-heading"
-              className="mb-5 font-display text-3xl tracking-tight"
-            >
-              The conversation{" "}
-              <span className="font-sans text-sm text-muted-foreground">({comments.length})</span>
-            </h2>
-            {renderCommentForm()}
-            <div className="divide-y divide-border">
-              {comments.map((comment) => (
-                <div key={comment.id} className="py-5">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="font-medium">
-                      {comment.author || "A campus community member"}
-                    </span>
-                    {comment.insertedAt ? (
-                      <span className="text-muted-foreground">
-                        {new Date(comment.insertedAt).toLocaleDateString()}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
-                    {comment.text}
-                  </p>
-                  <ReportContent petitionId={petition.id} commentId={comment.id} />
-                </div>
-              ))}
-            </div>
-          </section>
+          {renderActivity()}
         </article>
         <aside className="lg:sticky lg:top-8">
           {renderSignaturePanel()}
@@ -541,9 +556,14 @@ function PetitionContent({ petition }: { petition: Petition }) {
 
 export default function PetitionIndexPage() {
   const { id } = useParams()
+  const { user, isLoading: authLoading } = useAuth()
   const petitionQuery = useQuery({
-    queryKey: ["petition", id],
-    queryFn: () => loadPetition(id),
+    queryKey: ["petition", id, user?.id ?? null],
+    enabled: !authLoading && !!id,
+    queryFn: () => {
+      if (!id) throw new Error("Missing petition ID")
+      return loadPetition(id, !!user)
+    },
   })
   useDocumentTitle(petitionQuery.data?.title ?? "Petition")
   if (petitionQuery.isPending)
@@ -570,7 +590,7 @@ export default function PetitionIndexPage() {
           </h1>
           <p className="mt-3 mb-6 text-sm text-muted-foreground">
             {petitionQuery.isError
-              ? "Try again in a moment, or explore other campus ideas."
+              ? "Try again in a moment."
               : "It may have been removed, or the link may be incomplete."}
           </p>
           <div className="flex flex-wrap justify-center gap-3">
@@ -578,7 +598,9 @@ export default function PetitionIndexPage() {
               <Button onClick={() => petitionQuery.refetch()}>Try again</Button>
             ) : null}
             <Button variant="outline" asChild>
-              <Link to={ROUTES.petitions}>Browse petitions</Link>
+              <Link to={user ? ROUTES.petitions : ROUTES.home}>
+                {user ? "Browse petitions" : "Home"}
+              </Link>
             </Button>
           </div>
         </section>

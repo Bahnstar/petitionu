@@ -29,17 +29,17 @@ export function Header({ landing = false }: { landing?: boolean }) {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  const navItems: { label: string; to: string }[] = [
-    { label: "Browse petitions", to: ROUTES.petitions },
-  ]
+  const navItems: { label: string; to: string }[] = isAuthenticated
+    ? [{ label: "Browse petitions", to: ROUTES.petitions }]
+    : []
   if (landing) {
     navItems.push(
       { label: "How it works", to: "#landing-how" },
       { label: "Why PetitionU", to: "#landing-why" },
     )
-  } else {
+  } else if (isAuthenticated) {
     navItems.push({ label: "Classrooms", to: ROUTES.classrooms })
-    if (isAuthenticated) navItems.push({ label: "Your profile", to: ROUTES.profile })
+    navItems.push({ label: "Your profile", to: ROUTES.profile })
     if (user?.role === "admin" || user?.role === "superadmin")
       navItems.push({ label: "Moderation", to: ROUTES.moderation })
   }

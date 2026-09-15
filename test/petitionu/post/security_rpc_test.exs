@@ -33,32 +33,33 @@ defmodule Petitionu.Post.SecurityRpcTest do
     %{owner: owner, petition: petition}
   end
 
-  test "anonymous RPC display excludes private owner and signer fields", %{conn: conn} do
+  test "anonymous shared link excludes private owner and signer fields", %{
+    conn: conn,
+    petition: petition
+  } do
     response =
       conn
       |> post("/rpc/run", %{
-        action: "get_petitions",
+        action: "get_petition_by_id",
+        input: %{id: petition.id},
         fields: [
           "id",
           "author",
           "canManage",
           "hasSigned",
-          "signaturesCount",
-          %{signatures: ["id", "reason"]}
+          "signaturesCount"
         ]
       })
       |> json_response(200)
 
     assert %{
              "success" => true,
-             "data" => [
-               %{
-                 "author" => "Anonymous student",
-                 "canManage" => false,
-                 "hasSigned" => false,
-                 "signaturesCount" => 1
-               }
-             ]
+             "data" => %{
+               "author" => "Anonymous student",
+               "canManage" => false,
+               "hasSigned" => false,
+               "signaturesCount" => 1
+             }
            } = response
 
     refute Jason.encode!(response) =~ "Private Owner"
@@ -78,16 +79,20 @@ defmodule Petitionu.Post.SecurityRpcTest do
     end
   end
 
-  test "public petition and comment names remain readable", %{
+  test "signed-in petition and comment names remain readable", %{
     conn: conn,
     petition: petition,
     owner: owner
   } do
+    {:ok, token, _claims} = AshAuthentication.Jwt.token_for_user(owner)
+    owner = Ash.Resource.put_metadata(owner, :token, token)
+    conn = Plug.Test.init_test_session(conn, %{})
     Ash.Seed.update!(petition, %{is_anonymous: false})
     Ash.Seed.seed!(Comment, %{petition_id: petition.id, user_id: owner.id, text: "Thank you"})
 
     response =
       conn
+      |> AshAuthentication.Plug.Helpers.store_in_session(owner)
       |> post("/rpc/run", %{
         action: "get_petitions",
         fields: ["author", %{comments: ["text", "author"]}]
@@ -100,5 +105,88 @@ defmodule Petitionu.Post.SecurityRpcTest do
                %{"author" => "Private Owner", "comments" => [%{"author" => "Private Owner"}]}
              ]
            } = response
+  end
+
+  test "guests cannot discover petitions or load participant activity", %{
+    conn: conn,
+    petition: petition
+  } do
+    for action <-
+          ~w(get_petitions get_public_petitions get_classroom_petitions get_signatures get_comments get_updates get_updates_for_petition) do
+      response = conn |> post("/rpc/run", %{action: action, fields: ["id"]}) |> json_response(200)
+      assert response["success"] == false
+    end
+
+    for relationship <- ~w(comments signatures updates) do
+      response =
+        conn
+        |> post("/rpc/run", %{
+          action: "get_petition_by_id",
+          input: %{id: petition.id},
+          fields: [%{relationship => ["id"]}]
+        })
+        |> json_response(200)
+
+      assert response["success"] == false
+    end
+  end
+
+  test "shared links require an ID and do not expose hidden petitions", %{
+    conn: conn,
+    petition: petition
+  } do
+    response =
+      conn
+      |> post("/rpc/run", %{action: "get_petition_by_id", fields: ["id"]})
+      |> json_response(200)
+
+    assert response["success"] == false
+    Ash.Seed.update!(petition, %{hidden_at: DateTime.utc_now()})
+
+    response =
+      conn
+      |> post("/rpc/run", %{
+        action: "get_petition_by_id",
+        input: %{id: petition.id},
+        fields: ["id"]
+      })
+      |> json_response(200)
+
+    refute response["data"]
+  end
+
+  test "classroom shared links still require membership", %{
+    conn: conn,
+    petition: petition,
+    owner: owner
+  } do
+    classroom =
+      Ash.Seed.seed!(Petitionu.Post.Classroom, %{
+        name: "Private class",
+        professor_id: owner.id,
+        join_code: Ash.UUID.generate()
+      })
+
+    Ash.Seed.update!(petition, %{classroom_id: classroom.id})
+
+    response =
+      conn
+      |> post("/rpc/run", %{
+        action: "get_petition_by_id",
+        input: %{id: petition.id},
+        fields: ["id", "title"]
+      })
+      |> json_response(200)
+
+    refute response["data"]
+  end
+
+  test "anonymous resource reads cannot list petitions", %{petition: petition} do
+    assert {:ok, []} = Ash.read(Petition)
+
+    assert {:ok, visible} =
+             Petition |> Ash.Query.for_read(:get_by_id, %{id: petition.id}) |> Ash.read_one()
+
+    assert visible.id == petition.id
   end
 end

@@ -128,6 +128,10 @@ defmodule Petitionu.Post.Petition do
                    )
     end
 
+    policy action([:read, :public_petitions, :for_classroom]) do
+      authorize_if actor_present()
+    end
+
     policy action_type(:read) do
       forbid_unless expr(is_nil(hidden_at))
       authorize_if expr(is_nil(classroom_id))
