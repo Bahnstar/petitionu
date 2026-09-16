@@ -17,7 +17,7 @@ to skip screenshots. No additional application dependencies are required.
 
 The script checks the root redirect, pending authentication, signed-in and
 signed-out account links, header and footer petition browsing, and navigation
-destinations at desktop, tablet, and 320px widths. It also checks that header typography and geometry stay the same across routes and that the mobile menu closes with Escape. Mobile checks verify that Escape restores
+destinations at desktop, 901px, 768px, tablet, and 320px widths. It also checks navigation centering, responsive menu breakpoints, and that header typography and outer geometry stay the same across routes. Individual links may move horizontally as the centered group changes. The mobile menu closes with Escape. Mobile checks verify that Escape restores
 focus to the menu button and navigation closes the menu, including after going back.
 RPC responses are mocked in the browser; this does not create accounts or validate
 server authentication.
