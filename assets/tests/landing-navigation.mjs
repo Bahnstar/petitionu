@@ -40,6 +40,16 @@ async function openHeaderMenu(page) {
 
 async function headerMetrics(page) {
   await page.evaluate(() => document.fonts.ready)
+  const alignment = await page.locator(".site-header").evaluate((header) => {
+    const nav = header.querySelector(".site-navigation")
+    if (!nav.checkVisibility() || getComputedStyle(nav).flexDirection === "column") return null
+    const links = nav.querySelectorAll("a")
+    const first = links[0].getBoundingClientRect()
+    const last = links[links.length - 1].getBoundingClientRect()
+    const bounds = header.getBoundingClientRect()
+    return Math.abs((first.left + last.right - bounds.left - bounds.right) / 2)
+  })
+  if (alignment !== null) assert(alignment < 1, "Navigation links must be centered in the header")
   return page.locator(".site-header").evaluate((header) => {
     const measure = (element) => {
       const rect = element.getBoundingClientRect()
@@ -54,11 +64,14 @@ async function headerMetrics(page) {
         borderRadius: style.borderRadius,
       }
     }
+    const browse = measure(header.querySelector(".site-navigation a"))
+    // Centering the group moves its first link when the navigation items change.
+    delete browse.x
     return {
       header: measure(header),
       brand: measure(header.querySelector(".site-brand")),
       cta: measure(header.querySelector(".site-header-cta")),
-      browse: measure(header.querySelector(".site-navigation a")),
+      browse,
     }
   })
 }
@@ -68,6 +81,8 @@ try {
   for (const state of ["user", "guest"]) {
     for (const [size, viewport] of Object.entries({
       desktop: { width: 1600, height: 1000 },
+      laptop: { width: 901, height: 1000 },
+      tabletLandscape: { width: 768, height: 1000 },
       tablet: { width: 760, height: 1000 },
       mobile: { width: 320, height: 900 },
     })) {
@@ -110,6 +125,13 @@ try {
           "Browse petitions stays hidden while authentication loads",
         )
         releaseAuth()
+        await page.locator(".site-header-account a").first().waitFor({ state: "attached" })
+
+        assert.equal(
+          await page.locator("#navigation-toggle").isVisible(),
+          viewport.width < (state === "user" ? 1440 : 768),
+          `${state}/${size}: use the menu only below the applicable header breakpoint`,
+        )
 
         await openHeaderMenu(page)
         const accountHref =
