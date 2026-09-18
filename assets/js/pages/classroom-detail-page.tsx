@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useParams, Link, useNavigate } from "react-router-dom"
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom"
 import {
   ArrowLeft,
   Users,
@@ -30,6 +30,10 @@ import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
+
+function isClassroomNotice(value: unknown): value is string {
+  return typeof value === "string"
+}
 
 // Loading state component
 function ClassroomDetailLoadingState() {
@@ -98,6 +102,9 @@ export default function ClassroomDetailPage() {
 
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const notice = location.state?.classroomNotice
+  const [noticeDismissed, setNoticeDismissed] = useState(false)
   const queryClient = useQueryClient()
   const [success, setSuccess] = useState("")
   const [goalSort, setGoalSort] = useState(false)
@@ -455,6 +462,9 @@ export default function ClassroomDetailPage() {
 
         {isProfessor && (
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline">
+              <Link to={`${ROUTES.classroom(id!)}/edit`}>Edit settings</Link>
+            </Button>
             {classroom?.archived ? (
               <Button
                 onClick={() => {
@@ -598,6 +608,29 @@ export default function ClassroomDetailPage() {
     )
   }
 
+  function renderNotice() {
+    return (
+      isClassroomNotice(notice) &&
+      !noticeDismissed && (
+        <div
+          role="status"
+          className="fixed right-6 bottom-6 z-50 flex max-w-lg flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-lg"
+        >
+          <p className="break-all">{notice}</p>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setNoticeDismissed(true)
+              navigate(location.pathname, { replace: true, state: null })
+            }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )
+    )
+  }
+
   function renderArchiveError() {
     return (
       (archiveMutation.error || unarchiveMutation.error) && (
@@ -632,6 +665,7 @@ export default function ClassroomDetailPage() {
           </p>
         )}
         {renderLeaveClassroom()}
+        {renderNotice()}
         {renderArchiveError()}
         {renderParticipationNotice()}
         {classroom?.archived && (
