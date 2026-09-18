@@ -1,88 +1,16 @@
 import { AuthLink } from "../components/auth-link"
-import { useEffect, useRef, useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate, Link } from "react-router-dom"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
-import { createClassroom, buildCSRFHeaders } from "@/js/ash_rpc"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
+import { ClassroomForm } from "../features/classroom/classroom-form"
 
 export default function CreateClassroomPage() {
   useDocumentTitle("New Classroom")
 
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { user: currentUser, isLoading: authLoading } = useAuth()
-
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    allowStudentPetitions: true,
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const nameInput = useRef<HTMLInputElement>(null)
-  const errorSummary = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (errors.name) nameInput.current?.focus()
-  }, [errors.name])
-
-  useEffect(() => {
-    if (errors.general) errorSummary.current?.focus()
-  }, [errors.general])
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const result = await createClassroom({
-        input: {
-          name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
-          allowStudentPetitions: formData.allowStudentPetitions,
-        },
-        fields: ["id", "name", "joinCode"],
-        headers: buildCSRFHeaders(),
-      })
-
-      if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to create classroom")
-      }
-
-      return result.data
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
-      navigate(ROUTES.classroom(data.id))
-    },
-    onError: (err: Error) => {
-      setErrors({ general: err.message })
-    },
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!currentUser?.emailVerified || !currentUser.profileComplete || createMutation.isPending)
-      return
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Classroom name is required"
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      nameInput.current?.focus()
-      return
-    }
-
-    setErrors({})
-    createMutation.mutate()
-  }
 
   if (authLoading) {
     return (
@@ -164,108 +92,7 @@ export default function CreateClassroomPage() {
         </div>
 
         {/* Form */}
-        <Card className="gap-0 rounded-2xl p-6 shadow-none">
-          <form id="create-classroom-form" onSubmit={handleSubmit} className="space-y-7">
-            {errors.general && (
-              <div
-                ref={errorSummary}
-                tabIndex={-1}
-                role="alert"
-                className="rounded-lg border border-destructive/20 bg-destructive/10 p-4"
-              >
-                <p className="text-sm text-destructive">{errors.general}</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Classroom name <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <Input
-                id="name"
-                ref={nameInput}
-                aria-required="true"
-                type="text"
-                placeholder="e.g., Introduction to Political Science"
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "classroom-name-error" : undefined}
-                value={formData.name}
-                onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value })
-                  setErrors((current) => ({ ...current, name: "" }))
-                }}
-                disabled={createMutation.isPending}
-              />
-              {errors.name && (
-                <p id="classroom-name-error" role="alert" className="text-sm text-destructive">
-                  {errors.name}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">
-                Description <span className="text-muted-foreground">(optional)</span>
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="What will your class explore together?"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={4}
-                disabled={createMutation.isPending}
-              />
-              <p className="text-xs text-muted-foreground">
-                Students will see this when they join your classroom.
-              </p>
-            </div>
-
-            <div className="flex items-start gap-3 rounded-xl bg-muted/60 p-4">
-              <input
-                type="checkbox"
-                id="allowStudentPetitions"
-                checked={formData.allowStudentPetitions}
-                onChange={(e) =>
-                  setFormData({ ...formData, allowStudentPetitions: e.target.checked })
-                }
-                disabled={createMutation.isPending}
-                className="mt-1 size-4 shrink-0 rounded border-border accent-primary"
-              />
-              <div>
-                <Label htmlFor="allowStudentPetitions" className="cursor-pointer">
-                  Allow students to create petitions
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  If disabled, only you (the professor) can create petitions in this classroom.
-                </p>
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              We’ll give you a join code to share with your students after you create the classroom.
-            </p>
-            <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate(ROUTES.classrooms)}
-                disabled={createMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create classroom"
-                )}
-              </Button>
-            </div>
-          </form>
-        </Card>
+        <ClassroomForm />
       </div>
     </main>
   )
