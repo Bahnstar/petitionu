@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
+  removeFromClassroom,
   getClassroomById,
   getClassroomPetitions,
   getMembershipsForClassroom,
@@ -98,6 +99,8 @@ export default function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [success, setSuccess] = useState("")
+  const [goalSort, setGoalSort] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState(false)
   const { user: currentUser } = useAuth()
@@ -135,9 +138,10 @@ export default function ClassroomDetailPage() {
 
   // Fetch petitions
   const petitionsQuery = useQuery({
-    queryKey: ["classroomPetitions", id],
+    queryKey: ["classroomPetitions", id, goalSort],
     queryFn: async () => {
       const result = await getClassroomPetitions({
+        sort: goalSort ? ["-goal", "id"] : ["-insertedAt", "id"],
         input: { classroomId: id! },
         fields: [
           "id",
@@ -200,6 +204,7 @@ export default function ClassroomDetailPage() {
       return result.data
     },
     onSuccess: () => {
+      setSuccess("New join code generated. Share it with your students.")
       setCopied(false)
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
@@ -219,6 +224,7 @@ export default function ClassroomDetailPage() {
       return result.data
     },
     onSuccess: () => {
+      setSuccess("Classroom archived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
@@ -236,8 +242,26 @@ export default function ClassroomDetailPage() {
       return result.data
     },
     onSuccess: () => {
+      setSuccess("Classroom unarchived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
+    },
+  })
+
+  const leaveMutation = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const result = await removeFromClassroom({
+        identity: membershipId,
+        headers: buildCSRFHeaders(),
+      })
+      if (!result.success) throw new Error("Couldn’t leave the classroom. Please try again.")
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
+      queryClient.removeQueries({ queryKey: ["classroom", id] })
+      queryClient.removeQueries({ queryKey: ["classroomMemberships", id] })
+      queryClient.removeQueries({ queryKey: ["classroomPetitions", id] })
+      navigate(ROUTES.classrooms)
     },
   })
 
@@ -288,6 +312,13 @@ export default function ClassroomDetailPage() {
     )
 
   const canManage = isProfessor || isActiveTa
+  const ownMembership = memberships.find(
+    (membership) =>
+      membership.user?.id === currentUserId &&
+      membership.role === "student" &&
+      membership.status === "active",
+  )
+  const pendingCount = memberships.filter((membership) => membership.status === "pending").length
 
   function renderPetitions() {
     if (petitionsQuery.isPending) {
@@ -318,9 +349,13 @@ export default function ClassroomDetailPage() {
     if (petitions.length === 0) {
       return (
         <Card className="gap-0 rounded-2xl p-8 text-center shadow-none">
-          <h3 className="mb-3 font-display text-3xl">What could your class change?</h3>
+          <h3 className="mb-3 font-display text-3xl">
+            {classroom?.archived ? "No petitions were shared" : "What could your class change?"}
+          </h3>
           <p className="mb-6 text-sm text-muted-foreground">
-            No petitions here yet. Every shared idea starts with one voice.
+            {classroom?.archived
+              ? "This archived classroom has no petitions. New petitions can be started after it is unarchived."
+              : "No petitions here yet. Every shared idea starts with one voice."}
           </p>
           {!classroom?.archived &&
             currentUser?.emailVerified &&
@@ -412,6 +447,9 @@ export default function ClassroomDetailPage() {
               {classroom?.petitionCount ?? 0} petitions
             </span>
             <span>Led by your professor</span>
+            {canManage && pendingCount > 0 && (
+              <Badge variant="secondary">{pendingCount} pending requests</Badge>
+            )}
           </div>
         </div>
 
@@ -419,7 +457,14 @@ export default function ClassroomDetailPage() {
           <div className="flex items-center gap-2">
             {classroom?.archived ? (
               <Button
-                onClick={() => unarchiveMutation.mutate()}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Unarchive this classroom? Students will be able to join and start petitions again.",
+                    )
+                  )
+                    unarchiveMutation.mutate()
+                }}
                 disabled={unarchiveMutation.isPending}
               >
                 {unarchiveMutation.isPending ? (
@@ -432,7 +477,14 @@ export default function ClassroomDetailPage() {
             ) : (
               <Button
                 variant="outline"
-                onClick={() => archiveMutation.mutate()}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Archive this classroom? Students will no longer be able to join or start petitions.",
+                    )
+                  )
+                    archiveMutation.mutate()
+                }}
                 disabled={archiveMutation.isPending}
               >
                 {archiveMutation.isPending ? (
@@ -483,7 +535,14 @@ export default function ClassroomDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => regenerateMutation.mutate()}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Replace the join code? The old code will stop working immediately.",
+                  )
+                )
+                  regenerateMutation.mutate()
+              }}
               disabled={regenerateMutation.isPending}
               aria-label="Generate a new join code"
               title="Generate a new join code"
@@ -510,6 +569,31 @@ export default function ClassroomDetailPage() {
             </p>
           )}
         </Card>
+      )
+    )
+  }
+
+  function renderLeaveClassroom() {
+    return (
+      ownMembership &&
+      !isProfessor && (
+        <div id="leave-classroom" className="mb-6">
+          <Button
+            variant="outline"
+            disabled={leaveMutation.isPending}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Leave this classroom? You will lose access to its petitions. Contact your professor if you need to rejoin.",
+                )
+              )
+                leaveMutation.mutate(ownMembership.id)
+            }}
+          >
+            {leaveMutation.isPending ? "Leaving…" : "Leave classroom"}
+          </Button>
+          {leaveMutation.error && <p role="alert">{leaveMutation.error.message}</p>}
+        </div>
       )
     )
   }
@@ -542,6 +626,12 @@ export default function ClassroomDetailPage() {
         {/* Header */}
         {renderClassroomHeader()}
 
+        {success && (
+          <p role="status" className="mb-6 rounded-xl bg-secondary p-4">
+            {success}
+          </p>
+        )}
+        {renderLeaveClassroom()}
         {renderArchiveError()}
         {renderParticipationNotice()}
         {classroom?.archived && (
@@ -555,6 +645,13 @@ export default function ClassroomDetailPage() {
           {/* Left Column - Petitions */}
           <div className="min-w-0 space-y-6 lg:col-span-2">
             {renderPetitionHeading()}
+            <Button
+              variant="outline"
+              aria-pressed={goalSort}
+              onClick={() => setGoalSort(!goalSort)}
+            >
+              {goalSort ? "Sort: highest goal" : "Sort: newest"}
+            </Button>
 
             {renderPetitions()}
           </div>

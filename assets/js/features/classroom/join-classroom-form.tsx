@@ -31,7 +31,18 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
       })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to join classroom")
+        const messages = result.errors.map((error) => error.message).join(" ")
+        if (/already|owns this classroom/i.test(messages))
+          throw new Error("You already belong to this classroom. Find it in your classroom list.")
+        if (/awaiting approval/i.test(messages))
+          throw new Error("Your request is awaiting your professor’s approval.")
+        if (/removed/i.test(messages))
+          throw new Error("Your membership was removed. Contact your professor to rejoin.")
+        if (/invalid|archived|unavailable|not found/i.test(messages))
+          throw new Error(
+            "This code is invalid or the classroom is archived. Ask your professor for a current code.",
+          )
+        throw new Error("Couldn’t join the classroom. Please try again.")
       }
 
       return result.data
@@ -50,14 +61,17 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!joinCode.trim()) {
-      setError("Please enter a join code")
+    if (joinMutation.isPending) return
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(joinCode.trim())) {
+      setError(
+        "Enter a complete join code in UUID format, such as 123e4567-e89b-12d3-a456-426614174000.",
+      )
       codeInput.current?.focus()
       return
     }
     setError(null)
     setJoinedName(null)
-    joinMutation.mutate(joinCode.trim())
+    joinMutation.mutate(joinCode.trim().toUpperCase())
   }
 
   return (

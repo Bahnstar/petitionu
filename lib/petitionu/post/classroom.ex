@@ -65,6 +65,12 @@ defmodule Petitionu.Post.Classroom do
     read :my_classrooms do
       description "Get classrooms where the user is a professor or member"
 
+      pagination do
+        offset? true
+        required? false
+        countable true
+      end
+
       prepare fn query, context ->
         actor = context.actor
 
