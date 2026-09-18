@@ -7,11 +7,14 @@ import { Footer } from "./footer"
 export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname, key, hash } = useLocation()
   const navigationType = useNavigationType()
-  const previousKey = useRef(key)
+  const previousLocation = useRef({ key, pathname, hash })
 
   useLayoutEffect(() => {
-    if (previousKey.current === key) return
-    previousKey.current = key
+    const previous = previousLocation.current
+    if (previous.key === key) return
+    previousLocation.current = { key, pathname, hash }
+    // Query-only changes keep focus and scroll on the control being used.
+    if (previous.pathname === pathname && previous.hash === hash) return
     // Leave history traversal to the browser's native scroll restoration.
     if (navigationType === "POP") return
 
@@ -31,7 +34,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       document.getElementById("main-content")?.focus({ preventScroll: true })
       window.scrollTo({ top: 0, left: 0, behavior: "instant" })
     }
-  }, [key, hash, navigationType])
+  }, [key, pathname, hash, navigationType])
 
   const landing = pathname.replace(/\/$/, "") === ROUTES.home
 

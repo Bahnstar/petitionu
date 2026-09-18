@@ -1,8 +1,8 @@
 import { AuthLink } from "../components/auth-link"
 import { useAuth } from "../contexts/auth-context"
 import { useCurrentTime } from "../hooks/use-current-time"
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Link, useLocation, useSearchParams } from "react-router-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +27,54 @@ const SORT_OPTIONS = [
 ]
 
 type Petition = CleanResource<PetitionResourceSchema>
+
+const PAGE_SIZE = 12
+
+function PetitionSearch({
+  query,
+  navigationKey,
+  onSearch,
+}: {
+  query: string
+  navigationKey: string
+  onSearch: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(query)
+  const [previousKey, setPreviousKey] = useState(navigationKey)
+  if (previousKey !== navigationKey) {
+    setPreviousKey(navigationKey)
+    setDraft(query)
+  }
+  useEffect(() => {
+    if (draft === query) return
+    const timer = window.setTimeout(() => onSearch(draft), 300)
+    return () => window.clearTimeout(timer)
+  }, [draft, query, onSearch])
+  return (
+    <form
+      role="search"
+      className="relative flex-1"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSearch(draft)
+      }}
+    >
+      <span
+        className="pointer-events-none absolute top-1/2 left-4 hero-magnifying-glass size-5 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        id="petition-search"
+        type="search"
+        aria-label="Search petitions"
+        placeholder="Search ideas, issues, and petitions"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        className="h-12 rounded-full bg-white pl-12"
+      />
+    </form>
+  )
+}
 
 export default function BrowsePetitionsPage() {
   const { user, isLoading } = useAuth()
@@ -91,14 +139,42 @@ function AuthenticatedBrowsePetitionsPage() {
   const now = useCurrentTime()
   useDocumentTitle("Browse Petitions")
   const { user, isLoading: authLoading } = useAuth()
-  const [campusScope, setCampusScope] = useState("mine")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const campusScope = searchParams.get("campus") === "all" ? "all" : "mine"
+  const searchQuery = searchParams.get("q") ?? ""
+  const selectedCategory = searchParams.get("category") || "all"
+  const requestedSort = searchParams.get("sort")
+  const sortBy = SORT_OPTIONS.find((option) => option.value === requestedSort)?.value ?? "trending"
+  const requestedPage = Number(searchParams.get("page"))
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
+  const updateFilter = useCallback(
+    (name: string, value: string, replace = false) => {
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous)
+          if (value) next.set(name, value)
+          else next.delete(name)
+          next.delete("page")
+          return next
+        },
+        { replace },
+      )
+    },
+    [setSearchParams],
+  )
+  const setCampusScope = (value: string) => updateFilter("campus", value)
+  const setSelectedCategory = (value: string) => updateFilter("category", value)
+  const setSortBy = (value: string) => updateFilter("sort", value)
+  const setSearchQuery = useCallback(
+    (value: string) => updateFilter("q", value, true),
+    [updateFilter],
+  )
   const organizationId = campusScope === "mine" ? user?.organizationId : null
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [sortBy, setSortBy] = useState("trending")
   const petitionsQuery = useQuery({
-    queryKey: ["petitions", { organizationId: organizationId ?? null }],
+    queryKey: ["petitions", "browse", { organizationId: organizationId ?? null }],
     enabled: !authLoading,
+    staleTime: 60_000,
     queryFn: async () => {
       const result = await getPetitions({
         fields: [
@@ -108,7 +184,6 @@ function AuthenticatedBrowsePetitionsPage() {
           "status",
           "goal",
           "signaturesCount",
-          "daysLeft",
           "trending",
           "author",
           "categoryId",
@@ -117,6 +192,7 @@ function AuthenticatedBrowsePetitionsPage() {
           "insertedAt",
           { category: ["id", "name"] },
         ],
+        sort: "-insertedAt",
         filter: organizationId ? { organizationId: { eq: organizationId } } : undefined,
         headers: buildCSRFHeaders(),
       })
@@ -127,6 +203,7 @@ function AuthenticatedBrowsePetitionsPage() {
   })
   const categoryQuery = useQuery({
     queryKey: ["categories"],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const result = await getCategories({ fields: ["id", "name"], headers: buildCSRFHeaders() })
       if (result.success === false) throw new Error("We couldn't load the categories.")
@@ -135,40 +212,63 @@ function AuthenticatedBrowsePetitionsPage() {
   })
 
   const search = searchQuery.trim().toLowerCase()
-  const petitions = petitionsQuery.data ?? []
-  const filteredPetitions = petitions
-    .filter(
-      (petition) =>
-        (!search ||
-          `${petition.title ?? ""} ${petition.description ?? ""}`.toLowerCase().includes(search)) &&
-        (selectedCategory === "all" || petition.categoryId === selectedCategory),
-    )
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "most-signed":
-          return (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
-        case "newest":
-          return (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")
-        case "ending-soon": {
-          const deadline = (petition: Petition) =>
-            petition.status === "open" &&
-            petition.deadline &&
-            new Date(petition.deadline).getTime() > now
-              ? new Date(petition.deadline).getTime()
-              : Infinity
-          return deadline(a) - deadline(b)
-        }
-        default:
-          return (
-            Number(b.trending) - Number(a.trending) ||
-            (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
-          )
-      }
+  const filteredPetitions = useMemo(
+    () =>
+      (petitionsQuery.data ?? [])
+        .filter(
+          (petition) =>
+            (!search ||
+              `${petition.title ?? ""} ${petition.description ?? ""}`
+                .toLowerCase()
+                .includes(search)) &&
+            (selectedCategory === "all" || petition.categoryId === selectedCategory),
+        )
+        .sort((a, b) => {
+          switch (sortBy) {
+            case "most-signed":
+              return (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
+            case "newest":
+              return (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")
+            case "ending-soon": {
+              const deadline = (petition: Petition) =>
+                petition.status === "open" &&
+                petition.deadline &&
+                new Date(petition.deadline).getTime() > now
+                  ? new Date(petition.deadline).getTime()
+                  : Infinity
+              return deadline(a) - deadline(b)
+            }
+            default:
+              return (
+                Number(b.trending) - Number(a.trending) ||
+                (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
+              )
+          }
+        }),
+    [petitionsQuery.data, search, selectedCategory, sortBy, now],
+  )
+  const pageCount = Math.max(1, Math.ceil(filteredPetitions.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount)
+  const visiblePetitions = filteredPetitions.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  )
+  const goToPage = (value: number) => {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      next.set("page", String(value))
+      return next
     })
+  }
   const hasFilters = searchQuery !== "" || selectedCategory !== "all"
   const clearFilters = () => {
-    setSearchQuery("")
-    setSelectedCategory("all")
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      next.delete("q")
+      next.delete("category")
+      next.delete("page")
+      return next
+    })
   }
 
   function renderPetitions() {
@@ -214,7 +314,7 @@ function AuthenticatedBrowsePetitionsPage() {
         </div>
         {filteredPetitions.length > 0 ? (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filteredPetitions.map((petition) => (
+            {visiblePetitions.map((petition) => (
               <PetitionCard key={petition.id} petition={petition} />
             ))}
           </div>
@@ -243,6 +343,27 @@ function AuthenticatedBrowsePetitionsPage() {
             )}
           </div>
         )}
+        {pageCount > 1 ? (
+          <nav aria-label="Petition pages" className="mt-8 flex items-center justify-center gap-4">
+            <Button
+              variant="outline"
+              disabled={currentPage === 1}
+              onClick={() => goToPage(currentPage - 1)}
+            >
+              Previous
+            </Button>
+            <p role="status" className="text-sm">
+              Page {currentPage} of {pageCount}
+            </p>
+            <Button
+              variant="outline"
+              disabled={currentPage === pageCount}
+              onClick={() => goToPage(currentPage + 1)}
+            >
+              Next
+            </Button>
+          </nav>
+        ) : null}
       </>
     )
   }
@@ -267,21 +388,11 @@ function AuthenticatedBrowsePetitionsPage() {
       <section aria-label="Find petitions" className="mb-8 space-y-5">
         {renderCampusScope()}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <span
-              className="pointer-events-none absolute top-1/2 left-4 hero-magnifying-glass size-5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="petition-search"
-              type="search"
-              aria-label="Search petitions"
-              placeholder="Search ideas, issues, and petitions"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-12 rounded-full bg-white pl-12"
-            />
-          </div>
+          <PetitionSearch
+            navigationKey={location.key}
+            query={searchQuery}
+            onSearch={setSearchQuery}
+          />
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger
               id="petition-sort"
@@ -320,6 +431,19 @@ function AuthenticatedBrowsePetitionsPage() {
             </Button>
           ))}
         </div>
+        {categoryQuery.isSuccess && categoryQuery.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No categories are available yet.</p>
+        ) : null}
+        {selectedCategory !== "all" &&
+        categoryQuery.isSuccess &&
+        !categoryQuery.data.some((category) => category.id === selectedCategory) ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            This category is unavailable.{" "}
+            <Button variant="link" onClick={() => setSelectedCategory("all")}>
+              Show all categories
+            </Button>
+          </p>
+        ) : null}
         {categoryQuery.isError ? (
           <p role="alert" className="text-sm text-muted-foreground">
             Categories are unavailable. You can still search petitions.{" "}
