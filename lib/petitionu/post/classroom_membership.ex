@@ -179,7 +179,19 @@ defmodule Petitionu.Post.ClassroomMembership do
       authorize_if actor_present()
     end
 
-    policy action([:invite_by_email, :approve, :remove]) do
+    policy action(:remove) do
+      authorize_if expr(user_id == ^actor(:id) and role == :student and status == :active)
+      authorize_if expr(classroom.professor_id == ^actor(:id))
+
+      authorize_if expr(
+                     exists(
+                       classroom.memberships,
+                       user_id == ^actor(:id) and role == :ta and status == :active
+                     )
+                   )
+    end
+
+    policy action([:invite_by_email, :approve]) do
       authorize_if expr(classroom.professor_id == ^actor(:id))
 
       authorize_if expr(

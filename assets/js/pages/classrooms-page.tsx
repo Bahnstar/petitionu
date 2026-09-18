@@ -1,3 +1,5 @@
+import { useState } from "react"
+import { GraduationCap } from "lucide-react"
 import { AuthLink } from "../components/auth-link"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
@@ -59,11 +61,16 @@ export default function ClassroomsPage() {
 
   const { user: currentUser, isLoading: authLoading } = useAuth()
   const currentUserId = currentUser?.id
+  const [showArchived, setShowArchived] = useState(false)
+  const [page, setPage] = useState(0)
 
   const classroomsQuery = useQuery({
-    queryKey: ["myClassrooms", currentUserId],
+    queryKey: ["myClassrooms", currentUserId, showArchived, page],
     queryFn: async () => {
       const result = await getMyClassrooms({
+        filter: showArchived ? undefined : { archived: { eq: false } },
+        sort: ["name", "id"],
+        page: { limit: 12, offset: page * 12, count: true },
         fields: [
           "id",
           "name",
@@ -126,7 +133,7 @@ export default function ClassroomsPage() {
     )
   }
 
-  const classrooms = classroomsQuery.data || []
+  const classrooms = classroomsQuery.data?.results || []
   const ownedClassrooms = classrooms.filter((c) => c.professorId === currentUserId)
   const memberClassrooms = classrooms.filter((c) => c.professorId !== currentUserId)
 
@@ -156,10 +163,44 @@ export default function ClassroomsPage() {
           </div>
         </div>
 
+        <Button
+          variant="outline"
+          className="mb-6"
+          aria-pressed={showArchived}
+          onClick={() => {
+            setShowArchived(!showArchived)
+            setPage(0)
+          }}
+        >
+          {showArchived ? "Hide archived" : "Show archived"}
+        </Button>
         {/* Main Content */}
         <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Left Column - Classrooms */}
           <div className="space-y-8 lg:col-span-2">
+            {classrooms.length === 0 && (
+              <section className="app-empty-state">
+                <GraduationCap
+                  className="mx-auto mb-4 size-12 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <h2 className="font-display text-3xl">Find your classroom community</h2>
+                <p className="my-4 text-muted-foreground">
+                  Join with a code from your professor. Archived classrooms are available with “Show
+                  archived”.
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <Button asChild>
+                    <a href="#join-code">Join classroom</a>
+                  </Button>
+                  {(currentUser.role === "professor" || currentUser.role === "admin") && (
+                    <Button asChild variant="outline">
+                      <Link to={ROUTES.classroomNew}>Create classroom</Link>
+                    </Button>
+                  )}
+                </div>
+              </section>
+            )}
             {/* Owned Classrooms */}
             {ownedClassrooms.length > 0 && (
               <section>
@@ -171,16 +212,31 @@ export default function ClassroomsPage() {
             )}
 
             {/* Member Classrooms */}
-            <section>
-              <h2 className="mb-4 font-display text-3xl font-normal text-foreground">
-                Classrooms you’ve joined
-              </h2>
-              <ClassroomList
-                classrooms={memberClassrooms}
-                currentUserId={currentUserId}
-                emptyMessage="Ask your professor for a join code, then enter it here to find your class."
-              />
-            </section>
+            {memberClassrooms.length > 0 && (
+              <section>
+                <h2 className="mb-4 font-display text-3xl font-normal text-foreground">
+                  Classrooms you’ve joined
+                </h2>
+                <ClassroomList
+                  classrooms={memberClassrooms}
+                  currentUserId={currentUserId}
+                  emptyMessage="Ask your professor for a join code, then enter it here to find your class."
+                />
+              </section>
+            )}
+            <nav aria-label="Classroom pages" className="flex items-center gap-3">
+              <Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                Previous
+              </Button>
+              <span>Page {page + 1}</span>
+              <Button
+                variant="outline"
+                disabled={!classroomsQuery.data?.hasMore}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </Button>
+            </nav>
           </div>
 
           {/* Right Column - Join Form */}

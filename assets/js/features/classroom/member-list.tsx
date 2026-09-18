@@ -1,3 +1,5 @@
+import { useState } from "react"
+import { Input } from "@/components/ui/input"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   approveMembership,
@@ -29,6 +31,10 @@ export function MemberList({
   canChangeRoles = false,
 }: MemberListProps) {
   const queryClient = useQueryClient()
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(0)
+  const [pendingPage, setPendingPage] = useState(0)
+  const [success, setSuccess] = useState("")
 
   const approveMutation = useMutation({
     mutationFn: async (membershipId: string) => {
@@ -42,6 +48,7 @@ export function MemberList({
       return result.data
     },
     onSuccess: () => {
+      setSuccess("Membership approved.")
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
@@ -61,6 +68,7 @@ export function MemberList({
       return result.data
     },
     onSuccess: () => {
+      setSuccess("Membership removed.")
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
@@ -79,6 +87,7 @@ export function MemberList({
       return result.data
     },
     onSuccess: () => {
+      setSuccess("Member promoted to TA.")
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
@@ -97,14 +106,40 @@ export function MemberList({
       return result.data
     },
     onSuccess: () => {
+      setSuccess("Member changed to student.")
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
 
-  const pendingMembers = memberships.filter((m) => m.status === "pending")
-  const activeMembers = memberships.filter((m) => m.status === "active")
+  const matches = memberships.filter((m) =>
+    (m.memberName || "Campus member").toLowerCase().includes(search.trim().toLowerCase()),
+  )
+  const pendingMembers = matches.filter((m) => m.status === "pending")
+  const activeMembers = matches.filter((m) => m.status === "active")
+  const activePage = Math.min(page, Math.max(0, Math.ceil(activeMembers.length / 10) - 1))
+  const requestPage = Math.min(pendingPage, Math.max(0, Math.ceil(pendingMembers.length / 10) - 1))
+  function pagination(current: number, total: number, change: (page: number) => void) {
+    if (total <= 10) return null
+    return (
+      <nav aria-label="Member pages" className="mt-4 flex items-center gap-2">
+        <Button variant="outline" disabled={current === 0} onClick={() => change(current - 1)}>
+          Previous
+        </Button>
+        <span>
+          {current + 1} / {Math.ceil(total / 10)}
+        </span>
+        <Button
+          variant="outline"
+          disabled={(current + 1) * 10 >= total}
+          onClick={() => change(current + 1)}
+        >
+          Next
+        </Button>
+      </nav>
+    )
+  }
 
   const isLoading =
     approveMutation.isPending ||
@@ -117,6 +152,17 @@ export function MemberList({
 
   return (
     <div className="space-y-6">
+      <Input
+        aria-label="Search members and requests"
+        placeholder="Search members and requests"
+        value={search}
+        onChange={(event) => {
+          setSearch(event.target.value)
+          setPage(0)
+          setPendingPage(0)
+        }}
+      />
+      {success && <p role="status">{success}</p>}
       {actionError && (
         <p
           role="alert"
@@ -132,7 +178,7 @@ export function MemberList({
             Join requests ({pendingMembers.length})
           </h3>
           <div className="space-y-3">
-            {pendingMembers.map((membership) => (
+            {pendingMembers.slice(requestPage * 10, (requestPage + 1) * 10).map((membership) => (
               <div
                 key={membership.id}
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
@@ -177,6 +223,7 @@ export function MemberList({
               </div>
             ))}
           </div>
+          {pagination(requestPage, pendingMembers.length, setPendingPage)}
         </Card>
       )}
 
@@ -187,11 +234,13 @@ export function MemberList({
         </h3>
         {activeMembers.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">
-            No members yet. Share the classroom code to invite your students.
+            {search
+              ? "No members match your search."
+              : "No members yet. Share the classroom code to invite your students."}
           </p>
         ) : (
           <div className="space-y-3">
-            {activeMembers.map((membership) => (
+            {activeMembers.slice(activePage * 10, (activePage + 1) * 10).map((membership) => (
               <div
                 key={membership.id}
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4 first:border-0 first:pt-0"
@@ -263,6 +312,7 @@ export function MemberList({
             ))}
           </div>
         )}
+        {pagination(activePage, activeMembers.length, setPage)}
       </Card>
     </div>
   )

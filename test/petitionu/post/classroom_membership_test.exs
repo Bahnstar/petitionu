@@ -219,6 +219,50 @@ defmodule Petitionu.Post.ClassroomMembershipTest do
     assert {:error, _} = Ash.get(ClassroomMembership, membership.id, actor: user(:student))
   end
 
+  test "students can leave only their own active membership and lose classroom access", context do
+    member = membership(context.classroom, context.student, :active)
+    other = membership(context.classroom, user(:student), :active)
+    assert {:error, _} = Petitionu.Post.remove_from_classroom(other, actor: context.student)
+    assert {:ok, removed} = Petitionu.Post.remove_from_classroom(member, actor: context.student)
+    assert removed.status == :removed
+
+    assert {:error, _} =
+             Petitionu.Post.get_classroom_by_id(context.classroom.id, actor: context.student)
+
+    assert {:ok, []} = Petitionu.Post.list_my_classrooms(actor: context.student)
+  end
+
+  test "students cannot self-remove pending or already removed memberships", context do
+    for status <- [:pending, :removed] do
+      member = membership(context.classroom, user(:student), status)
+      actor = Ash.get!(User, member.user_id, authorize?: false)
+      assert {:error, _} = Petitionu.Post.remove_from_classroom(member, actor: actor)
+    end
+  end
+
+  test "classroom pagination applies archive filtering before limiting", context do
+    for index <- 1..13 do
+      Petitionu.Post.create_classroom!(%{name: "Class #{index}"}, actor: context.professor)
+    end
+
+    Petitionu.Post.archive_classroom!(context.classroom, actor: context.professor)
+    require Ash.Query
+
+    query =
+      Classroom
+      |> Ash.Query.for_read(:my_classrooms, %{}, actor: context.professor)
+      |> Ash.Query.filter(archived == false)
+      |> Ash.Query.sort([:name, :id])
+
+    first = Ash.read!(query, page: [limit: 12, offset: 0, count: true])
+    second = Ash.read!(query, page: [limit: 12, offset: 12, count: true])
+    assert length(first.results) == 12
+    assert first.count == 13
+    assert length(second.results) == 1
+    refute Enum.any?(first.results, & &1.archived)
+    refute hd(second.results).id in Enum.map(first.results, & &1.id)
+  end
+
   defp join(classroom, actor),
     do: Petitionu.Post.join_classroom_by_code(%{join_code: classroom.join_code}, actor: actor)
 

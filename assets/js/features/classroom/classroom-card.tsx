@@ -74,6 +74,13 @@ export function ClassroomCard({
           </span>
         </div>
       </Link>
+      {!isOwner && (
+        <Button asChild variant="ghost" className="mx-6 mb-4">
+          <Link to={`${ROUTES.classroom(classroom.id)}#leave-classroom`}>
+            Membership / leave classroom
+          </Link>
+        </Button>
+      )}
       {showJoinCode && isOwner && (
         <div className="mx-6 border-t border-border py-4">
           <div className="mb-2 flex items-center justify-between gap-2">
