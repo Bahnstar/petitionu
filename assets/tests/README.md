@@ -50,3 +50,19 @@ node assets/tests/landing-motion.mjs
 ```
 
 These checks cover native entrance animations, continuous card movement, mobile placement, reduced motion, and gradual navigation underlines.
+
+Browse regression checks use the same setup:
+
+```sh
+PLAYWRIGHT_MODULE=/absolute/path/to/node_modules/playwright \
+BASE_URL=http://localhost:4000 \
+SCREENSHOT_DIR=/tmp/petitionu-browser-tests \
+node assets/tests/browse-petitions.mjs
+```
+
+These checks cover 12-card pagination, date-based newest ordering, debounced search
+and keyboard focus, URL restoration and browser history, cached filtering,
+mobile overflow, missing categories, and independent retry controls. The test
+serves the public React shell at the browse URL and supplies signed-in RPC
+fixtures; it does not validate or bypass server authentication in application code.
+Optional screenshots show desktop pagination and mobile search results with fixture data.
