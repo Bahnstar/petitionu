@@ -1,3 +1,4 @@
+import { mutatePetition } from "../features/petition/petition-mutations"
 import {
   readPetitionDraft,
   savePetitionDraft,
@@ -18,13 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  buildCSRFHeaders,
-  createPetition,
-  createClassroomPetition,
-  getCategories,
-  getClassroomById,
-} from "../ash_rpc"
+import { buildCSRFHeaders, getCategories, getClassroomById } from "../ash_rpc"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ROUTES } from "@/lib/routes"
@@ -124,31 +119,15 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
         allowComments: formData.allowComments,
         isAnonymous: formData.isAnonymous,
       }
-      const result = classroomId
-        ? await createClassroomPetition({
-            input: { ...input, classroomId },
-            fields: ["id"],
-            headers: buildCSRFHeaders(),
-          })
-        : await createPetition({ input, fields: ["id"], headers: buildCSRFHeaders() })
-      if (result.success === false) {
-        setSubmitError(
-          result.errors.map((error) => error.message).join(" ") ||
-            "Your petition couldn't be created. Please try again.",
-        )
-      } else {
-        setCreatedId(result.data.id)
-        void queryClient.invalidateQueries({ queryKey: ["petitions"] })
-        void queryClient.invalidateQueries({ queryKey: ["dashboardUser"] })
-        if (classroomId) {
-          void queryClient.invalidateQueries({ queryKey: ["classroomPetitions", classroomId] })
-          void queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
-          void queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
-        }
-        window.scrollTo({ top: 0 })
-      }
-    } catch {
-      setSubmitError("Your petition couldn't be created. Check your connection and try again.")
+      const result = await mutatePetition(queryClient, { kind: "create", input, classroomId })
+      setCreatedId(result.id)
+      window.scrollTo({ top: 0 })
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Your petition couldn't be created. Check your connection and try again.",
+      )
     } finally {
       setIsSubmitting(false)
     }

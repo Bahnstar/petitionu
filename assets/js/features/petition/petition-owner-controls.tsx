@@ -6,17 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  buildCSRFHeaders,
-  updatePetition,
-  createUpdate,
-  closePetition,
-  markPetitionVictory,
-  type PetitionResourceSchema,
-} from "../../ash_rpc"
+import type { PetitionResourceSchema } from "../../ash_rpc"
+import { mutatePetition, type PetitionOwnerCommand } from "./petition-mutations"
 import type { CleanResource } from "@/lib/types"
 
-type Petition = Pick<
+type Petition = { id: string } & Pick<
   CleanResource<PetitionResourceSchema>,
   | "id"
   | "title"
@@ -29,10 +23,6 @@ type Petition = Pick<
   | "classroomId"
 >
 type Mode = "idle" | "edit" | "update" | "close" | "victory"
-type Command =
-  | { kind: "edit"; input: Parameters<typeof updatePetition>[0]["input"] }
-  | { kind: "update"; input: Parameters<typeof createUpdate>[0]["input"] }
-  | { kind: "close" | "victory" }
 
 function localDeadline(value: Petition["deadline"]) {
   if (!value) return ""
@@ -202,38 +192,11 @@ export function PetitionOwnerControls({
   const [update, setUpdate] = useState({ title: "", body: "" })
   const [success, setSuccess] = useState("")
   const mutation = useMutation({
-    mutationFn: async (command: Command) => {
-      async function executeCommand() {
-        if (command.kind === "edit") {
-          return await updatePetition({ ...shared, input: command.input })
-        }
-        if (command.kind === "update") {
-          return await createUpdate({
-            input: command.input,
-            fields: ["id"],
-            headers: buildCSRFHeaders(),
-          })
-        }
-        if (command.kind === "close") {
-          return await closePetition(shared)
-        }
-        return await markPetitionVictory(shared)
-      }
-
-      const shared = {
-        identity: petition.id,
-        fields: ["id"] satisfies ["id"],
-        headers: buildCSRFHeaders(),
-      }
-      const result = await executeCommand()
-      if (result.success === false)
-        throw new Error(
-          result.errors.map((error) => error.message).join(" ") ||
-            "Your change couldn't be saved. Please try again.",
-        )
+    mutationFn: async (command: PetitionOwnerCommand) => {
+      await mutatePetition(queryClient, { ...command, petition })
       return command.kind
     },
-    onSuccess: async (kind) => {
+    onSuccess: (kind) => {
       function successMessage() {
         if (kind === "edit") {
           return "Your petition has been updated."
@@ -247,18 +210,6 @@ export function PetitionOwnerControls({
         return "Your petition has been marked as a victory."
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["petition", petition.id] }),
-        queryClient.invalidateQueries({ queryKey: ["petitions"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboardUser"] }),
-        ...(petition.classroomId
-          ? [
-              queryClient.invalidateQueries({
-                queryKey: ["classroomPetitions", petition.classroomId],
-              }),
-            ]
-          : []),
-      ])
       setMode("idle")
       if (kind === "update") setUpdate({ title: "", body: "" })
       setSuccess(successMessage())
@@ -358,7 +309,6 @@ export function PetitionOwnerControls({
               mutation.mutate({
                 kind: "update",
                 input: {
-                  petitionId: petition.id,
                   title: update.title.trim(),
                   body: update.body.trim(),
                 },
