@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { GraduationCap } from "lucide-react"
+import { Archive, GraduationCap } from "lucide-react"
 import { AuthLink } from "../components/auth-link"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
@@ -43,13 +43,6 @@ function ClassroomsLoadingState() {
               ))}
             </div>
           </div>
-          <div>
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <div className="mb-4 h-6 w-32 animate-pulse rounded-lg bg-muted" />
-              <div className="mb-4 h-10 w-full animate-pulse rounded-lg bg-muted" />
-              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
-            </div>
-          </div>
         </div>
       </div>
     </main>
@@ -63,6 +56,9 @@ export default function ClassroomsPage() {
   const currentUserId = currentUser?.id
   const [showArchived, setShowArchived] = useState(false)
   const [page, setPage] = useState(0)
+  const [joinOpen, setJoinOpen] = useState<boolean | null>(() =>
+    window.location.hash === "#join-code" ? true : null,
+  )
 
   const classroomsQuery = useQuery({
     queryKey: ["myClassrooms", currentUserId, showArchived, page],
@@ -93,6 +89,20 @@ export default function ClassroomsPage() {
       return result.data
     },
     enabled: !authLoading && !!currentUserId,
+  })
+
+  const allClassroomsQuery = useQuery({
+    queryKey: ["myClassrooms", currentUserId, "presence"],
+    enabled: !!currentUserId && classroomsQuery.data?.count === 0 && !showArchived,
+    queryFn: async () => {
+      const result = await getMyClassrooms({
+        fields: ["id"],
+        page: { limit: 1, count: true },
+        headers: buildCSRFHeaders(),
+      })
+      if (!result.success) throw new Error("Couldn’t check your classrooms")
+      return result.data.count
+    },
   })
 
   if (authLoading) return <ClassroomsLoadingState />
@@ -133,26 +143,37 @@ export default function ClassroomsPage() {
     )
   }
 
-  const classrooms = classroomsQuery.data?.results || []
+  const classrooms = classroomsQuery.data.results
   const ownedClassrooms = classrooms.filter((c) => c.professorId === currentUserId)
   const memberClassrooms = classrooms.filter((c) => c.professorId !== currentUserId)
 
-  return (
-    <main className="min-h-screen bg-background">
-      <div className="app-page">
-        {/* Header */}
+  const canCreate = ["professor", "admin"].includes(currentUser.role)
+  const firstClassroom =
+    classroomsQuery.data.count === 0 && (showArchived || allClassroomsQuery.data === 0)
+  const joinExpanded = joinOpen ?? firstClassroom
+
+  function renderClassroomToolbar() {
+    return (
+      <>
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="app-page-heading mb-3">My classrooms</h1>
             <p className="app-page-description">
-              A shared space for your class and the ideas you care about.
+              {canCreate
+                ? "Manage your classes and follow their petitions."
+                : "Your classes and the ideas you’re working on together."}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline">
-              <a href="#join-code">Join with a code</a>
+            <Button
+              variant="outline"
+              aria-expanded={joinExpanded}
+              aria-controls="classroom-join-panel"
+              onClick={() => setJoinOpen(!joinExpanded)}
+            >
+              {joinExpanded ? "Close join form" : "Join with a code"}
             </Button>
-            {(currentUser.role === "professor" || currentUser.role === "admin") && (
+            {canCreate && (
               <Button asChild id="create-classroom-link">
                 <Link to={ROUTES.classroomNew}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -163,42 +184,50 @@ export default function ClassroomsPage() {
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          className="mb-6"
-          aria-pressed={showArchived}
-          onClick={() => {
-            setShowArchived(!showArchived)
-            setPage(0)
-          }}
-        >
-          {showArchived ? "Hide archived" : "Show archived"}
-        </Button>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+          <p className="text-sm text-muted-foreground">
+            {classroomsQuery.data.count}{" "}
+            {showArchived ? "classrooms, including archived" : "active classrooms"}
+          </p>
+          <Button
+            variant="ghost"
+            aria-pressed={showArchived}
+            onClick={() => {
+              setShowArchived(!showArchived)
+              setPage(0)
+            }}
+          >
+            <Archive className="size-4" aria-hidden="true" />
+            {showArchived ? "Hide archived" : "Show archived"}
+          </Button>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="app-page">
+        {renderClassroomToolbar()}
         <div className="space-y-8">
-          <JoinClassroomForm onSuccess={() => classroomsQuery.refetch()} />
+          <div id="classroom-join-panel" hidden={!joinExpanded}>
+            {joinExpanded && (
+              <JoinClassroomForm
+                focusOnMount={joinOpen === true}
+                onSuccess={() => {
+                  setJoinOpen(true)
+                  classroomsQuery.refetch()
+                }}
+              />
+            )}
+          </div>
           <div className="space-y-8">
             {classrooms.length === 0 && (
-              <section className="app-empty-state">
-                <GraduationCap
-                  className="mx-auto mb-4 size-12 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <h2 className="font-display text-3xl">Find your classroom community</h2>
-                <p className="my-4 text-muted-foreground">
-                  Join with a code from your professor. Archived classrooms are available with “Show
-                  archived”.
-                </p>
-                <div className="flex flex-wrap justify-center gap-3">
-                  <Button asChild>
-                    <a href="#join-code">Join classroom</a>
-                  </Button>
-                  {(currentUser.role === "professor" || currentUser.role === "admin") && (
-                    <Button asChild variant="outline">
-                      <Link to={ROUTES.classroomNew}>Create classroom</Link>
-                    </Button>
-                  )}
-                </div>
-              </section>
+              <ClassroomEmptyState
+                firstClassroom={firstClassroom}
+                canCreate={canCreate}
+                onJoin={() => setJoinOpen(true)}
+              />
             )}
             {/* Owned Classrooms */}
             {ownedClassrooms.length > 0 && (
@@ -230,7 +259,7 @@ export default function ClassroomsPage() {
               <span>Page {page + 1}</span>
               <Button
                 variant="outline"
-                disabled={!classroomsQuery.data?.hasMore}
+                disabled={!classroomsQuery.data.hasMore}
                 onClick={() => setPage(page + 1)}
               >
                 Next
@@ -240,5 +269,40 @@ export default function ClassroomsPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+function ClassroomEmptyState({
+  firstClassroom,
+  canCreate,
+  onJoin,
+}: {
+  firstClassroom: boolean
+  canCreate: boolean
+  onJoin: () => void
+}) {
+  let guidance = "Check your archived classrooms or join a class with a code."
+  if (firstClassroom)
+    guidance = canCreate
+      ? "Create a classroom for your students, or join an existing class with a code."
+      : "Enter the code from your professor to join your first classroom."
+  return (
+    <section className="app-empty-state">
+      <GraduationCap className="mx-auto mb-4 size-12 text-muted-foreground" aria-hidden="true" />
+      <h2 className="font-display text-3xl">
+        {firstClassroom ? "Start your classroom community" : "No classrooms in this view"}
+      </h2>
+      <p className="mx-auto my-4 max-w-lg text-muted-foreground">{guidance}</p>
+      <div className="flex flex-wrap justify-center gap-3">
+        {canCreate && (
+          <Button asChild>
+            <Link to={ROUTES.classroomNew}>Create classroom</Link>
+          </Button>
+        )}
+        <Button variant="outline" onClick={onJoin}>
+          Join with a code
+        </Button>
+      </div>
+    </section>
   )
 }

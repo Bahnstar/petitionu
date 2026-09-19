@@ -9,14 +9,19 @@ import { LogIn, Loader2 } from "lucide-react"
 
 interface JoinClassroomFormProps {
   onSuccess?: () => void
+  focusOnMount?: boolean
 }
 
-export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
+export function JoinClassroomForm({ onSuccess, focusOnMount = false }: JoinClassroomFormProps) {
   const [joinCode, setJoinCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [joinedName, setJoinedName] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const codeInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (focusOnMount) codeInput.current?.focus()
+  }, [focusOnMount])
 
   useEffect(() => {
     if (error) codeInput.current?.focus()
@@ -77,9 +82,9 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
   return (
     <Card className="gap-6 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none lg:grid lg:grid-cols-2 lg:items-center">
       <div>
-        <h3 className="mb-3 font-display text-3xl font-normal text-foreground">Find your class.</h3>
+        <h3 className="mb-3 font-display text-3xl font-normal text-foreground">Join a classroom</h3>
         <p className="text-sm leading-relaxed text-[#685649]">
-          Have a code from your professor? You’re one step away from joining the conversation.
+          Enter the join code shared by the classroom’s professor.
         </p>
       </div>
       <form
