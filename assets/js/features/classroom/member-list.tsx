@@ -22,6 +22,7 @@ interface MemberListProps {
   classroomId: string
   canManage?: boolean
   canChangeRoles?: boolean
+  archived?: boolean
 }
 
 export function MemberList({
@@ -29,30 +30,48 @@ export function MemberList({
   classroomId,
   canManage = false,
   canChangeRoles = false,
+  archived = false,
 }: MemberListProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(0)
   const [pendingPage, setPendingPage] = useState(0)
   const [success, setSuccess] = useState("")
+  const [approvalError, setApprovalError] = useState("")
+  const [completed, setCompleted] = useState(0)
 
   const approveMutation = useMutation({
-    mutationFn: async (membershipId: string) => {
-      const result = await approveMembership({
-        identity: membershipId,
-        headers: buildCSRFHeaders(),
-      })
-      if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to approve membership")
+    mutationFn: async (membershipIds: string[]) => {
+      let accepted = 0
+      const failed: string[] = []
+      for (const membershipId of membershipIds) {
+        try {
+          const result = await approveMembership({
+            identity: membershipId,
+            headers: buildCSRFHeaders(),
+          })
+          if (result.success) accepted += 1
+          else failed.push(membershipId)
+        } catch {
+          failed.push(membershipId)
+        }
+        setCompleted((current) => current + 1)
       }
-      return result.data
+      return { accepted, failed }
     },
-    onSuccess: () => {
-      setSuccess("Membership approved.")
-      queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
-      queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
-      queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
-      queryClient.invalidateQueries({ queryKey: ["pendingMemberships", classroomId] })
+    onSuccess: async ({ accepted, failed }) => {
+      if (accepted > 0)
+        setSuccess(`${accepted} ${accepted === 1 ? "request accepted" : "requests accepted"}.`)
+      if (failed.length > 0)
+        setApprovalError(
+          `${failed.length} ${failed.length === 1 ? "request couldn’t" : "requests couldn’t"} be accepted. The list has been refreshed; retry any remaining requests.`,
+        )
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] }),
+        queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] }),
+        queryClient.invalidateQueries({ queryKey: ["myClassrooms"] }),
+        queryClient.invalidateQueries({ queryKey: ["pendingMemberships", classroomId] }),
+      ])
     },
   })
 
@@ -116,6 +135,7 @@ export function MemberList({
   const matches = memberships.filter((m) =>
     (m.memberName || "Campus member").toLowerCase().includes(search.trim().toLowerCase()),
   )
+  const allPendingMembers = memberships.filter((m) => m.status === "pending")
   const pendingMembers = matches.filter((m) => m.status === "pending")
   const activeMembers = matches.filter((m) => m.status === "active")
   const activePage = Math.min(page, Math.max(0, Math.ceil(activeMembers.length / 10) - 1))
@@ -150,33 +170,53 @@ export function MemberList({
   const actionError =
     approveMutation.error || removeMutation.error || promoteMutation.error || demoteMutation.error
 
-  return (
-    <div className="space-y-6">
-      <Input
-        aria-label="Search members and requests"
-        placeholder="Search members and requests"
-        value={search}
-        onChange={(event) => {
-          setSearch(event.target.value)
-          setPage(0)
-          setPendingPage(0)
-        }}
-      />
-      {success && <p role="status">{success}</p>}
-      {actionError && (
-        <p
-          role="alert"
-          className="rounded-xl border border-destructive/20 p-4 text-sm text-destructive"
-        >
-          {actionError.message}
-        </p>
-      )}
-      {pendingMembers.length > 0 && canManage && (
+  function acceptRequests(ids: string[]) {
+    if (isLoading || archived || !canManage) return
+    setSuccess("")
+    setApprovalError("")
+    setCompleted(0)
+    approveMutation.mutate(ids)
+  }
+
+  function renderPendingRequests() {
+    return (
+      allPendingMembers.length > 0 &&
+      canManage && (
         <Card className="gap-0 rounded-2xl p-6 shadow-none">
-          <h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-normal text-foreground">
-            <Clock className="h-5 w-5 text-[#685649]" />
-            Join requests ({pendingMembers.length})
+          <h3 className="mb-3 flex flex-wrap items-center gap-2 font-display text-2xl font-normal text-foreground">
+            <Clock className="h-5 w-5 text-[#685649]" aria-hidden="true" />
+            Join requests <Badge variant="secondary">{allPendingMembers.length}</Badge>
           </h3>
+          <p className="mb-4 text-sm text-muted-foreground">Review who can join your classroom.</p>
+          {allPendingMembers.length > 1 && (
+            <div className="mb-5 space-y-2 border-b border-border pb-5">
+              <Button
+                className="w-full"
+                disabled={isLoading || archived}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Accept all ${allPendingMembers.length} pending requests? This includes requests on other pages and outside your search.`,
+                    )
+                  )
+                    acceptRequests(allPendingMembers.map((member) => member.id))
+                }}
+              >
+                Accept all ({allPendingMembers.length})
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Includes every page, even when searching.
+              </p>
+            </div>
+          )}
+          {archived && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Unarchive this classroom to accept requests.
+            </p>
+          )}
+          {pendingMembers.length === 0 && (
+            <p className="text-sm text-muted-foreground">No requests match your search.</p>
+          )}
           <div className="space-y-3">
             {pendingMembers.slice(requestPage * 10, (requestPage + 1) * 10).map((membership) => (
               <div
@@ -196,15 +236,12 @@ export function MemberList({
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
-                    aria-label={`Approve ${membership.memberName || "member"}`}
-                    onClick={() => approveMutation.mutate(membership.id)}
-                    disabled={isLoading}
+                    aria-label={`Accept ${membership.memberName || "member"}’s request`}
+                    onClick={() => acceptRequests([membership.id])}
+                    disabled={isLoading || archived}
                   >
-                    {approveMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                    Accept
                   </Button>
                   <Button
                     size="sm"
@@ -218,6 +255,7 @@ export function MemberList({
                     ) : (
                       <X className="h-4 w-4" />
                     )}
+                    Decline
                   </Button>
                 </div>
               </div>
@@ -225,7 +263,45 @@ export function MemberList({
           </div>
           {pagination(requestPage, pendingMembers.length, setPendingPage)}
         </Card>
+      )
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <Input
+        aria-label="Search members and requests"
+        placeholder="Search members and requests"
+        value={search}
+        onChange={(event) => {
+          setSearch(event.target.value)
+          setPage(0)
+          setPendingPage(0)
+        }}
+      />
+      {success && <p role="status">{success}</p>}
+      {approvalError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/20 p-4 text-sm text-destructive"
+        >
+          {approvalError}
+        </p>
       )}
+      {approveMutation.isPending && (
+        <p role="status">
+          Accepting requests… {completed} of {approveMutation.variables.length} processed.
+        </p>
+      )}
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/20 p-4 text-sm text-destructive"
+        >
+          {actionError.message}
+        </p>
+      )}
+      {renderPendingRequests()}
 
       <Card className="gap-0 rounded-2xl p-6 shadow-none">
         <h3 className="mb-4 flex items-center gap-2 font-display text-2xl font-normal text-foreground">

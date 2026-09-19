@@ -424,6 +424,7 @@ export default function ClassroomDetailPage() {
         classroomId={id!}
         canManage={canManage}
         canChangeRoles={isProfessor}
+        archived={classroom?.archived}
       />
     )
   }
