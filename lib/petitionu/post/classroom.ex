@@ -96,7 +96,7 @@ defmodule Petitionu.Post.Classroom do
     end
 
     policy action([:update, :archive, :unarchive, :regenerate_join_code, :destroy]) do
-      authorize_if relates_to_actor_via(:professor)
+      authorize_if expr(can_manage_classroom)
     end
 
     policy action([:read, :get_by_id, :my_classrooms]) do
@@ -166,6 +166,23 @@ defmodule Petitionu.Post.Classroom do
   end
 
   calculations do
+    calculate :can_manage_classroom, :boolean, expr(professor_id == ^actor(:id)) do
+      public? true
+    end
+
+    calculate :can_manage_members,
+              :boolean,
+              expr(
+                not is_nil(^actor(:confirmed_at)) and
+                  (can_manage_classroom or
+                     exists(
+                       memberships,
+                       user_id == ^actor(:id) and role == :ta and status == :active
+                     ))
+              ) do
+      public? true
+    end
+
     calculate :member_count,
               :integer,
               expr(count(memberships, query: [filter: expr(status == :active)])) do
