@@ -1,3 +1,10 @@
+# Petition mutation regression
+
+Run `cd assets && bun run test:petitions` for the petition command tests. These
+use a real QueryClient with mocked RPC responses to cover all petition writes,
+CSRF headers, server and transport failures, related cache refreshes, and owner
+form completion timing. They run as part of `bun run check` and `mix precommit`.
+
 # Landing navigation browser regression
 
 Start the Phoenix development server with its assets built. Use a Playwright

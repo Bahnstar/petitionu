@@ -1,15 +1,10 @@
+import { mutatePetition } from "../features/petition/petition-mutations"
 import { ReportContent } from "../features/moderation/report-content"
 import { useCurrentTime } from "../hooks/use-current-time"
 import { AuthLink } from "../components/auth-link"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import {
-  buildCSRFHeaders,
-  createComment,
-  createSignature,
-  getPetitionById,
-  type GetPetitionByIdFields,
-} from "../ash_rpc"
+import { buildCSRFHeaders, getPetitionById, type GetPetitionByIdFields } from "../ash_rpc"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -86,50 +81,24 @@ function PetitionContent({ petition }: { petition: Petition }) {
   const [signatureReason, setSignatureReason] = useState("")
   const [shareMessage, setShareMessage] = useState("")
   const [sharePending, setSharePending] = useState(false)
-  const invalidatePetition = () => {
-    void queryClient.invalidateQueries({ queryKey: ["petition", petition.id] })
-    void queryClient.invalidateQueries({ queryKey: ["petitions"] })
-    void queryClient.invalidateQueries({ queryKey: ["dashboardUser"] })
-    if (petition.classroomId)
-      void queryClient.invalidateQueries({ queryKey: ["classroomPetitions", petition.classroomId] })
-  }
   const commentMutation = useMutation({
     mutationFn: async (text: string) => {
       if (!user?.emailVerified || !user.profileComplete)
         throw new Error("Complete your profile before commenting.")
-      const result = await createComment({
-        input: { text, petitionId: petition.id },
-        headers: buildCSRFHeaders(),
-      })
-      if (result.success === false)
-        throw new Error(
-          result.errors[0]?.message || "Your comment couldn't be posted. Please try again.",
-        )
-      return result.data
+      return mutatePetition(queryClient, { kind: "comment", petition, text })
     },
     onSuccess: () => {
       setCommentText("")
-      invalidatePetition()
     },
   })
   const signatureMutation = useMutation({
     mutationFn: async () => {
       if (!user?.emailVerified || !user.profileComplete)
         throw new Error("Complete your profile before signing.")
-      const result = await createSignature({
-        input: { petitionId: petition.id, reason: signatureReason.trim() || null },
-        fields: ["id"],
-        headers: buildCSRFHeaders(),
-      })
-      if (result.success === false)
-        throw new Error(
-          result.errors[0]?.message || "Your signature couldn't be added. Please try again.",
-        )
-      return result.data
+      return mutatePetition(queryClient, { kind: "sign", petition, reason: signatureReason })
     },
     onSuccess: () => {
       setSignatureReason("")
-      invalidatePetition()
     },
   })
   const sharePetition = async () => {

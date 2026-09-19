@@ -204,6 +204,9 @@ async function check(name, options, run) {
         case "get_classroom_by_id":
           data = getClassroom()
           break
+        case "get_petition_by_id":
+          data = currentPetition
+          break
         case "get_classroom_petitions":
         case "get_petitions":
           data = [currentPetition]
@@ -245,9 +248,12 @@ async function check(name, options, run) {
       }
       return data
     }
-    await route.fulfill({
-      json: { success: true, data: select(getResponseData(), request.fields) },
-    })
+    const selected = select(getResponseData(), request.fields)
+    const data =
+      request.page && Array.isArray(selected)
+        ? { results: selected, count: selected.length, hasMore: false }
+        : selected
+    await route.fulfill({ json: { success: true, data } })
   })
   try {
     await run(page, calls, () => {
@@ -491,7 +497,7 @@ try {
     await page.goto(`${home}/petitions/petition-1`, { waitUntil: "domcontentloaded" })
     await page.locator("#petition-detail-page").waitFor()
     assert.equal(await page.locator("#petition-owner-controls").count(), 0)
-    const request = calls.find((call) => call.action === "get_petitions")
+    const request = calls.find((call) => call.action === "get_petition_by_id")
     assert.doesNotMatch(JSON.stringify(request.fields), /userId|"user"/)
   })
   await check(

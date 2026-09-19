@@ -32,8 +32,9 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:tooling",
-    "test:tooling": "node tools/verify-tooling.mjs"
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:tooling && bun run test:petitions",
+    "test:tooling": "node tools/verify-tooling.mjs",
+    "test:petitions": "bun test tests/petition-mutations.test.mjs"
   },
   "engines": {
     "node": ">=22.18.0"
