@@ -75,12 +75,18 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
   }
 
   return (
-    <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
-      <h3 className="mb-3 font-display text-3xl font-normal text-foreground">Find your class.</h3>
-      <p className="mb-6 text-sm leading-relaxed text-[#685649]">
-        Have a code from your professor? You’re one step away from joining the conversation.
-      </p>
-      <form id="join-classroom-form" onSubmit={handleSubmit} className="space-y-4">
+    <Card className="gap-6 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none lg:grid lg:grid-cols-2 lg:items-center">
+      <div>
+        <h3 className="mb-3 font-display text-3xl font-normal text-foreground">Find your class.</h3>
+        <p className="text-sm leading-relaxed text-[#685649]">
+          Have a code from your professor? You’re one step away from joining the conversation.
+        </p>
+      </div>
+      <form
+        id="join-classroom-form"
+        onSubmit={handleSubmit}
+        className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start"
+      >
         <div className="space-y-2">
           <Label htmlFor="join-code">Join code</Label>
           <Input
@@ -110,7 +116,11 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
           )}
         </div>
 
-        <Button type="submit" disabled={joinMutation.isPending} className="w-full">
+        <Button
+          type="submit"
+          disabled={joinMutation.isPending}
+          className="w-full sm:mt-6 sm:w-auto"
+        >
           {joinMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -125,7 +135,7 @@ export function JoinClassroomForm({ onSuccess }: JoinClassroomFormProps) {
         </Button>
       </form>
       {joinedName && (
-        <p role="status" className="mt-4 text-sm">
+        <p role="status" className="text-sm lg:col-span-2">
           You’ve joined {joinedName}.
         </p>
       )}
