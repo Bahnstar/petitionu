@@ -27,10 +27,10 @@ function ClassroomsLoadingState() {
         </div>
 
         {/* Grid Skeleton */}
-        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
-          <div className="lg:col-span-2">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {[...Array(4)].map((_, i) => (
+        <div className="flex flex-col-reverse gap-6">
+          <div className="w-full">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
                 <div key={i} className="rounded-2xl border border-border bg-card p-6">
                   <div className="mb-4 h-6 w-24 animate-pulse rounded-lg bg-muted" />
                   <div className="mb-2 h-6 w-3/4 animate-pulse rounded-lg bg-muted" />
@@ -174,10 +174,9 @@ export default function ClassroomsPage() {
         >
           {showArchived ? "Hide archived" : "Show archived"}
         </Button>
-        {/* Main Content */}
-        <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
-          {/* Left Column - Classrooms */}
-          <div className="space-y-8 lg:col-span-2">
+        <div className="space-y-8">
+          <JoinClassroomForm onSuccess={() => classroomsQuery.refetch()} />
+          <div className="space-y-8">
             {classrooms.length === 0 && (
               <section className="app-empty-state">
                 <GraduationCap
@@ -237,11 +236,6 @@ export default function ClassroomsPage() {
                 Next
               </Button>
             </nav>
-          </div>
-
-          {/* Right Column - Join Form */}
-          <div>
-            <JoinClassroomForm onSuccess={() => classroomsQuery.refetch()} />
           </div>
         </div>
       </div>

@@ -35,7 +35,7 @@ export function ClassroomList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
       {classrooms.map((classroom) => (
         <ClassroomCard
           key={classroom.id}
