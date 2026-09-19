@@ -219,7 +219,7 @@ export function ClassroomForm({ classroom }: { classroom?: ClassroomSettings }) 
             ? "Your existing join code will stay the same."
             : "We’ll give you a join code to share with your students after you create the classroom."}
         </p>
-        <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+        <div className="flex flex-wrap justify-center gap-3 border-t border-border pt-6 sm:justify-end">
           <Button
             type="button"
             variant="outline"
