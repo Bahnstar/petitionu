@@ -180,18 +180,12 @@ defmodule Petitionu.Post.ClassroomMembership do
     end
 
     policy action(:remove) do
-      authorize_if expr(user_id == ^actor(:id) and role == :student and status == :active)
-      authorize_if expr(classroom.professor_id == ^actor(:id))
-
-      authorize_if expr(
-                     exists(
-                       classroom.memberships,
-                       user_id == ^actor(:id) and role == :ta and status == :active
-                     )
-                   )
+      authorize_if expr(can_remove)
     end
 
-    policy action([:invite_by_email, :approve]) do
+    # Create authorization needs relationship expressions before a membership exists;
+    # the persisted-record can_manage_members calculation cannot resolve here.
+    policy action(:invite_by_email) do
       authorize_if expr(classroom.professor_id == ^actor(:id))
 
       authorize_if expr(
@@ -208,12 +202,11 @@ defmodule Petitionu.Post.ClassroomMembership do
     end
 
     policy action(:approve) do
-      forbid_unless expr(status == :pending and classroom.archived == false)
-      authorize_if always()
+      authorize_if expr(can_approve)
     end
 
     policy action([:destroy, :promote_to_ta, :demote_to_student]) do
-      authorize_if expr(classroom.professor_id == ^actor(:id))
+      authorize_if expr(can_change_role)
     end
 
     policy action_type(:read) do
@@ -276,6 +269,31 @@ defmodule Petitionu.Post.ClassroomMembership do
   end
 
   calculations do
+    calculate :can_approve,
+              :boolean,
+              expr(
+                classroom.can_manage_members and status == :pending and
+                  classroom.archived == false
+              ) do
+      public? true
+    end
+
+    calculate :can_remove,
+              :boolean,
+              expr(
+                not is_nil(^actor(:confirmed_at)) and
+                  (classroom.can_manage_members or
+                     (user_id == ^actor(:id) and role == :student and status == :active))
+              ) do
+      public? true
+    end
+
+    calculate :can_change_role,
+              :boolean,
+              expr(not is_nil(^actor(:confirmed_at)) and classroom.can_manage_classroom) do
+      public? true
+    end
+
     calculate :member_name, :string, Petitionu.Post.Calculations.Author do
       public? true
       filterable? false

@@ -263,6 +263,120 @@ defmodule Petitionu.Post.ClassroomMembershipTest do
     refute hd(second.results).id in Enum.map(first.results, & &1.id)
   end
 
+  test "management capabilities agree with actions across actor roles and archive state",
+       context do
+    active_ta = user(:student)
+    pending_ta = user(:student)
+    removed_ta = user(:student)
+    membership(context.classroom, active_ta, :active, :ta)
+    membership(context.classroom, pending_ta, :pending, :ta)
+    membership(context.classroom, removed_ta, :removed, :ta)
+    membership(context.classroom, context.student, :active)
+
+    actors = [
+      {context.professor, true, true},
+      {active_ta, true, false},
+      {pending_ta, false, false},
+      {removed_ta, false, false},
+      {context.student, false, false},
+      {user(:student), false, false},
+      {%{context.professor | confirmed_at: nil}, false, false}
+    ]
+
+    for archived <- [false, true] do
+      classroom =
+        if archived,
+          do: Petitionu.Post.archive_classroom!(context.classroom, actor: context.professor),
+          else: context.classroom
+
+      for {actor, manages_members, changes_roles} <- actors do
+        loaded = Ash.load!(classroom, [:can_manage_classroom, :can_manage_members], actor: actor)
+        assert loaded.can_manage_classroom == (actor.id == context.professor.id)
+        assert loaded.can_manage_members == manages_members
+
+        pending = membership(classroom, user(:student), :pending)
+        active = membership(classroom, user(:student), :active)
+        capabilities = [:can_approve, :can_remove, :can_change_role]
+        # Bypass only roster visibility so denied actors can be covered by the same matrix.
+        loaded_pending = Ash.load!(pending, capabilities, actor: actor, authorize?: false)
+        loaded_active = Ash.load!(active, capabilities, actor: actor, authorize?: false)
+        assert loaded_pending.can_approve == (manages_members and not archived)
+        refute loaded_active.can_approve
+        assert loaded_active.can_remove == manages_members
+        assert loaded_active.can_change_role == changes_roles
+
+        assert match?(
+                 {:ok, _},
+                 Petitionu.Post.approve_classroom_membership(pending, actor: actor)
+               ) ==
+                 loaded_pending.can_approve
+
+        assert match?({:ok, _}, Petitionu.Post.promote_member_to_ta(active, actor: actor)) ==
+                 loaded_active.can_change_role
+
+        assert match?({:ok, _}, Petitionu.Post.remove_from_classroom(active, actor: actor)) ==
+                 loaded_active.can_remove
+      end
+    end
+  end
+
+  test "capabilities refresh after TA removal and archive without granting stale authority",
+       context do
+    ta = user(:student)
+    ta_membership = membership(context.classroom, ta, :active, :ta)
+    pending = membership(context.classroom, context.student, :pending)
+    assert Ash.load!(pending, :can_approve, actor: ta).can_approve
+
+    Petitionu.Post.remove_from_classroom!(ta_membership, actor: context.professor)
+    refute Ash.load!(pending, :can_approve, actor: ta, authorize?: false).can_approve
+    assert {:error, _} = Petitionu.Post.approve_classroom_membership(pending, actor: ta)
+
+    Petitionu.Post.archive_classroom!(context.classroom, actor: context.professor)
+    refute Ash.load!(pending, :can_approve, actor: context.professor).can_approve
+    Petitionu.Post.unarchive_classroom!(context.classroom, actor: context.professor)
+    assert Ash.load!(pending, :can_approve, actor: context.professor).can_approve
+  end
+
+  test "RPC projects actor capabilities without requiring readable roster user records",
+       context do
+    ta = user(:student)
+    membership(context.classroom, ta, :active, :ta)
+    pending = membership(context.classroom, context.student, :pending)
+
+    for actor <- [context.professor, ta] do
+      conn = Plug.Test.conn(:post, "/rpc/run") |> Ash.PlugHelpers.set_actor(actor)
+
+      assert %{"success" => true, "data" => classroom} =
+               AshTypescript.Rpc.run_action(:petitionu, conn, %{
+                 "action" => "get_classroom_by_id",
+                 "input" => %{"id" => context.classroom.id},
+                 "fields" => ["canManageClassroom", "canManageMembers"]
+               })
+
+      assert classroom["canManageClassroom"] == (actor.id == context.professor.id)
+      assert classroom["canManageMembers"]
+
+      assert %{"success" => true, "data" => memberships} =
+               AshTypescript.Rpc.run_action(:petitionu, conn, %{
+                 "action" => "get_memberships_for_classroom",
+                 "input" => %{"classroomId" => context.classroom.id},
+                 "fields" => [
+                   "id",
+                   "canApprove",
+                   "canRemove",
+                   "canChangeRole",
+                   %{"user" => ["id"]}
+                 ]
+               })
+
+      request = Enum.find(memberships, &(&1["id"] == pending.id))
+      assert request["canApprove"]
+      assert request["canRemove"]
+      assert request["canChangeRole"] == (actor.id == context.professor.id)
+      assert is_nil(request["user"])
+    end
+  end
+
   defp join(classroom, actor),
     do: Petitionu.Post.join_classroom_by_code(%{join_code: classroom.join_code}, actor: actor)
 

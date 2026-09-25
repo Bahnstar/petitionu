@@ -89,6 +89,11 @@ async function check(name, options, run) {
   page.setDefaultNavigationTimeout(30000)
   let signedIn = !options.guest
   let signatures = 3
+  let archived = false
+  const canManageClassroom = options.role === "professor"
+  const canManageMembers =
+    !options.incomplete &&
+    (canManageClassroom || (options.ta && (!options.status || options.status === "active")))
   let petitionCount = 1
   const calls = []
   const changes = {}
@@ -99,21 +104,29 @@ async function check(name, options, run) {
       return [
         {
           id: "self",
-          user,
+          user: options.ta ? null : user,
+          canRemove: canManageMembers || !options.ta,
+          canChangeRole: canManageClassroom,
           role: options.ta ? "ta" : "student",
           status: options.status || "active",
         },
         {
           id: "pending",
           memberName: options.longContent ? "Sam".repeat(35) : "Sam",
-          user: { id: "other", firstName: "Sam" },
+          user: null,
+          canApprove: canManageMembers && !archived,
+          canRemove: canManageMembers,
+          canChangeRole: canManageClassroom,
           role: "student",
           status: "pending",
         },
         {
           id: "active",
           memberName: options.longContent ? "Jo".repeat(50) : "Jo",
-          user: { id: "active-user", firstName: "Jo" },
+          user: null,
+          canApprove: false,
+          canRemove: canManageMembers,
+          canChangeRole: canManageClassroom,
           role: "student",
           status: "active",
         },
@@ -167,6 +180,9 @@ async function check(name, options, run) {
     function getClassroom() {
       return {
         ...classroom,
+        archived,
+        canManageClassroom,
+        canManageMembers,
         petitionCount,
         name: options.longContent ? "Classroom".repeat(20) : classroom.name,
         description: options.longContent ? "Description".repeat(30) : "Class discussion",
@@ -186,7 +202,15 @@ async function check(name, options, run) {
       })
       return
     }
+    function getClassroomResponse() {
+      if (request.action === "archive_classroom") archived = true
+      if (request.action === "unarchive_classroom") archived = false
+      return getClassroom()
+    }
     function getResponseData() {
+      if (["archive_classroom", "unarchive_classroom"].includes(request.action)) {
+        return getClassroomResponse()
+      }
       let data
       switch (request.action) {
         case "get_me":
@@ -565,6 +589,27 @@ try {
     assert.ok(calls.some((call) => call.action === "remove_from_classroom"))
     assert.equal(await page.getByRole("button", { name: "Archive", exact: true }).count(), 0)
   })
+  await check(
+    "archiving refreshes approval eligibility",
+    { role: "professor" },
+    async (page, calls) => {
+      await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
+      await page.getByRole("button", { name: "Approve Sam", exact: true }).waitFor()
+      page.on("dialog", (dialog) => dialog.accept())
+      await page.getByRole("button", { name: "Archive", exact: true }).click()
+      await page.getByRole("button", { name: "Unarchive", exact: true }).waitFor()
+      await page
+        .getByRole("button", { name: "Approve Sam", exact: true })
+        .waitFor({ state: "detached" })
+      assert.equal(
+        await page.getByRole("button", { name: "Decline Sam’s request", exact: true }).count(),
+        1,
+      )
+      await page.getByRole("button", { name: "Unarchive", exact: true }).click()
+      await page.getByRole("button", { name: "Approve Sam", exact: true }).waitFor()
+      assert.ok(calls.filter((call) => call.action === "get_memberships_for_classroom").length >= 3)
+    },
+  )
   for (const status of ["pending", "removed"]) {
     await check(`${status} TAs have no membership controls`, { ta: true, status }, async (page) => {
       await page.goto(`${home}/classrooms/class-1`, { waitUntil: "domcontentloaded" })
