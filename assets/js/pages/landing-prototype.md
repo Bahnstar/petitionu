@@ -46,3 +46,14 @@ Variant G is implemented as `landing-page.tsx` with scoped styles in `landing-pa
 It is the default at `/` and `/ash-typescript`; its CTAs open `/ash-typescript/create`.
 The public page does not fetch petitions. Development comparisons remain available
 with `?variant=G`, including the original local draft interaction.
+
+## Revision: September 24, 2026
+
+A UX pass kept G's palette, type, and placards and changed what the page does for a
+reader. The hero's second action and note follow sign-in state: visitors see "See how it
+works" and learn that publishing or signing needs a school email; signed-in students get
+"Browse petitions" and a dashboard link. The arrow strip beneath the hero duplicated the
+three steps and was removed. Placard captions moved from 9px to 11px. "Why PetitionU"
+now gives three reasons tied to real features (school verification, classrooms, community
+rules) instead of one sentence, and the footer carries Support, Privacy, and Community
+rules. Verified in headless Chromium at 1440, 900, and 390 widths in both auth states.
