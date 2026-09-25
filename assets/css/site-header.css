@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 24px;
 }
 .site-nav-link {
   position: relative;
@@ -78,7 +78,7 @@
 .site-header-account {
   display: flex;
   align-items: center;
-  gap: 21px;
+  gap: 18px;
 }
 .site-header-actions {
   justify-self: end;
@@ -145,7 +145,7 @@
     background: #f1f8f7;
   }
 }
-@media (min-width: 768px) and (max-width: 1439px) {
+@media (min-width: 768px) and (max-width: 1199px) {
   .site-header:has(.site-sign-out) {
     .site-header-row {
       grid-template-columns: 1fr auto;
