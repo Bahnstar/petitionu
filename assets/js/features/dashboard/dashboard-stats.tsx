@@ -6,27 +6,22 @@ interface DashboardStatsProps {
 
 export function DashboardStats({ numPetitions, numSigned, numSupporters }: DashboardStatsProps) {
   const stats = [
-    { label: "Petitions started", value: numPetitions, description: "Ideas you’ve put into words" },
-    { label: "Petitions signed", value: numSigned, description: "Ideas you’ve stood behind" },
-    {
-      label: "Signatures gathered",
-      value: numSupporters,
-      description: "Across the petitions you started",
-    },
+    { label: "Petitions started", value: numPetitions },
+    { label: "Petitions signed", value: numSigned },
+    { label: "Signatures on your petitions", value: numSupporters },
   ]
 
   return (
     <dl
       id="dashboard-stats"
-      className="grid divide-y divide-border border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0"
+      className="grid grid-cols-3 divide-x divide-border border-y border-border"
     >
       {stats.map((stat) => (
-        <div key={stat.label} className="py-6 sm:px-6 sm:first:pl-0">
-          <dt className="text-sm text-muted-foreground">{stat.label}</dt>
-          <dd className="mt-2 font-display text-5xl leading-none tracking-tight text-foreground">
+        <div key={stat.label} className="px-3 py-4 first:pl-0 sm:px-6 sm:py-5">
+          <dd className="font-display text-3xl leading-none tracking-tight text-foreground sm:text-5xl">
             {(stat.value ?? 0).toLocaleString()}
           </dd>
-          <dd className="mt-2 text-xs text-muted-foreground">{stat.description}</dd>
+          <dt className="mt-2 text-xs text-muted-foreground sm:text-sm">{stat.label}</dt>
         </div>
       ))}
     </dl>

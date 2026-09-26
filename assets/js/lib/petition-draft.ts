@@ -12,7 +12,7 @@ const emptyDraft: PetitionDraft = {
   title: "",
   description: "",
   categoryId: "",
-  goal: "1000",
+  goal: "250",
   deadline: "",
   allowComments: true,
   isAnonymous: false,

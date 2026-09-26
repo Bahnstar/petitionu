@@ -24,6 +24,13 @@ export function PetitionCard({ petition }: { petition: Petition }) {
         <span className="rounded-full bg-[#f5cfdc] px-3 py-1 text-xs text-[#663e51]">Victory</span>
       )
     }
+    if (closed) {
+      return (
+        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+          Closed
+        </span>
+      )
+    }
     if (petition.trending) {
       return (
         <span className="rounded-full bg-[#f7e8d2] px-3 py-1 text-xs text-[#685649]">
@@ -48,29 +55,26 @@ export function PetitionCard({ petition }: { petition: Petition }) {
     <Link
       id={`petition-${petition.id}`}
       to={ROUTES.petition(petition.id)}
-      className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:p-7"
+      data-closed={closed ? "true" : undefined}
+      className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary data-[closed=true]:bg-background"
     >
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-full bg-secondary px-3 py-1 text-xs text-secondary-foreground">
           {petition.category?.name ?? "General"}
         </span>
         {renderStatusBadge()}
       </div>
-      <h3 className="mb-3 font-display text-[29px] leading-[1.12] tracking-tight break-words text-foreground decoration-1 underline-offset-4 group-hover:underline">
+      <h3 className="mb-2 font-display text-[23px] leading-[1.15] tracking-tight break-words text-foreground decoration-1 underline-offset-4 group-hover:underline group-data-[closed=true]:text-muted-foreground">
         {petition.title}
       </h3>
-      <p className="mb-5 line-clamp-3 text-sm leading-7 text-muted-foreground">
+      <p className="mb-4 line-clamp-2 text-sm leading-6 text-muted-foreground">
         {petition.description}
       </p>
-      <p className="mb-7 text-xs text-muted-foreground">
-        Started by{" "}
-        {petition.isAnonymous ? "Anonymous" : petition.author || "a campus community member"}
-      </p>
-      <div className="mt-auto space-y-3 border-t border-border pt-5">
+      <div className="mt-auto space-y-2 border-t border-border pt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
           <span>
             <strong className="text-base font-medium">{signatures.toLocaleString()}</strong>{" "}
-            signatures
+            {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}
           </span>
           <span className="text-muted-foreground">{deadlineLabel()}</span>
         </div>
@@ -84,14 +88,10 @@ export function PetitionCard({ petition }: { petition: Petition }) {
         >
           <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
         </div>
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="text-muted-foreground">
-            {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "Every voice counts"}
-          </span>
-          <span className="font-medium">
-            Read petition <span className="ml-1 hero-arrow-up-right size-3" aria-hidden="true" />
-          </span>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          Started by{" "}
+          {petition.isAnonymous ? "Anonymous" : petition.author || "a campus community member"}
+        </p>
       </div>
     </Link>
   )

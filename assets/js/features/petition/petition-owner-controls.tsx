@@ -233,17 +233,12 @@ export function PetitionOwnerControls({
   return (
     <section
       id="petition-owner-controls"
-      className="app-panel space-y-5"
+      className="app-panel space-y-4 !py-5"
       aria-labelledby="manage-petition-heading"
     >
-      <div>
-        <h2 id="manage-petition-heading" className="font-display text-3xl tracking-tight">
-          Manage your petition
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Keep your community informed as your idea moves forward.
-        </p>
-      </div>
+      <h2 id="manage-petition-heading" className="text-sm font-medium">
+        Manage your petition
+      </h2>
       {!canPublishUpdate ? (
         <p className="text-sm text-muted-foreground">
           Confirm your email and{" "}
