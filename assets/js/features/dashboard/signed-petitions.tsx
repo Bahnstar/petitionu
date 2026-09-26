@@ -21,9 +21,12 @@ export function SignedPetitions({ signedPetitions }: { signedPetitions: Signatur
         <h2 id="signed-petitions-heading" className="font-display text-3xl tracking-tight">
           Ideas you’re standing behind
         </h2>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs">
-          {visibleSignatures.length} recent
-        </span>
+        <Link
+          to={ROUTES.petitions}
+          className="shrink-0 text-sm underline decoration-primary/40 underline-offset-4"
+        >
+          Browse petitions
+        </Link>
       </div>
       {visibleSignatures.length === 0 ? (
         <div className="rounded-2xl bg-background px-5 py-8">

@@ -3,8 +3,6 @@ import { Plus } from "lucide-react"
 import { DashboardStats } from "../features/dashboard/dashboard-stats"
 import { UserPetitions } from "../features/dashboard/user-petitions"
 import { SignedPetitions } from "../features/dashboard/signed-petitions"
-import { CampusIdeas } from "../features/dashboard/trending-at-school"
-import { RecentActivity } from "../features/dashboard/recent-activity"
 import { MyClassrooms } from "../features/classroom/my-classrooms"
 import { Button } from "@/components/ui/button"
 import { buildCSRFHeaders, getUserById, UserResourceSchema } from "../ash_rpc"
@@ -161,14 +159,11 @@ export default function Dashboard() {
 
   return (
     <main id="dashboard-page" className="app-page">
-      <header className="mb-9 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
+      <header className="mb-7 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-end">
         <div className="min-w-0">
           <h1 className="app-page-heading break-words">Welcome back, {name}.</h1>
-          <p className="app-page-description">
-            Your ideas, your people, and the change you’re making together.
-          </p>
         </div>
-        <Button asChild className="shrink-0">
+        <Button asChild className="shrink-0 sm:hidden">
           <Link id="dashboard-create-petition" to={ROUTES.createPetition}>
             <Plus aria-hidden="true" />
             Start a petition
@@ -191,18 +186,13 @@ export default function Dashboard() {
         numSupporters={apiUser.totalPetitionSignatures}
       />
 
-      <div className="mt-9 grid items-start gap-7 lg:grid-cols-3">
-        <div className="min-w-0 space-y-7 lg:col-span-2">
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <UserPetitions petitions={apiUser.petitions ?? []} />
           <SignedPetitions signedPetitions={apiUser.signatures ?? []} />
         </div>
-        <aside className="min-w-0 space-y-7" aria-label="Your community">
+        <aside className="min-w-0 space-y-6" aria-label="Your classrooms">
           <MyClassrooms currentUserId={apiUser.id} />
-          <CampusIdeas />
-          <RecentActivity
-            petitions={apiUser.petitions ?? []}
-            signatures={apiUser.signatures ?? []}
-          />
         </aside>
       </div>
     </main>
