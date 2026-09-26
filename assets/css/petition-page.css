@@ -1,0 +1,193 @@
+/* Petition page: the petition reads as a document, and the rail keeps its tally. */
+@layer components {
+  .petition-hero {
+    padding-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+  }
+  .petition-title {
+    max-width: 22ch;
+    font-family: "Newsreader", Georgia, serif;
+    font-size: clamp(36px, 4.2vw, 54px);
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -1.6px;
+    text-wrap: balance;
+  }
+  .petition-body {
+    max-width: 62ch;
+    margin-top: 28px;
+    font-size: 17px;
+    line-height: 1.75;
+    color: var(--foreground);
+  }
+  .petition-section-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 27px;
+    font-weight: 400;
+    letter-spacing: -0.6px;
+  }
+  .petition-section-heading small {
+    font-family: "Geist", "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+  .petition-tally {
+    padding: 26px 26px 24px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--card);
+  }
+  .petition-tally-count {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .petition-tally-count strong {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 60px;
+    font-weight: 400;
+    line-height: 0.9;
+    letter-spacing: -2.4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .petition-tally-count span {
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+  .petition-marks {
+    display: grid;
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 18px;
+  }
+  .petition-marks i {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--secondary);
+  }
+  .petition-marks i[data-filled="true"] {
+    background: var(--primary);
+  }
+  .petition-marks i[data-you="true"] {
+    background: #a67076;
+  }
+  .petition-tally-note {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .petition-tally-form {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .petition-timeline {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .petition-timeline li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 16px;
+    padding: 0 0 26px 0;
+  }
+  .petition-timeline li::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    bottom: -8px;
+    left: 144px;
+    border-left: 1px solid var(--border);
+  }
+  .petition-timeline li:last-child::before {
+    bottom: auto;
+    height: 0;
+  }
+  .petition-timeline li::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 140px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+  .petition-timeline time {
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--muted-foreground);
+  }
+  .petition-timeline h3 {
+    font-size: 15px;
+    font-weight: 550;
+    line-height: 20px;
+  }
+  .petition-timeline p {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--muted-foreground);
+  }
+  .petition-reasons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 36px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .petition-reasons blockquote {
+    margin: 0;
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1.35;
+    letter-spacing: -0.2px;
+    text-indent: -0.4em;
+  }
+  .petition-reasons p {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .petition-thread {
+    margin-top: 24px;
+  }
+  .petition-thread > div {
+    padding: 18px 0 18px 18px;
+    border-left: 2px solid var(--border);
+  }
+  .petition-thread > div + div {
+    margin-top: 6px;
+  }
+  @media (max-width: 767px) {
+    .petition-timeline li {
+      grid-template-columns: 1fr;
+      gap: 2px;
+      padding-left: 20px;
+    }
+    .petition-timeline li::before {
+      left: 4px;
+    }
+    .petition-timeline li::after {
+      left: 0;
+    }
+    .petition-reasons {
+      grid-template-columns: 1fr;
+    }
+    .petition-tally {
+      padding: 22px 20px;
+    }
+    .petition-tally-count strong {
+      font-size: 48px;
+    }
+  }
+}

@@ -21,7 +21,7 @@ export function UserPetitions({ petitions }: { petitions: Petition[] }) {
         <h2 id="your-petitions-heading" className="font-display text-3xl tracking-tight">
           Your petitions
         </h2>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs">
+        <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs whitespace-nowrap">
           {petitions.length} recent
         </span>
       </div>
@@ -44,6 +44,18 @@ export function UserPetitions({ petitions }: { petitions: Petition[] }) {
             const daysLeft = petition.deadline
               ? Math.ceil((Date.parse(petition.deadline) - now) / 86_400_000)
               : null
+            const remaining = goal > 0 ? Math.max(0, goal - signatures) : 0
+            const open = petition.status === "open" && (daysLeft == null || daysLeft > 0)
+            // What the owner should do next, in one line.
+            function nextStep() {
+              if (petition.status === "victory") return "Marked as a victory."
+              if (!open) return "Closed. You can still read the signatures and comments."
+              if (goal > 0 && signatures >= goal)
+                return "Goal reached. Post an update to keep momentum."
+              if (goal > 0)
+                return `${remaining.toLocaleString()} more to reach your goal. Share the link and post an update.`
+              return "Share the link and post an update."
+            }
             return (
               <article key={petition.id} className="py-5 first:pt-0 last:pb-0">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -68,7 +80,7 @@ export function UserPetitions({ petitions }: { petitions: Petition[] }) {
                     {petition.description}
                   </p>
                 ) : null}
-                <div className="mt-4 mb-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                <div className="mt-3 mb-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                   <span>
                     <strong className="font-medium text-foreground">
                       {signatures.toLocaleString()}
@@ -88,11 +100,15 @@ export function UserPetitions({ petitions }: { petitions: Petition[] }) {
                   className="h-1.5"
                   aria-label={`Signature goal for ${petition.title}`}
                 />
-                {goal > 0 && signatures >= goal ? (
-                  <p className="mt-2 text-xs font-medium text-primary">
-                    You reached your signature goal.
-                  </p>
-                ) : null}
+                <p className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                  <span className="text-muted-foreground">{nextStep()}</span>
+                  <Link
+                    to={ROUTES.petition(petition.id)}
+                    className="font-medium underline decoration-primary/40 underline-offset-4"
+                  >
+                    Manage petition
+                  </Link>
+                </p>
               </article>
             )
           })}

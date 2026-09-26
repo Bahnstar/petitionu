@@ -15,7 +15,7 @@ import {
 import { PetitionCard } from "../features/petition/petition-card"
 import { buildCSRFHeaders, getCategories, getPetitions, PetitionResourceSchema } from "../ash_rpc"
 import { CleanResource } from "../../lib/types"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, type UseQueryResult } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ROUTES } from "@/lib/routes"
 
@@ -29,6 +29,137 @@ const SORT_OPTIONS = [
 type Petition = CleanResource<PetitionResourceSchema>
 
 const PAGE_SIZE = 12
+
+type Scope = "mine" | "all"
+
+function scopeLabel(
+  user: { organizationId?: string | null; organization?: { name?: string | null } | null } | null,
+  campusScope: Scope,
+) {
+  if (!user?.organizationId) return "from every campus"
+  return campusScope === "mine" && user.organization?.name
+    ? `at ${user.organization.name}`
+    : "from every campus"
+}
+
+function MissingCampusNote({ hasCampus }: { hasCampus: boolean }) {
+  if (hasCampus) return null
+  return (
+    <p className="app-page-description">
+      <Link to={ROUTES.profile} className="underline underline-offset-4">
+        Complete your profile
+      </Link>{" "}
+      to find your campus. Showing every campus for now.
+    </p>
+  )
+}
+
+// Campus scope shares the search row: two small toggles instead of a row of their own.
+function CampusScopeToggle({
+  enabled,
+  scope,
+  onChange,
+}: {
+  enabled: boolean
+  scope: Scope
+  onChange: (scope: Scope) => void
+}) {
+  const campusScope = scope
+  const setCampusScope = onChange
+  if (!enabled) return null
+  return (
+    // Campus scope shares the search row: two small toggles instead of a row of their own.
+
+    <div
+      className="flex h-12 shrink-0 items-center gap-1 rounded-full border border-input bg-white p-1"
+      aria-label="Campus scope"
+    >
+      <Button
+        id="my-campus"
+        size="sm"
+        variant={campusScope === "mine" ? "default" : "ghost"}
+        aria-pressed={campusScope === "mine"}
+        onClick={() => setCampusScope("mine")}
+      >
+        My campus
+      </Button>
+      <Button
+        id="all-campuses"
+        size="sm"
+        variant={campusScope === "all" ? "default" : "ghost"}
+        aria-pressed={campusScope === "all"}
+        onClick={() => setCampusScope("all")}
+      >
+        All campuses
+      </Button>
+    </div>
+  )
+}
+
+function CategoryFilter({
+  categoryQuery,
+  selectedCategory,
+  onSelect,
+}: {
+  categoryQuery: UseQueryResult<{ id: string; name: string | null }[]>
+  selectedCategory: string
+  onSelect: (category: string) => void
+}) {
+  const setSelectedCategory = onSelect
+  return (
+    <>
+      <div className="flex flex-wrap gap-2" aria-label="Filter by category">
+        <Button
+          size="sm"
+          variant={selectedCategory === "all" ? "default" : "outline"}
+          aria-pressed={selectedCategory === "all"}
+          onClick={() => setSelectedCategory("all")}
+        >
+          All petitions
+        </Button>
+        {categoryQuery.data?.map((category) => (
+          <Button
+            key={category.id}
+            size="sm"
+            variant={selectedCategory === category.id ? "default" : "outline"}
+            aria-pressed={selectedCategory === category.id}
+            onClick={() => setSelectedCategory(category.id)}
+          >
+            {category.name}
+          </Button>
+        ))}
+      </div>
+      {categoryQuery.isSuccess && categoryQuery.data.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No categories are available yet.</p>
+      ) : null}
+      {selectedCategory !== "all" &&
+      categoryQuery.isSuccess &&
+      !categoryQuery.data.some((category) => category.id === selectedCategory) ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          This category is unavailable.{" "}
+          <Button variant="link" onClick={() => setSelectedCategory("all")}>
+            Show all categories
+          </Button>
+        </p>
+      ) : null}
+      {categoryQuery.isError ? (
+        <p role="alert" className="text-sm text-muted-foreground">
+          Categories are unavailable. You can still search petitions.{" "}
+          <button className="underline underline-offset-4" onClick={() => categoryQuery.refetch()}>
+            Try again
+          </button>
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+function isClosed(petition: Petition, now: number) {
+  return (
+    petition.status !== "open" ||
+    (!!petition.deadline && new Date(petition.deadline).getTime() <= now)
+  )
+}
 
 function PetitionSearch({
   query,
@@ -95,47 +226,6 @@ export default function BrowsePetitionsPage() {
 }
 
 function AuthenticatedBrowsePetitionsPage() {
-  function renderCampusScope() {
-    if (user?.organizationId) {
-      return (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex gap-2" aria-label="Campus scope">
-            <Button
-              id="my-campus"
-              variant={campusScope === "mine" ? "default" : "outline"}
-              aria-pressed={campusScope === "mine"}
-              onClick={() => setCampusScope("mine")}
-            >
-              My campus
-            </Button>
-            <Button
-              id="all-campuses"
-              variant={campusScope === "all" ? "default" : "outline"}
-              aria-pressed={campusScope === "all"}
-              onClick={() => setCampusScope("all")}
-            >
-              All campuses
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {campusScope === "mine" ? user.organization?.name : "Ideas from every campus"}
-          </p>
-        </div>
-      )
-    }
-    if (user) {
-      return (
-        <p className="text-sm text-muted-foreground">
-          <Link to="/ash-typescript/profile" className="underline underline-offset-4">
-            Complete your profile
-          </Link>{" "}
-          to find your campus. Showing all campuses.
-        </p>
-      )
-    }
-    return null
-  }
-
   const now = useCurrentTime()
   useDocumentTitle("Browse Petitions")
   const { user, isLoading: authLoading } = useAuth()
@@ -224,6 +314,9 @@ function AuthenticatedBrowsePetitionsPage() {
             (selectedCategory === "all" || petition.categoryId === selectedCategory),
         )
         .sort((a, b) => {
+          // Open petitions come first under every sort; closed ones can still be signed by no one.
+          const openFirst = Number(isClosed(b, now)) - Number(isClosed(a, now))
+          if (openFirst !== 0) return -openFirst
           switch (sortBy) {
             case "most-signed":
               return (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
@@ -303,8 +396,11 @@ function AuthenticatedBrowsePetitionsPage() {
       <>
         <div className="mb-5 flex items-center justify-between gap-4">
           <p role="status" className="text-sm text-muted-foreground">
-            {filteredPetitions.length} {filteredPetitions.length === 1 ? "petition" : "petitions"}
-            {hasFilters ? " found" : " to explore"}
+            <span>
+              {filteredPetitions.length} {filteredPetitions.length === 1 ? "petition" : "petitions"}
+              {hasFilters ? " found" : " to explore"}
+            </span>{" "}
+            {scopeLabel(user, campusScope)}
           </p>
           {hasFilters ? (
             <Button variant="ghost" size="sm" onClick={clearFilters}>
@@ -313,7 +409,7 @@ function AuthenticatedBrowsePetitionsPage() {
           ) : null}
         </div>
         {filteredPetitions.length > 0 ? (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {visiblePetitions.map((petition) => (
               <PetitionCard key={petition.id} petition={petition} />
             ))}
@@ -370,28 +466,27 @@ function AuthenticatedBrowsePetitionsPage() {
 
   return (
     <main id="browse-petitions-page" className="app-page">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6 border-b border-border pb-9">
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
         <div className="max-w-2xl">
-          <h1 className="app-page-heading">
-            Find something worth
-            <br className="hidden sm:block" /> speaking up about.
-          </h1>
-          <p className="app-page-description">
-            Small asks. Shared ideas. Discover what your campus cares about, and add your voice.
-          </p>
+          <h1 className="app-page-heading">Petitions on your campus.</h1>
+          <MissingCampusNote hasCampus={!!user?.organizationId} />
         </div>
-        <Button id="browse-start-petition" asChild>
+        <Button id="browse-start-petition" asChild className="sm:hidden">
           <Link to={ROUTES.createPetition}>Start a petition</Link>
         </Button>
       </header>
 
-      <section aria-label="Find petitions" className="mb-8 space-y-5">
-        {renderCampusScope()}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+      <section aria-label="Find petitions" className="mb-7 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <PetitionSearch
             navigationKey={location.key}
             query={searchQuery}
             onSearch={setSearchQuery}
+          />
+          <CampusScopeToggle
+            enabled={!!user?.organizationId}
+            scope={campusScope}
+            onChange={setCampusScope}
           />
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger
@@ -410,51 +505,11 @@ function AuthenticatedBrowsePetitionsPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Filter by category">
-          <Button
-            size="sm"
-            variant={selectedCategory === "all" ? "default" : "outline"}
-            aria-pressed={selectedCategory === "all"}
-            onClick={() => setSelectedCategory("all")}
-          >
-            All petitions
-          </Button>
-          {categoryQuery.data?.map((category) => (
-            <Button
-              key={category.id}
-              size="sm"
-              variant={selectedCategory === category.id ? "default" : "outline"}
-              aria-pressed={selectedCategory === category.id}
-              onClick={() => setSelectedCategory(category.id)}
-            >
-              {category.name}
-            </Button>
-          ))}
-        </div>
-        {categoryQuery.isSuccess && categoryQuery.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No categories are available yet.</p>
-        ) : null}
-        {selectedCategory !== "all" &&
-        categoryQuery.isSuccess &&
-        !categoryQuery.data.some((category) => category.id === selectedCategory) ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            This category is unavailable.{" "}
-            <Button variant="link" onClick={() => setSelectedCategory("all")}>
-              Show all categories
-            </Button>
-          </p>
-        ) : null}
-        {categoryQuery.isError ? (
-          <p role="alert" className="text-sm text-muted-foreground">
-            Categories are unavailable. You can still search petitions.{" "}
-            <button
-              className="underline underline-offset-4"
-              onClick={() => categoryQuery.refetch()}
-            >
-              Try again
-            </button>
-          </p>
-        ) : null}
+        <CategoryFilter
+          categoryQuery={categoryQuery}
+          selectedCategory={selectedCategory}
+          onSelect={setSelectedCategory}
+        />
       </section>
 
       {renderPetitions()}

@@ -2,7 +2,8 @@ import { mutatePetition } from "../features/petition/petition-mutations"
 import { ReportContent } from "../features/moderation/report-content"
 import { useCurrentTime } from "../hooks/use-current-time"
 import { AuthLink } from "../components/auth-link"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { formatDate } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
 import { buildCSRFHeaders, getPetitionById, type GetPetitionByIdFields } from "../ash_rpc"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
@@ -53,6 +54,57 @@ async function loadPetition(id: string, authenticated: boolean) {
 
 type Petition = NonNullable<Awaited<ReturnType<typeof loadPetition>>>
 
+// On phones the signing panel sits after the comments, so a fixed bar keeps the count and the
+// sign action reachable. It hides once the panel itself is on screen.
+function MobileSignBar({
+  signed,
+  count,
+  goal,
+  panelId,
+  onShare,
+}: {
+  signed: boolean
+  count: number
+  goal: number
+  panelId: string
+  onShare: () => void
+}) {
+  const [panelVisible, setPanelVisible] = useState(false)
+  const observed = useRef<IntersectionObserver | null>(null)
+  useEffect(() => {
+    const panel = document.getElementById(panelId)
+    if (!panel || typeof IntersectionObserver === "undefined") return
+    observed.current = new IntersectionObserver(
+      ([entry]) => setPanelVisible(entry.isIntersecting),
+      {
+        threshold: 0.2,
+      },
+    )
+    observed.current.observe(panel)
+    return () => observed.current?.disconnect()
+  }, [panelId])
+  return (
+    <div id="petition-sign-bar" className="app-sign-bar" data-hidden={panelVisible}>
+      <p className="min-w-0 text-sm leading-tight">
+        <strong className="font-display text-2xl font-normal">{count.toLocaleString()}</strong>{" "}
+        <span className="text-muted-foreground">
+          {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}
+        </span>
+      </p>
+      {signed ? (
+        <Button variant="outline" onClick={onShare}>
+          <span className="hero-arrow-up-tray size-4" aria-hidden="true" />
+          Share
+        </Button>
+      ) : (
+        <Button asChild>
+          <a href={`#${panelId}`}>Sign this petition</a>
+        </Button>
+      )}
+    </div>
+  )
+}
+
 function PetitionContent({ petition }: { petition: Petition }) {
   function renderPetitionMetadata() {
     return (
@@ -61,15 +113,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
           Started by{" "}
           {petition.isAnonymous ? "Anonymous" : petition.author || "a campus community member"}
         </span>
-        {petition.insertedAt ? (
-          <span>
-            {new Date(petition.insertedAt).toLocaleDateString(undefined, {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
-        ) : null}
+        {petition.insertedAt ? <span>{formatDate(petition.insertedAt)}</span> : null}
       </div>
     )
   }
@@ -146,70 +190,70 @@ function PetitionContent({ petition }: { petition: Petition }) {
     )
   }
 
+  // Signatures are anonymous, so the list shows reasons rather than a repeated placeholder name.
+  function renderReasons() {
+    const reasons = [...signatures]
+      .filter((signature) => signature.reason?.trim())
+      .sort((a, b) => (b.insertedAt ?? "").localeCompare(a.insertedAt ?? ""))
+      .slice(0, 5)
+    if (signatures.length === 0)
+      return (
+        <p className="text-sm leading-7 text-muted-foreground">
+          {closed
+            ? "This petition closed without signatures."
+            : "Be the first to stand behind this idea."}
+        </p>
+      )
+    if (reasons.length === 0)
+      return (
+        <p className="text-sm leading-7 text-muted-foreground">
+          {signatureCount.toLocaleString()} {signatureCount === 1 ? "person has" : "people have"}{" "}
+          signed. No one has shared a reason yet.
+        </p>
+      )
+    return (
+      <ul className="petition-reasons">
+        {reasons.map((signature) => (
+          <li key={signature.id}>
+            <blockquote className="break-words whitespace-pre-wrap">
+              “{signature.reason}”
+            </blockquote>
+            <p>Signed {formatDate(signature.insertedAt)}</p>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
   function renderActivity() {
     return user ? (
       <>
         <section aria-labelledby="petition-supporters-heading">
-          <h2
-            id="petition-supporters-heading"
-            className="mb-5 font-display text-3xl tracking-tight"
-          >
-            Voices behind the idea.
+          <h2 id="petition-supporters-heading" className="petition-section-heading mb-6">
+            Why people signed
+            <small>{signatureCount.toLocaleString()} signed</small>
           </h2>
-          {signatures.length > 0 ? (
-            <div className="divide-y divide-border">
-              {[...signatures]
-                .sort((a, b) => (b.insertedAt ?? "").localeCompare(a.insertedAt ?? ""))
-                .slice(0, 5)
-                .map((signature) => (
-                  <div key={signature.id} className="py-5 first:pt-0">
-                    <div className="flex flex-wrap justify-between gap-2 text-xs">
-                      <span className="font-medium">A campus supporter</span>
-                      {signature.insertedAt ? (
-                        <span className="text-muted-foreground">
-                          {new Date(signature.insertedAt).toLocaleDateString()}
-                        </span>
-                      ) : null}
-                    </div>
-                    {signature.reason ? (
-                      <p className="mt-2 text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
-                        “{signature.reason}”
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-            </div>
-          ) : (
-            <p className="text-sm leading-7 text-muted-foreground">
-              {closed
-                ? "This petition closed without signatures."
-                : "Be the first to stand behind this idea."}
-            </p>
-          )}
+          {renderReasons()}
         </section>
         <ReportContent petitionId={petition.id} />
         <section id="petition-comments" aria-labelledby="petition-comments-heading">
-          <h2 id="petition-comments-heading" className="mb-5 font-display text-3xl tracking-tight">
-            The conversation{" "}
-            <span className="font-sans text-sm text-muted-foreground">({comments.length})</span>
+          <h2 id="petition-comments-heading" className="petition-section-heading mb-6">
+            Conversation
+            <small>{comments.length}</small>
           </h2>
           {renderCommentForm()}
-          <div className="divide-y divide-border">
+          <div className="petition-thread">
             {comments.map((comment) => (
-              <div key={comment.id} className="py-5">
+              <div key={comment.id}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-medium">
                     {comment.author || "A campus community member"}
                   </span>
                   {comment.insertedAt ? (
-                    <span className="text-muted-foreground">
-                      {new Date(comment.insertedAt).toLocaleDateString()}
-                    </span>
+                    <span className="text-muted-foreground">{formatDate(comment.insertedAt)}</span>
                   ) : null}
                 </div>
-                <p className="text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
-                  {comment.text}
-                </p>
+                <p className="text-sm leading-7 break-words whitespace-pre-wrap">{comment.text}</p>
                 <ReportContent petitionId={petition.id} commentId={comment.id} />
               </div>
             ))}
@@ -412,86 +456,98 @@ function PetitionContent({ petition }: { petition: Petition }) {
     )
   }
 
+  // One hundred marks stand for the goal; each fills as signatures arrive. The reader's own
+  // signature is the newest mark, in rose.
+  function renderMarks() {
+    const filled = Math.round(progress)
+    return (
+      <div
+        role="progressbar"
+        aria-label="Signature goal"
+        aria-valuenow={filled}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="petition-marks"
+      >
+        {Array.from({ length: 100 }, (_, index) => (
+          <i
+            key={index}
+            data-filled={index < filled}
+            data-you={signed && filled > 0 && index === filled - 1 ? "true" : undefined}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  function tallyNote() {
+    if (goal > 0 && signatureCount >= goal) return "Goal reached."
+    if (goal > 0 && petition.deadline && !closed)
+      return `${Math.round(progress)}% of the way there, ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left.`
+    if (goal > 0) return `${Math.round(progress)}% of the way there.`
+    if (petition.deadline && !closed) return `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left.`
+    return "Every signature counts."
+  }
+
   function renderSignaturePanel() {
     return (
-      <section id="petition-signature-panel" className="app-panel">
-        <h2 className="mb-5 font-display text-3xl tracking-tight">{signatureHeading()}</h2>
-        <p className="text-sm text-muted-foreground">
-          <strong className="mr-2 font-display text-5xl font-normal tracking-tight text-foreground">
-            {signatureCount.toLocaleString()}
-          </strong>{" "}
-          signatures
+      <section
+        id="petition-signature-panel"
+        className="petition-tally"
+        aria-labelledby="petition-tally-heading"
+      >
+        <h2 id="petition-tally-heading" className="mb-4 text-sm font-medium">
+          {signatureHeading()}
+        </h2>
+        <p className="petition-tally-count">
+          <strong>{signatureCount.toLocaleString()}</strong>
+          <span>{goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}</span>
         </p>
-        <div
-          role={goal > 0 ? "progressbar" : undefined}
-          aria-label={goal > 0 ? "Signature goal" : undefined}
-          aria-valuenow={goal > 0 ? Math.round(progress) : undefined}
-          aria-valuemin={goal > 0 ? 0 : undefined}
-          aria-valuemax={goal > 0 ? 100 : undefined}
-          className="mt-5 mb-3 h-2 overflow-hidden rounded-full bg-secondary"
-        >
-          <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "Every voice counts"}
-          {petition.deadline && !closed
-            ? ` · ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`
-            : ""}
-        </p>
-        <div className="mt-6 border-t border-border pt-6">{renderSignatureForm()}</div>
+        {goal > 0 ? renderMarks() : null}
+        <p className="petition-tally-note">{tallyNote()}</p>
+        <div className="petition-tally-form">{renderSignatureForm()}</div>
       </section>
     )
   }
 
   return (
-    <main id="petition-detail-page" className="app-page">
+    <main id="petition-detail-page" className="app-page pb-28 lg:pb-20">
       {renderBackLink()}
-      <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12">
-        <article className="min-w-0 space-y-9">
-          <header>
-            <div className="mb-5 flex flex-wrap items-center gap-2 text-xs">
+      <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-16">
+        <article className="min-w-0 space-y-12">
+          <header className="petition-hero">
+            <div className="mb-6 flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-full bg-secondary px-3 py-1.5">
                 {petition.category?.name ?? "General"}
               </span>
               {renderStatusBadge()}
             </div>
-            <h1 className="app-page-heading break-words">{petition.title}</h1>
+            <h1 className="petition-title break-words">{petition.title}</h1>
             {renderPetitionMetadata()}
+            <p className="petition-body break-words whitespace-pre-wrap">{petition.description}</p>
           </header>
           {petition.canManage ? (
             <PetitionOwnerControls petition={petition} canPublishUpdate={canParticipate} />
           ) : null}
-          <section aria-labelledby="petition-story-heading" className="border-y border-border py-8">
-            <h2 id="petition-story-heading" className="mb-4 font-display text-3xl tracking-tight">
-              The change we're asking for.
-            </h2>
-            <p className="text-sm leading-8 break-words whitespace-pre-wrap text-muted-foreground">
-              {petition.description}
-            </p>
-          </section>
           {updates.length > 0 ? (
             <section aria-labelledby="petition-updates-heading">
-              <h2
-                id="petition-updates-heading"
-                className="mb-5 font-display text-3xl tracking-tight"
-              >
-                Along the way.
+              <h2 id="petition-updates-heading" className="petition-section-heading mb-6">
+                Updates
+                <small>{updates.length}</small>
               </h2>
-              <div className="space-y-4">
+              <ol className="petition-timeline">
                 {updates.map((update) => (
-                  <div key={update.id} className="app-panel">
-                    {update.insertedAt ? (
-                      <p className="mb-2 text-xs text-muted-foreground">
-                        {new Date(update.insertedAt).toLocaleDateString()}
-                      </p>
-                    ) : null}
-                    <h3 className="mb-2 font-medium">{update.title}</h3>
-                    <p className="text-sm leading-7 break-words whitespace-pre-wrap text-muted-foreground">
-                      {update.body}
-                    </p>
-                  </div>
+                  <li key={update.id}>
+                    <time dateTime={update.insertedAt ?? undefined}>
+                      {formatDate(update.insertedAt)}
+                    </time>
+                    <div>
+                      <h3>{update.title}</h3>
+                      <p className="break-words whitespace-pre-wrap">{update.body}</p>
+                    </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </section>
           ) : null}
           {renderActivity()}
@@ -513,12 +569,17 @@ function PetitionContent({ petition }: { petition: Petition }) {
               {shareMessage}
             </p>
           ) : null}
-          <p className="px-5 pt-6 text-center font-display text-2xl leading-tight text-muted-foreground">
-            One idea. A little support.
-            <br />A place to begin.
-          </p>
         </aside>
       </div>
+      {!closed && !authLoading ? (
+        <MobileSignBar
+          signed={!!signed}
+          count={signatureCount}
+          goal={goal}
+          panelId="petition-signature-panel"
+          onShare={sharePetition}
+        />
+      ) : null}
     </main>
   )
 }
