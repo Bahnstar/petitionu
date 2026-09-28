@@ -69,7 +69,7 @@ export default function ClassroomDetailPage() {
         {!classroom?.archived &&
           currentUser?.emailVerified &&
           currentUser.profileComplete &&
-          (classroom?.allowStudentPetitions || isProfessor) && (
+          (classroom?.allowStudentPetitions || canManageClassroom) && (
             <Button asChild>
               <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -109,7 +109,7 @@ export default function ClassroomDetailPage() {
 
   // Fetch classroom details
   const classroomQuery = useQuery({
-    queryKey: ["classroom", id],
+    queryKey: ["classroom", id, currentUserId],
     queryFn: async () => {
       const result = await getClassroomById({
         input: { id: id! },
@@ -122,7 +122,8 @@ export default function ClassroomDetailPage() {
           "allowStudentPetitions",
           "memberCount",
           "petitionCount",
-          "professorId",
+          "canManageClassroom",
+          "canManageMembers",
         ],
         headers: buildCSRFHeaders(),
       })
@@ -171,11 +172,21 @@ export default function ClassroomDetailPage() {
 
   // Fetch memberships
   const membershipsQuery = useQuery({
-    queryKey: ["classroomMemberships", id],
+    queryKey: ["classroomMemberships", id, currentUserId],
     queryFn: async () => {
       const result = await getMembershipsForClassroom({
         input: { classroomId: id! },
-        fields: ["id", "role", "status", "joinedAt", "memberName", { user: ["id"] }],
+        fields: [
+          "id",
+          "role",
+          "status",
+          "joinedAt",
+          "memberName",
+          "canApprove",
+          "canRemove",
+          "canChangeRole",
+          { user: ["id"] },
+        ],
         headers: buildCSRFHeaders(),
       })
 
@@ -226,6 +237,7 @@ export default function ClassroomDetailPage() {
     onSuccess: () => {
       setSuccess("Classroom archived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
+      queryClient.invalidateQueries({ queryKey: ["classroomMemberships", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
@@ -244,6 +256,7 @@ export default function ClassroomDetailPage() {
     onSuccess: () => {
       setSuccess("Classroom unarchived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
+      queryClient.invalidateQueries({ queryKey: ["classroomMemberships", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
@@ -301,17 +314,8 @@ export default function ClassroomDetailPage() {
   const classroom = classroomQuery.data
   const petitions = petitionsQuery.data || []
   const memberships = membershipsQuery.data || []
-  const isProfessor = classroom?.professorId === currentUserId
-  const isActiveTa =
-    !!currentUserId &&
-    memberships.some(
-      (membership) =>
-        membership.user?.id === currentUserId &&
-        membership.role === "ta" &&
-        membership.status === "active",
-    )
-
-  const canManage = isProfessor || isActiveTa
+  const canManageClassroom = classroom?.canManageClassroom ?? false
+  const canManage = classroom?.canManageMembers ?? false
   const ownMembership = memberships.find(
     (membership) =>
       membership.user?.id === currentUserId &&
@@ -360,7 +364,7 @@ export default function ClassroomDetailPage() {
           {!classroom?.archived &&
             currentUser?.emailVerified &&
             currentUser.profileComplete &&
-            (classroom?.allowStudentPetitions || isProfessor) && (
+            (classroom?.allowStudentPetitions || canManageClassroom) && (
               <Button asChild>
                 <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -411,14 +415,7 @@ export default function ClassroomDetailPage() {
         </Card>
       )
     }
-    return (
-      <MemberList
-        memberships={memberships}
-        classroomId={id!}
-        canManage={canManage}
-        canChangeRoles={isProfessor}
-      />
-    )
+    return <MemberList memberships={memberships} classroomId={id!} canManage={canManage} />
   }
 
   function renderClassroomHeader() {
@@ -453,7 +450,7 @@ export default function ClassroomDetailPage() {
           </div>
         </div>
 
-        {isProfessor && (
+        {canManageClassroom && (
           <div className="flex items-center gap-2">
             {classroom?.archived ? (
               <Button
@@ -503,7 +500,7 @@ export default function ClassroomDetailPage() {
 
   function renderJoinCode() {
     return (
-      isProfessor && (
+      canManageClassroom && (
         <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
           <h3 className="mb-4 font-display text-2xl font-normal text-foreground">Join code</h3>
           <p className="mb-3 text-sm text-muted-foreground">
@@ -576,7 +573,7 @@ export default function ClassroomDetailPage() {
   function renderLeaveClassroom() {
     return (
       ownMembership &&
-      !isProfessor && (
+      !canManageClassroom && (
         <div id="leave-classroom" className="mb-6">
           <Button
             variant="outline"

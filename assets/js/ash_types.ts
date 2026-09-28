@@ -194,9 +194,11 @@ export type CategoryAttributesOnlySchema = {
 // Classroom Schema
 export type ClassroomResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "allowStudentPetitions" | "archived" | "description" | "id" | "insertedAt" | "joinCode" | "memberCount" | "name" | "organizationId" | "petitionCount" | "professorId" | "updatedAt";
+  __primitiveFields: "allowStudentPetitions" | "archived" | "canManageClassroom" | "canManageMembers" | "description" | "id" | "insertedAt" | "joinCode" | "memberCount" | "name" | "organizationId" | "petitionCount" | "professorId" | "updatedAt";
   allowStudentPetitions: boolean;
   archived: boolean;
+  canManageClassroom: boolean | null;
+  canManageMembers: boolean | null;
   description: string | null;
   id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
@@ -234,7 +236,10 @@ export type ClassroomAttributesOnlySchema = {
 // ClassroomMembership Schema
 export type ClassroomMembershipResourceSchema = {
   __type: "Resource";
-  __primitiveFields: "classroomId" | "id" | "insertedAt" | "invitedById" | "joinedAt" | "memberName" | "role" | "status" | "updatedAt" | "userId";
+  __primitiveFields: "canApprove" | "canChangeRole" | "canRemove" | "classroomId" | "id" | "insertedAt" | "invitedById" | "joinedAt" | "memberName" | "role" | "status" | "updatedAt" | "userId";
+  canApprove: boolean | null;
+  canChangeRole: boolean | null;
+  canRemove: boolean | null;
   classroomId: UUID;
   id: UUIDv7;
   insertedAt: UtcDateTimeUsec;
@@ -1025,6 +1030,20 @@ export type ClassroomFilterInput = {
     in?: Array<boolean>;
   };
 
+  canManageClassroom?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  canManageMembers?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
   description?: {
     isNil?: boolean;
     eq?: string;
@@ -1148,6 +1167,27 @@ export type ClassroomMembershipFilterInput = {
   and?: Array<ClassroomMembershipFilterInput>;
   or?: Array<ClassroomMembershipFilterInput>;
   not?: Array<ClassroomMembershipFilterInput>;
+
+  canApprove?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  canChangeRole?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
+
+  canRemove?: {
+    isNil?: boolean;
+    eq?: boolean;
+    notEq?: boolean;
+    in?: Array<boolean>;
+  };
 
   classroomId?: {
     eq?: UUID;
@@ -1851,10 +1891,10 @@ export type UserFilterField = (typeof userFilterFields)[number];
 export const categoryFilterFields = ["color", "description", "id", "insertedAt", "name", "updatedAt"] as const;
 export type CategoryFilterField = (typeof categoryFilterFields)[number];
 
-export const classroomFilterFields = ["allowStudentPetitions", "archived", "description", "id", "insertedAt", "joinCode", "memberCount", "name", "organizationId", "petitionCount", "professorId", "updatedAt", "memberships", "organization", "petitions", "professor"] as const;
+export const classroomFilterFields = ["allowStudentPetitions", "archived", "canManageClassroom", "canManageMembers", "description", "id", "insertedAt", "joinCode", "memberCount", "name", "organizationId", "petitionCount", "professorId", "updatedAt", "memberships", "organization", "petitions", "professor"] as const;
 export type ClassroomFilterField = (typeof classroomFilterFields)[number];
 
-export const classroomMembershipFilterFields = ["classroomId", "id", "insertedAt", "invitedById", "joinedAt", "role", "status", "updatedAt", "userId", "classroom", "invitedBy", "user"] as const;
+export const classroomMembershipFilterFields = ["canApprove", "canChangeRole", "canRemove", "classroomId", "id", "insertedAt", "invitedById", "joinedAt", "role", "status", "updatedAt", "userId", "classroom", "invitedBy", "user"] as const;
 export type ClassroomMembershipFilterField = (typeof classroomMembershipFilterFields)[number];
 
 export const commentFilterFields = ["id", "insertedAt", "petitionId", "sentiment", "text", "updatedAt", "userId", "petition", "user"] as const;
@@ -1891,10 +1931,10 @@ export type UserSortField = (typeof userSortFields)[number];
 export const categorySortFields = ["color", "description", "id", "insertedAt", "name", "updatedAt"] as const;
 export type CategorySortField = (typeof categorySortFields)[number];
 
-export const classroomSortFields = ["allowStudentPetitions", "archived", "description", "id", "insertedAt", "joinCode", "memberCount", "name", "organizationId", "petitionCount", "professorId", "updatedAt"] as const;
+export const classroomSortFields = ["allowStudentPetitions", "archived", "canManageClassroom", "canManageMembers", "description", "id", "insertedAt", "joinCode", "memberCount", "name", "organizationId", "petitionCount", "professorId", "updatedAt"] as const;
 export type ClassroomSortField = (typeof classroomSortFields)[number];
 
-export const classroomMembershipSortFields = ["classroomId", "id", "insertedAt", "invitedById", "joinedAt", "role", "status", "updatedAt", "userId"] as const;
+export const classroomMembershipSortFields = ["canApprove", "canChangeRole", "canRemove", "classroomId", "id", "insertedAt", "invitedById", "joinedAt", "role", "status", "updatedAt", "userId"] as const;
 export type ClassroomMembershipSortField = (typeof classroomMembershipSortFields)[number];
 
 export const commentSortFields = ["id", "insertedAt", "petitionId", "sentiment", "text", "updatedAt", "userId"] as const;
