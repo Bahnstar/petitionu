@@ -1,0 +1,645 @@
+{
+  "copy": {
+    "search": "library",
+    "reason": "My lab ends at 9. I need somewhere quiet to study after.",
+    "comment": "Could we start with finals week? I can help run a quick survey.",
+    "title": "Bring a weekly farmers market to campus",
+    "description": "Fresh food, local growers, and a place to meet. Let's bring a weekly farmers market to the quad so good food is easier to find between classes."
+  },
+  "captures": {
+    "browse": {
+      "width": 1440,
+      "height": 1150,
+      "boxes": {
+        "search": {
+          "x": 152,
+          "y": 221.6,
+          "w": 708,
+          "h": 48,
+          "style": {
+            "paddingLeft": 49,
+            "paddingTop": 5,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "heading": {
+          "x": 152,
+          "y": 143,
+          "w": 473,
+          "h": 50.6
+        },
+        "summary": {
+          "x": 152,
+          "y": 349.6,
+          "w": 284,
+          "h": 20
+        },
+        "cards": [
+          {
+            "x": 152,
+            "y": 389.6,
+            "w": 368,
+            "h": 285.9
+          },
+          {
+            "x": 536,
+            "y": 389.6,
+            "w": 368,
+            "h": 285.9
+          },
+          {
+            "x": 920,
+            "y": 389.6,
+            "w": 368,
+            "h": 285.9
+          },
+          {
+            "x": 152,
+            "y": 691.5,
+            "w": 368,
+            "h": 285.9
+          },
+          {
+            "x": 536,
+            "y": 691.5,
+            "w": 368,
+            "h": 285.9
+          },
+          {
+            "x": 920,
+            "y": 691.5,
+            "w": 368,
+            "h": 285.9
+          }
+        ],
+        "library": {
+          "x": 152,
+          "y": 389.6,
+          "w": 368,
+          "h": 285.9
+        }
+      }
+    },
+    "browse-search": {
+      "width": 1440,
+      "height": 940,
+      "boxes": {
+        "search": {
+          "x": 152,
+          "y": 221.6,
+          "w": 708,
+          "h": 48,
+          "style": {
+            "paddingLeft": 49,
+            "paddingTop": 5,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "summary": {
+          "x": 152,
+          "y": 357.6,
+          "w": 259,
+          "h": 20
+        },
+        "library": {
+          "x": 152,
+          "y": 405.6,
+          "w": 368,
+          "h": 285.9
+        }
+      }
+    },
+    "petition": {
+      "width": 1440,
+      "height": 1958,
+      "boxes": {
+        "tally": {
+          "x": 928,
+          "y": 195,
+          "w": 360,
+          "h": 534.5
+        },
+        "heading": {
+          "x": 955,
+          "y": 222,
+          "w": 306,
+          "h": 20
+        },
+        "count": {
+          "x": 955,
+          "y": 258,
+          "w": 63.2,
+          "h": 54
+        },
+        "marks": {
+          "x": 955,
+          "y": 330,
+          "w": 306,
+          "h": 73.5
+        },
+        "mark": {
+          "x": 955,
+          "y": 330,
+          "w": 11.5,
+          "h": 11.5
+        },
+        "note": {
+          "x": 955,
+          "y": 415.5,
+          "w": 306,
+          "h": 18
+        },
+        "title": {
+          "x": 152,
+          "y": 247,
+          "w": 682,
+          "h": 112.3
+        },
+        "form": {
+          "x": 955,
+          "y": 453.5,
+          "w": 306,
+          "h": 251
+        },
+        "reason": {
+          "x": 955,
+          "y": 540.5,
+          "w": 306,
+          "h": 64,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 9,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "sign": {
+          "x": 955,
+          "y": 620.5,
+          "w": 306,
+          "h": 44
+        },
+        "share": {
+          "x": 928,
+          "y": 745.5,
+          "w": 360,
+          "h": 44
+        },
+        "reasons": {
+          "x": 152,
+          "y": 875.8,
+          "w": 712,
+          "h": 92.5
+        }
+      }
+    },
+    "petition-signed": {
+      "width": 1440,
+      "height": 2010,
+      "boxes": {
+        "tally": {
+          "x": 928,
+          "y": 195,
+          "w": 360,
+          "h": 360.5
+        },
+        "heading": {
+          "x": 955,
+          "y": 222,
+          "w": 306,
+          "h": 20
+        },
+        "count": {
+          "x": 955,
+          "y": 258,
+          "w": 63.2,
+          "h": 54
+        },
+        "marks": {
+          "x": 955,
+          "y": 330,
+          "w": 306,
+          "h": 73.5
+        },
+        "mark": {
+          "x": 955,
+          "y": 330,
+          "w": 11.5,
+          "h": 11.5
+        },
+        "note": {
+          "x": 955,
+          "y": 415.5,
+          "w": 306,
+          "h": 18
+        },
+        "form": {
+          "x": 955,
+          "y": 453.5,
+          "w": 306,
+          "h": 77
+        },
+        "reasons": {
+          "x": 152,
+          "y": 875.8,
+          "w": 712,
+          "h": 144.5
+        },
+        "reason": {
+          "x": 152,
+          "y": 940.3,
+          "w": 338,
+          "h": 80
+        },
+        "conversation": {
+          "x": 152,
+          "y": 1152.3,
+          "w": 712,
+          "h": 684.5
+        },
+        "comment": {
+          "x": 181,
+          "y": 1275.8,
+          "w": 654,
+          "h": 64,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 9,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "post": {
+          "x": 700,
+          "y": 1355.8,
+          "w": 135,
+          "h": 44
+        },
+        "thread": {
+          "x": 152,
+          "y": 1452.8,
+          "w": 712,
+          "h": 384
+        }
+      }
+    },
+    "petition-commented": {
+      "width": 1440,
+      "height": 2176,
+      "boxes": {
+        "conversation": {
+          "x": 152,
+          "y": 1152.3,
+          "w": 712,
+          "h": 850.5
+        },
+        "comment": {
+          "x": 181,
+          "y": 1275.8,
+          "w": 654,
+          "h": 64,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 9,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "post": {
+          "x": 700,
+          "y": 1391.8,
+          "w": 135,
+          "h": 44
+        },
+        "posted": {
+          "x": 181,
+          "y": 1355.8,
+          "w": 654,
+          "h": 20
+        },
+        "thread": {
+          "x": 152,
+          "y": 1488.8,
+          "w": 712,
+          "h": 514
+        },
+        "newComment": {
+          "x": 152,
+          "y": 1878.8,
+          "w": 712,
+          "h": 124
+        }
+      }
+    },
+    "create": {
+      "width": 1440,
+      "height": 1641,
+      "boxes": {
+        "title": {
+          "x": 181,
+          "y": 489.6,
+          "w": 730,
+          "h": 44,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 5,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "titleCount": {
+          "x": 876,
+          "y": 541.6,
+          "w": 35,
+          "h": 16
+        },
+        "category": {
+          "x": 181,
+          "y": 607.6,
+          "w": 730,
+          "h": 44
+        },
+        "description": {
+          "x": 181,
+          "y": 701.6,
+          "w": 730,
+          "h": 192,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 9,
+            "fontSize": 14,
+            "lineHeight": 28,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "descriptionCount": {
+          "x": 864,
+          "y": 901.6,
+          "w": 47,
+          "h": 16
+        },
+        "publish": {
+          "x": 181,
+          "y": 1394.6,
+          "w": 145,
+          "h": 44
+        },
+        "card": {
+          "x": 152,
+          "y": 342.6,
+          "w": 788,
+          "h": 1125
+        }
+      }
+    },
+    "create-category": {
+      "width": 1440,
+      "height": 940,
+      "boxes": {
+        "listbox": {
+          "x": 180,
+          "y": 655.5,
+          "w": 732,
+          "h": 106
+        },
+        "option": {
+          "x": 185,
+          "y": 692.5,
+          "w": 722,
+          "h": 32
+        }
+      }
+    },
+    "create-filled": {
+      "width": 1440,
+      "height": 1641,
+      "boxes": {
+        "title": {
+          "x": 181,
+          "y": 489.6,
+          "w": 730,
+          "h": 44,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 5,
+            "fontSize": 14,
+            "lineHeight": 20,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "titleCount": {
+          "x": 870,
+          "y": 541.6,
+          "w": 41,
+          "h": 16
+        },
+        "category": {
+          "x": 181,
+          "y": 607.6,
+          "w": 730,
+          "h": 44
+        },
+        "description": {
+          "x": 181,
+          "y": 701.6,
+          "w": 730,
+          "h": 192,
+          "style": {
+            "paddingLeft": 13,
+            "paddingTop": 9,
+            "fontSize": 14,
+            "lineHeight": 28,
+            "letterSpacing": 0,
+            "color": "rgb(32, 76, 72)"
+          }
+        },
+        "descriptionCount": {
+          "x": 853,
+          "y": 901.6,
+          "w": 58,
+          "h": 16
+        },
+        "publish": {
+          "x": 181,
+          "y": 1394.6,
+          "w": 145,
+          "h": 44
+        },
+        "card": {
+          "x": 152,
+          "y": 342.6,
+          "w": 788,
+          "h": 1125
+        }
+      }
+    },
+    "published": {
+      "width": 1440,
+      "height": 940,
+      "boxes": {
+        "heading": {
+          "x": 409,
+          "y": 260,
+          "w": 622,
+          "h": 50.6
+        },
+        "panel": {
+          "x": 384,
+          "y": 143,
+          "w": 672,
+          "h": 328.1
+        },
+        "view": {
+          "x": 555,
+          "y": 378.1,
+          "w": 162,
+          "h": 44
+        }
+      }
+    },
+    "classroom": {
+      "width": 1440,
+      "height": 1908,
+      "boxes": {
+        "title": {
+          "x": 152,
+          "y": 211,
+          "w": 486,
+          "h": 50.6
+        },
+        "stats": {
+          "x": 152,
+          "y": 319.1,
+          "w": 1011,
+          "h": 20
+        },
+        "joinCode": {
+          "x": 930.7,
+          "y": 371.1,
+          "w": 357.3,
+          "h": 333
+        },
+        "copy": {
+          "x": 955.7,
+          "y": 592.1,
+          "w": 261.3,
+          "h": 36
+        },
+        "members": {
+          "x": 930.7,
+          "y": 796.1,
+          "w": 357.3,
+          "h": 939
+        },
+        "memberRows": [
+          {
+            "x": 955.65625,
+            "y": 869.09375,
+            "w": 307.34375,
+            "h": 52
+          },
+          {
+            "x": 955.65625,
+            "y": 933.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1014.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1095.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1176.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1257.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1338.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1419.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1500.09375,
+            "w": 307.34375,
+            "h": 69
+          },
+          {
+            "x": 955.65625,
+            "y": 1581.09375,
+            "w": 307.34375,
+            "h": 69
+          }
+        ],
+        "membersHeading": {
+          "x": 955.7,
+          "y": 821.1,
+          "w": 307.3,
+          "h": 32
+        },
+        "petition": {
+          "x": 152,
+          "y": 507.1,
+          "w": 746.7,
+          "h": 259.4
+        },
+        "start": {
+          "x": 742.7,
+          "y": 371.1,
+          "w": 156,
+          "h": 44
+        }
+      }
+    },
+    "classroom-copied": {
+      "width": 1440,
+      "height": 1908,
+      "boxes": {
+        "copied": {
+          "x": 955.7,
+          "y": 592.1,
+          "w": 261.3,
+          "h": 36
+        }
+      }
+    }
+  }
+}
