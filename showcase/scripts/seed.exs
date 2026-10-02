@@ -153,10 +153,18 @@ Ash.Seed.upsert!(Update, %{
 
 IO.puts("Showcase ready: student1@showcase.petitionu.test; library petition #{id.(30)}")
 
-# Restore only the demo actor's signature so recapturing reproduces 42 → 43.
+# Undo what the capture script does as the demo actor, so a recapture starts from the same
+# baseline: 42 signatures, three comments, and no farmers market petition.
 require Ash.Query
 
-Signature
-|> Ash.Query.filter(user_id == ^id.(101) and petition_id == ^id.(30))
+for resource <- [Signature, Comment] do
+  resource
+  |> Ash.Query.filter(user_id == ^id.(101) and petition_id == ^id.(30))
+  |> Ash.read!(authorize?: false)
+  |> Enum.each(&Ash.destroy!(&1, authorize?: false))
+end
+
+Petition
+|> Ash.Query.filter(user_id == ^id.(101) and title == "Bring a weekly farmers market to campus")
 |> Ash.read!(authorize?: false)
 |> Enum.each(&Ash.destroy!(&1, authorize?: false))
