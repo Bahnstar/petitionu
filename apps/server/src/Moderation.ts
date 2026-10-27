@@ -31,9 +31,7 @@ const details = (value: string | null | undefined) => {
 const resolutionNote = (value: string) => {
   const trimmed = value.trim()
   if (trimmed.length < 1) {
-    return Effect.fail(
-      invalidField("resolutionNote", "length must be greater than or equal to 1"),
-    )
+    return Effect.fail(invalidField("resolutionNote", "length must be greater than or equal to 1"))
   }
   if (trimmed.length > 5000) {
     return Effect.fail(invalidField("resolutionNote", "length must be less than or equal to 5000"))
@@ -84,22 +82,35 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
         `,
       })(undefined)
 
-    const findTarget = (execute: (id: string) => Statement.Statement<object>) =>
-      SqlSchema.findOneOption({ Request: Schema.String, Result: Target, execute })
-
-    /** Ash's `ContentReport.Target`: the petition the user reports, if they can see it. */
-    const petitionTarget = (user: SignedIn) =>
-      findTarget(
-        (id) => sql`
-          SELECT p.id AS petition_id, p.title, p.description AS text, p.organization_id
-          FROM petition p WHERE p.id = ${id} AND ${petitionVisible(sql, user, "p")}
-        `,
+    const findTarget = (execute: (id: string) => Statement.Statement<object>) => (id: string) =>
+      SqlSchema.findOneOption({ Request: Schema.String, Result: Target, execute })(id).pipe(
+        Effect.orDie,
       )
 
-    const target = (user: SignedIn, petitionId: string | null) =>
+    /**
+     * Ash's `ContentReport.Target`: the comment the user reports, if they can read it, or else
+     * the petition. A comment report always targets the comment's own petition.
+     */
+    const target = (user: SignedIn, petitionId: string | null, commentId: string | null) =>
       Effect.gen(function* () {
-        if (petitionId === null || !isUuid(petitionId)) return yield* unavailable
-        const found = yield* petitionTarget(user)(petitionId).pipe(Effect.orDie)
+        const id = commentId ?? petitionId
+        if (id === null || !isUuid(id)) return yield* unavailable
+        const visible = petitionVisible(sql, user, "p")
+        const found = yield* commentId === null
+          ? findTarget(
+              (petition) => sql`
+                SELECT p.id AS petition_id, p.title, p.description AS text, p.organization_id
+                FROM petition p WHERE p.id = ${petition} AND ${visible}
+              `,
+            )(id)
+          : findTarget(
+              (comment) => sql`
+                SELECT p.id AS petition_id, p.title, coalesce(c.text, p.description) AS text,
+                  p.organization_id
+                FROM comment c JOIN petition p ON p.id = c.petition_id
+                WHERE c.id = ${comment} AND c.hidden_at IS NULL AND ${visible}
+              `,
+            )(id)
         if (Option.isNone(found)) return yield* unavailable
         return found.value
       })
@@ -115,17 +126,21 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
         `,
       })(id)
 
-    /** Ash's `moderator_hide` on the reported petition, with its policy. */
+    /**
+     * Ash's `moderator_hide` on the reported comment, or else the petition, under its policy:
+     * the moderator must moderate the campus of the content's petition.
+     */
     const hide = (actor: SignedIn, report: typeof LockedReport.Type) =>
       Effect.gen(function* () {
         const [petition] = yield* sql<{ organizationId: string | null }>`
           SELECT organization_id FROM petition WHERE id = ${report.petitionId} FOR UPDATE
         `
         yield* authorizeHide(actor, petition?.organizationId ?? null)
+        const table = report.commentId === null ? "petition" : "comment"
         yield* sql`
-          UPDATE petition SET hidden_at = now() AT TIME ZONE 'utc',
+          UPDATE ${sql(table)} SET hidden_at = now() AT TIME ZONE 'utc',
             updated_at = now() AT TIME ZONE 'utc'
-          WHERE id = ${report.petitionId}
+          WHERE id = ${report.commentId ?? report.petitionId}
         `
       })
 
@@ -134,11 +149,12 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
         Effect.gen(function* () {
           const user = yield* requireParticipant
           const text = yield* details(input.details)
-          const found = yield* target(user, input.petitionId ?? null)
+          const commentId = input.commentId ?? null
+          const found = yield* target(user, input.petitionId ?? null, commentId)
           const [row] = yield* sql<{ id: string }>`
             INSERT INTO content_reports (petition_id, comment_id, target_title, target_text,
               reason, details, organization_id, reporter_id)
-            VALUES (${found.petitionId}, ${null}, ${found.title}, ${found.text},
+            VALUES (${found.petitionId}, ${commentId}, ${found.title}, ${found.text},
               ${input.reason}, ${text}, ${found.organizationId}, ${user.id})
             RETURNING id
           `.pipe(Effect.orDie)
@@ -157,7 +173,10 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
           const text = yield* resolutionNote(note)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
-            return yield* new Invalid({ message: "This report has already been reviewed.", fields: [] })
+            return yield* new Invalid({
+              message: "This report has already been reviewed.",
+              fields: [],
+            })
           }
           if (hideContent === true) {
             if (outcome === "dismissed") {
