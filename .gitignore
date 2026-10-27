@@ -41,3 +41,6 @@ npm-debug.log
 node_modules/
 /apps/web/dist/
 /apps/server/dist/
+
+# Compose secrets.
+/.env
