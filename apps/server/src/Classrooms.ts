@@ -2,7 +2,6 @@ import {
   ClassroomDto,
   ClassroomRpcs,
   CurrentUser,
-  Forbidden,
   invalidField,
   MembershipDto,
   type MembershipRole,
@@ -12,6 +11,20 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
+import {
+  activeTa,
+  authorizeCreateClassroom,
+  canApprove,
+  canChangeRole,
+  canInvite,
+  canRemove,
+  classroomVisible,
+  forbidden,
+  isProfessor,
+  type MembershipTarget,
+  membershipVisible,
+  requireConfirmed,
+} from "./ClassroomPolicy.ts"
 import { AppConfig } from "./Config.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
@@ -19,7 +32,6 @@ import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { isoTimestamp } from "./Timestamps.ts"
 
-const forbidden = new Forbidden({ message: "Forbidden" })
 const classroomNotFound = new NotFound({ message: "Classroom not found" })
 const membershipNotFound = new NotFound({ message: "Membership not found" })
 
@@ -53,17 +65,13 @@ const validDescription = (value: string | null | undefined) => {
   return Effect.succeed(description)
 }
 
-/** Unconfirmed users can't create, change or remove memberships. */
-const requireConfirmed = (user: SignedIn) =>
-  user.confirmedAt === null ? Effect.fail(forbidden) : Effect.void
-
 const ClassroomTarget = Schema.Struct({
   id: Schema.String,
   professorId: Schema.String,
   archived: Schema.Boolean,
 })
 
-const MembershipTarget = Schema.Struct({
+const MembershipTargetRow = Schema.Struct({
   id: Schema.String,
   userId: Schema.String,
   role: Schema.Literals(["student", "ta"]),
@@ -73,7 +81,6 @@ const MembershipTarget = Schema.Struct({
   archived: Schema.Boolean,
   actorIsTa: Schema.Boolean,
 })
-type MembershipTarget = typeof MembershipTarget.Type
 
 const Recipient = Schema.Struct({
   email: Schema.String,
@@ -87,21 +94,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const sql = yield* SqlClient.SqlClient
     const mailer = yield* Mailer
     const { publicHost } = yield* AppConfig
-
-    // Read scoping -----------------------------------------------------------------------
-
-    /** Classrooms the actor teaches or is an active member of. */
-    const classroomVisibleTo = (actorId: string) => sql`(
-      c.professor_id = ${actorId} OR EXISTS (
-        SELECT 1 FROM classroom_memberships v
-        WHERE v.classroom_id = c.id AND v.user_id = ${actorId} AND v.status = 'active'))`
-
-    /** Their own memberships, and those of classrooms they teach or are an active TA of. */
-    const membershipVisibleTo = (actorId: string) => sql`(
-      m.user_id = ${actorId} OR c.professor_id = ${actorId} OR EXISTS (
-        SELECT 1 FROM classroom_memberships t
-        WHERE t.classroom_id = m.classroom_id AND t.user_id = ${actorId}
-          AND t.role = 'ta' AND t.status = 'active'))`
 
     const classroomColumns = sql`
       c.id, c.name, c.description, c.join_code::text AS join_code, c.archived,
@@ -166,25 +158,24 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const professorsClassroom = (user: SignedIn, id: string) =>
       Effect.gen(function* () {
         if (!isUuid(id)) return yield* classroomNotFound
-        const visible = yield* listClassrooms(sql`c.id = ${id} AND ${classroomVisibleTo(user.id)}`)
+        const visible = yield* listClassrooms(
+          sql`c.id = ${id} AND ${classroomVisible(sql, user.id)}`,
+        )
         if (visible.length === 0) return yield* classroomNotFound
         const target = yield* findClassroomTarget(id).pipe(Effect.orDie)
         if (Option.isNone(target)) return yield* classroomNotFound
-        if (target.value.professorId !== user.id) return yield* forbidden
+        if (!isProfessor(user, target.value)) return yield* forbidden
         return target.value
       })
 
     const findMembershipTarget = SqlSchema.findOneOption({
       Request: Schema.Struct({ id: Schema.String, actorId: Schema.String }),
-      Result: MembershipTarget,
+      Result: MembershipTargetRow,
       execute: ({ id, actorId }) => sql`
         SELECT m.id, m.user_id, m.role, m.status, m.classroom_id, c.professor_id, c.archived,
-          EXISTS (
-            SELECT 1 FROM classroom_memberships t
-            WHERE t.classroom_id = m.classroom_id AND t.user_id = ${actorId}
-              AND t.role = 'ta' AND t.status = 'active') AS actor_is_ta
+          ${activeTa(sql, actorId, sql`m.classroom_id`)} AS actor_is_ta
         FROM classroom_memberships m JOIN classrooms c ON c.id = m.classroom_id
-        WHERE m.id = ${id} AND ${membershipVisibleTo(actorId)}
+        WHERE m.id = ${id} AND ${membershipVisible(sql, actorId)}
         FOR UPDATE OF m`,
     })
 
@@ -197,12 +188,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         if (Option.isNone(target)) return yield* membershipNotFound
         return target.value
       })
-
-    const isProfessor = (user: SignedIn, target: { readonly professorId: string }) =>
-      target.professorId === user.id
-
-    const isStaff = (user: SignedIn, target: MembershipTarget) =>
-      isProfessor(user, target) || target.actorIsTa
 
     const findAdmissionTarget = SqlSchema.findOneOption({
       Request: Schema.String,
@@ -339,7 +324,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       id: string,
       allowed: (user: SignedIn, target: MembershipTarget) => boolean,
       set: Statement.Fragment,
-      after: (target: MembershipTarget) => Effect.Effect<void> = () => Effect.void,
+      after: (target: typeof MembershipTargetRow.Type) => Effect.Effect<void> = () => Effect.void,
     ) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
@@ -361,7 +346,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassrooms: () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* listClassrooms(classroomVisibleTo(user.id))
+          return yield* listClassrooms(classroomVisible(sql, user.id))
         }),
 
       getClassroomById: ({ id }) =>
@@ -369,7 +354,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           const user = yield* CurrentUser
           if (!isUuid(id)) return yield* classroomNotFound
           const [classroom] = yield* listClassrooms(
-            sql`c.id = ${id} AND ${classroomVisibleTo(user.id)}`,
+            sql`c.id = ${id} AND ${classroomVisible(sql, user.id)}`,
           )
           return classroom ?? (yield* classroomNotFound)
         }),
@@ -378,7 +363,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const where = sql.and([
-            classroomVisibleTo(user.id),
+            classroomVisible(sql, user.id),
             archived === undefined ? sql`TRUE` : sql`c.archived = ${archived}`,
           ])
           const pageLimit =
@@ -404,7 +389,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       createClassroom: (input) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          if (user.role !== "professor" && user.role !== "admin") return yield* forbidden
+          yield* authorizeCreateClassroom(user)
           yield* requireParticipant
           const name = yield* validName(input.name)
           const description = yield* validDescription(input.description)
@@ -446,7 +431,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassroomMemberships: () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* listMemberships(membershipVisibleTo(user.id))
+          return yield* listMemberships(membershipVisible(sql, user.id))
         }),
 
       getMembershipsForClassroom: ({ classroomId }) =>
@@ -454,7 +439,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           const user = yield* CurrentUser
           if (!isUuid(classroomId)) return []
           return yield* listMemberships(
-            sql`m.classroom_id = ${classroomId} AND ${membershipVisibleTo(user.id)}`,
+            sql`m.classroom_id = ${classroomId} AND ${membershipVisible(sql, user.id)}`,
           )
         }),
 
@@ -464,7 +449,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           if (!isUuid(classroomId)) return []
           return yield* listMemberships(
             sql`m.classroom_id = ${classroomId} AND m.status = 'pending'
-              AND ${membershipVisibleTo(user.id)}`,
+              AND ${membershipVisible(sql, user.id)}`,
           )
         }),
 
@@ -509,16 +494,11 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           const [staff] = isUuid(classroomId)
             ? yield* sql<{ isProfessor: boolean; isTa: boolean }>`
                 SELECT c.professor_id = ${user.id} AS is_professor,
-                  EXISTS (
-                    SELECT 1 FROM classroom_memberships t
-                    WHERE t.classroom_id = c.id AND t.user_id = ${user.id}
-                      AND t.role = 'ta' AND t.status = 'active') AS is_ta
+                  ${activeTa(sql, user.id, sql`c.id`)} AS is_ta
                 FROM classrooms c WHERE c.id = ${classroomId}
               `.pipe(Effect.orDie)
             : []
-          const allowed =
-            staff !== undefined && (staff.isProfessor || (staff.isTa && role === "student"))
-          if (!allowed) return yield* forbidden
+          if (staff === undefined || !canInvite(staff, role)) return yield* forbidden
           const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
           if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
           return yield* transaction(
@@ -539,24 +519,16 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       approveMembership: ({ id }) =>
         updateMembership(
           id,
-          (user, target) =>
-            isStaff(user, target) && target.status === "pending" && !target.archived,
+          canApprove,
           sql`status = 'active', joined_at = (now() AT TIME ZONE 'utc')`,
           (target) => sendApproval(target.id),
         ),
 
-      removeFromClassroom: ({ id }) =>
-        updateMembership(
-          id,
-          (user, target) =>
-            isStaff(user, target) ||
-            (target.userId === user.id && target.role === "student" && target.status === "active"),
-          sql`status = 'removed'`,
-        ),
+      removeFromClassroom: ({ id }) => updateMembership(id, canRemove, sql`status = 'removed'`),
 
-      promoteToTa: ({ id }) => updateMembership(id, isProfessor, sql`role = 'ta'`),
+      promoteToTa: ({ id }) => updateMembership(id, canChangeRole, sql`role = 'ta'`),
 
-      demoteToStudent: ({ id }) => updateMembership(id, isProfessor, sql`role = 'student'`),
+      demoteToStudent: ({ id }) => updateMembership(id, canChangeRole, sql`role = 'student'`),
     })
   }),
 )

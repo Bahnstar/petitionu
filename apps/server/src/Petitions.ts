@@ -18,6 +18,7 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
+import { classroomVisible } from "./ClassroomPolicy.ts"
 import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
@@ -105,9 +106,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         }>`
           SELECT c.professor_id, c.organization_id, c.archived, c.allow_student_petitions
           FROM classrooms c
-          WHERE c.id = ${classroomId} AND (c.professor_id = ${user.id} OR EXISTS (
-            SELECT 1 FROM classroom_memberships m WHERE m.classroom_id = c.id
-              AND m.user_id = ${user.id} AND m.status = 'active'))
+          WHERE c.id = ${classroomId} AND ${classroomVisible(sql, user.id)}
         `.pipe(Effect.orDie)
         if (!classroom || classroom.archived) return yield* unavailable
         if (classroom.professorId !== user.id && !classroom.allowStudentPetitions) {
