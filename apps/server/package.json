@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=${PORT:-4100} node --watch src/serve.ts",
+    "dev": "NODE_ENV=development PORT=${PORT:-4100} node --watch src/serve.ts",
     "serve": "node dist/serve.js",
     "migrate": "node dist/migrate.js",
     "build": "bun build src/serve.ts src/migrate.ts --target=node --format=esm --outdir=dist",

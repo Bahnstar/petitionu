@@ -7,10 +7,10 @@
     "apps/*"
   ],
   "scripts": {
-    "check": "bun run --filter '*' check",
+    "check": "bun run --filter './packages/*' --filter './apps/*' check",
     "dev": "bun run --filter '@petitionu/server' --filter '@petitionu/web' dev",
     "build": "bun run --filter '@petitionu/web' build && bun run --filter '@petitionu/server' build",
-    "format": "bun run --filter '*' format",
+    "format": "bun run --filter './packages/*' --filter './apps/*' format",
     "test-db": "scripts/test-db.sh"
   }
 }
