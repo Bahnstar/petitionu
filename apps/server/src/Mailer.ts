@@ -30,7 +30,7 @@ const resendBaseUrl = "https://api.resend.com"
 /**
  * Sends email. Production sends through Resend from `PetitionU <MAIL_FROM>` with replies to
  * `SUPPORT_EMAIL`; development (`NODE_ENV=development` without `RESEND_API_KEY`) logs messages
- * instead. Tests replace it with the in-memory mailer.
+ * instead. Other environments refuse to start without `RESEND_API_KEY`. Tests replace it with the in-memory mailer.
  */
 export class Mailer extends Context.Service<
   Mailer,
@@ -88,27 +88,19 @@ export class Mailer extends Context.Service<
       }),
   })
 
-  static readonly layerDisabled = Layer.effect(
-    Mailer,
-    Effect.gen(function* () {
-      yield* Effect.logWarning("Mail is disabled: RESEND_API_KEY is not set")
-      return Mailer.of({
-        send: (email) =>
-          Effect.logWarning("Mail not sent: RESEND_API_KEY is not set", {
-            to: email.to,
-            subject: redactLinks(email.subject),
-          }).pipe(Effect.andThen(Effect.fail(new MailError({ message: "Mail is disabled" })))),
-      })
-    }),
-  )
-
-  /** Picks Resend when `RESEND_API_KEY` is set, otherwise logs (development) or refuses. */
+  /**
+   * Picks Resend when `RESEND_API_KEY` is set. Without it, development logs messages and any
+   * other environment refuses to start.
+   */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
       const config = yield* AppConfig
       if (Option.isSome(config.resendApiKey)) return Mailer.layerResend
       const env = yield* Config.String("NODE_ENV").pipe(Config.withDefault("production"))
-      return env === "development" ? Mailer.layerLog : Mailer.layerDisabled
+      if (env === "development") return Mailer.layerLog
+      return yield* new MailerConfigError({
+        message: "RESEND_API_KEY must be set outside development",
+      })
     }),
   )
 }

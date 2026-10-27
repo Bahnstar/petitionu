@@ -15,10 +15,13 @@ const startWith = (env: Record<string, string>) =>
 const secrets = {
   BETTER_AUTH_SECRET: "a-better-auth-secret-of-at-least-32-chars",
   CSRF_SECRET: "a-csrf-secret-of-at-least-32-characters!",
+  RESEND_API_KEY: "re_secret",
+  MAIL_FROM: "mail@campus.test",
+  SUPPORT_EMAIL: "help@campus.test",
 }
 
 describe("startup configuration", () => {
-  it.live("starts with only DATABASE_URL and the two secrets set", () =>
+  it.live("starts with only DATABASE_URL, the three secrets and the mail addresses set", () =>
     Effect.gen(function* () {
       const exit = yield* startWith({ DATABASE_URL: "postgres://u:p@127.0.0.1:1/x", ...secrets })
       assert.isTrue(Exit.isSuccess(exit), String(exit))
@@ -42,6 +45,33 @@ describe("startup configuration", () => {
       }),
     )
   }
+
+  it.live("refuses to start in production without RESEND_API_KEY", () =>
+    Effect.gen(function* () {
+      const { RESEND_API_KEY: _, ...withoutKey } = secrets
+      for (const env of [{}, { NODE_ENV: "production" }, { NODE_ENV: "test" }]) {
+        const exit = yield* startWith({
+          DATABASE_URL: "postgres://u:p@127.0.0.1:1/x",
+          ...withoutKey,
+          ...env,
+        })
+        assert.isTrue(Exit.isFailure(exit))
+        assert.include(String(exit), "RESEND_API_KEY")
+      }
+    }),
+  )
+
+  it.live("starts in development without RESEND_API_KEY", () =>
+    Effect.gen(function* () {
+      const { RESEND_API_KEY: _, ...withoutKey } = secrets
+      const exit = yield* startWith({
+        DATABASE_URL: "postgres://u:p@127.0.0.1:1/x",
+        NODE_ENV: "development",
+        ...withoutKey,
+      })
+      assert.isTrue(Exit.isSuccess(exit), String(exit))
+    }),
+  )
 
   it.live("refuses to start without DATABASE_URL", () =>
     Effect.gen(function* () {

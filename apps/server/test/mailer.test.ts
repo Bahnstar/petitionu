@@ -150,18 +150,13 @@ describe("Mailer without Resend", () => {
     }),
   )
 
-  it.effect("outside development, refuses to send and never logs the message body", () =>
+  it.effect("outside development, refuses to start without RESEND_API_KEY", () =>
     Effect.gen(function* () {
-      const lines: Array<string> = []
       const error = yield* Mailer.use((mailer) =>
         mailer.send(confirmationEmail({ publicHost, to: "a@campus.test", path: "/confirm/abc" })),
-      ).pipe(
-        Effect.provide(mailerWith({}, fakeResend([]))),
-        Effect.provide(captureLogs(lines)),
-        Effect.flip,
-      )
-      assert.strictEqual(error._tag, "MailError")
-      assert.notInclude(lines.join("\n"), "/confirm/abc")
+      ).pipe(Effect.provide(mailerWith({}, fakeResend([]))), Effect.flip)
+      assert.strictEqual(error._tag, "MailerConfigError")
+      assert.include(error.message, "RESEND_API_KEY")
     }),
   )
 })
