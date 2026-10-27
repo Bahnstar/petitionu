@@ -13,7 +13,10 @@ runMigrations.pipe(
   Effect.tap((applied) =>
     applied.length === 0
       ? Effect.logInfo("No pending migrations")
-      : Effect.logInfo("Applied migrations", applied.map(([id, name]) => `${id}_${name}`)),
+      : Effect.logInfo(
+          "Applied migrations",
+          applied.map(([id, name]) => `${id}_${name}`),
+        ),
   ),
   Effect.provide(DatabaseLive),
   Effect.provide(AppConfig.layer({ webDistDir: "" })),

@@ -9,16 +9,17 @@ import { dumpSchema, normalizeDump, readFixture, runPsql } from "./support/postg
 const migrate = (url: string) =>
   runMigrations.pipe(Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })))
 
-const query = (url: string, statement: string) =>
+const query = <Row extends object = Record<string, unknown>>(url: string, statement: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql.unsafe(statement)
+    return yield* sql.unsafe<Row>(statement)
   }).pipe(Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })))
 
 const ectoVersions = (url: string) =>
-  query(url, "SELECT version::text FROM schema_migrations ORDER BY version").pipe(
-    Effect.map((rows) => rows.map((row) => String(row.version))),
-  )
+  query<{ version: string }>(
+    url,
+    "SELECT version::text FROM schema_migrations ORDER BY version",
+  ).pipe(Effect.map((rows) => rows.map((row) => row.version)))
 
 /** A database in the state production is in: Ecto's schema, its migration rows and data. */
 const seedEctoDatabase = (url: string, versions: ReadonlyArray<string>) =>

@@ -14,7 +14,9 @@ const runMigrate = (databaseUrl: string) =>
       [entryPoint],
       { env: { PATH: process.env.PATH, DATABASE_URL: databaseUrl } },
       (error, stdout, stderr) =>
-        resume(Effect.succeed({ code: error ? Number(error.code ?? 1) : 0, output: stdout + stderr })),
+        resume(
+          Effect.succeed({ code: error ? Number(error.code ?? 1) : 0, output: stdout + stderr }),
+        ),
     )
   })
 

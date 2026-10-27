@@ -60,7 +60,9 @@ export const migrateDatabase = (url: string) =>
   )
 
 /** A fresh test database with every migration applied, dropped when the scope closes. */
-export const makeMigratedTestDatabase = Effect.tap(makeTestDatabase, ({ url }) => migrateDatabase(url))
+export const makeMigratedTestDatabase = Effect.tap(makeTestDatabase, ({ url }) =>
+  migrateDatabase(url),
+)
 
 /**
  * Builds the composed app as an in-process web handler (Seam A), pointed at a fresh, migrated

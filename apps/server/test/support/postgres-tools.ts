@@ -14,15 +14,17 @@ const runTool = (args: ReadonlyArray<string>, input?: string) =>
       ["run", "--rm", "-i", "--network", "host", "postgres:17", ...args],
       { maxBuffer: 16 * 1024 * 1024 },
       (error, stdout, stderr) =>
-        resume(error ? Effect.fail(new Error(`${args[0]} failed: ${stderr}`)) : Effect.succeed(stdout)),
+        resume(
+          error ? Effect.fail(new Error(`${args[0]} failed: ${stderr}`)) : Effect.succeed(stdout),
+        ),
     )
     child.stdin?.end(input ?? "")
   }).pipe(Effect.orDie)
 
-export const schemaFixturePath = fileURLToPath(new URL("../fixtures/schema.sql", import.meta.url))
-
 export const readFixture = (name: string) =>
-  Effect.promise(() => readFile(fileURLToPath(new URL(`../fixtures/${name}`, import.meta.url)), "utf8"))
+  Effect.promise(() =>
+    readFile(fileURLToPath(new URL(`../fixtures/${name}`, import.meta.url)), "utf8"),
+  )
 
 /** `pg_dump --schema-only` of a database, leaving out the Effect migrator's own table. */
 export const dumpSchema = (url: string) =>
