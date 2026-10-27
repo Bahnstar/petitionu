@@ -33,7 +33,11 @@ petitionu-*.tar
 
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
-/assets/node_modules/
 
 # Browser verification screenshots are uploaded as CI artifacts.
 /docs/mvp/screenshots/
+
+# Bun workspace dependencies and build output.
+node_modules/
+/apps/web/dist/
+/apps/server/dist/

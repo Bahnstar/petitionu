@@ -3,7 +3,7 @@ const fs = require("fs")
 const path = require("path")
 
 module.exports = plugin(function({matchComponents, theme}) {
-  let iconsDir = path.join(__dirname, "../../deps/heroicons/optimized")
+  let iconsDir = path.dirname(require.resolve("heroicons/package.json"))
   let values = {}
   let icons = [
     ["", "/24/outline"],
