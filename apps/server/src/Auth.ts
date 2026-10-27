@@ -16,6 +16,25 @@ export class AuthConfigError extends Schema.TaggedError<AuthConfigError>()("Auth
   message: Schema.String,
 }) {}
 
+type PasswordBody = Readonly<Record<string, unknown>>
+
+/**
+ * The password and confirmation a request must match: sign-up and reset always send one; a
+ * password change is checked when the client sends a confirmation.
+ */
+const passwordConfirmation = (path: string, body: PasswordBody) => {
+  if (path === "/sign-up/email") {
+    return { password: body.password, confirmation: body.passwordConfirmation }
+  }
+  if (
+    path === "/reset-password" ||
+    (path === "/change-password" && "newPasswordConfirmation" in body)
+  ) {
+    return { password: body.newPassword, confirmation: body.newPasswordConfirmation }
+  }
+  return undefined
+}
+
 /** Origin of the Vite dev server, trusted only when `NODE_ENV=development`. */
 export const devOrigin = "http://localhost:5173"
 
@@ -261,16 +280,7 @@ export class Auth extends Context.Service<
         },
         hooks: {
           before: createAuthMiddleware(async (ctx) => {
-            // Sign-up and reset must send a matching confirmation; a password change checks
-            // one when the client sends it.
-            const body = (ctx.body ?? {}) as Record<string, unknown>
-            const confirmation =
-              ctx.path === "/sign-up/email"
-                ? { password: body.password, confirmation: body.passwordConfirmation }
-                : ctx.path === "/reset-password" ||
-                    (ctx.path === "/change-password" && "newPasswordConfirmation" in body)
-                  ? { password: body.newPassword, confirmation: body.newPasswordConfirmation }
-                  : undefined
+            const confirmation = passwordConfirmation(ctx.path, (ctx.body ?? {}) as PasswordBody)
             if (confirmation && confirmation.password !== confirmation.confirmation) {
               throw new APIError("BAD_REQUEST", {
                 message: "Password confirmation does not match",
