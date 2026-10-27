@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import type { ApiClient } from "@petitionu/domain"
+import type { ApiClient, RpcResult } from "@petitionu/domain"
 import { Effect, Fiber } from "effect"
 import { makeTestApp } from "./support/harness.ts"
 import { makeBrowser } from "./support/browser.ts"
@@ -21,6 +21,14 @@ const expectData = <A>(
   if (!result.success) assert.fail(`expected success, got ${JSON.stringify(result.errors)}`)
   return result.data
 }
+
+/** One procedure call, for tables of calls. */
+type Call = (api: ApiClient) => Promise<RpcResult<unknown>>
+const calls = (...list: Array<Call>) => list
+/** Calls that return lists. */
+const listCalls = (
+  ...list: Array<(api: ApiClient) => Promise<RpcResult<ReadonlyArray<unknown>>>>
+) => list
 
 const count = (app: TestApp, table: "signature" | "comment" | "update") =>
   app.sql<{ count: number }>`SELECT count(*)::int AS count FROM ${app.sql(table)}`.pipe(
@@ -86,10 +94,10 @@ describe("signatures", () => {
         [{ type: "invalid", message: "Confirm your email before participating." }],
       )
       const incomplete = yield* createUser(app, { stage: "confirmed" })
-      for (const call of [
-        (api: ApiClient) => api.createSignature(sign),
-        (api: ApiClient) => api.createComment({ ...sign, text: "Hello" }),
-      ]) {
+      for (const call of calls(
+        (api) => api.createSignature(sign),
+        (api) => api.createComment({ ...sign, text: "Hello" }),
+      )) {
         assert.deepStrictEqual(expectErrors(yield* incomplete.browser.rpc(call)), [
           { type: "invalid", message: "Complete your campus profile before participating." },
         ])
@@ -409,12 +417,12 @@ describe("activity visibility", () => {
       const reads = (browser: typeof outsider.browser) =>
         Effect.gen(function* () {
           const lengths: Array<number> = []
-          for (const read of [
-            (api: ApiClient) => api.getSignatures({}),
-            (api: ApiClient) => api.getComments({}),
-            (api: ApiClient) => api.getUpdates({}),
-            (api: ApiClient) => api.getUpdatesForPetition({ petitionId }),
-          ]) {
+          for (const read of listCalls(
+            (api) => api.getSignatures({}),
+            (api) => api.getComments({}),
+            (api) => api.getUpdates({}),
+            (api) => api.getUpdatesForPetition({ petitionId }),
+          )) {
             lengths.push(expectData(yield* browser.rpc(read)).length)
           }
           return lengths
@@ -448,12 +456,12 @@ describe("activity visibility", () => {
       )
       yield* updatePetitionRow(app, petitionId, { hidden_at: new Date() })
 
-      for (const read of [
-        (api: ApiClient) => api.getSignatures({ petitionId }),
-        (api: ApiClient) => api.getComments({ petitionId }),
-        (api: ApiClient) => api.getUpdates({ petitionId }),
-        (api: ApiClient) => api.getUpdatesForPetition({ petitionId }),
-      ]) {
+      for (const read of calls(
+        (api) => api.getSignatures({ petitionId }),
+        (api) => api.getComments({ petitionId }),
+        (api) => api.getUpdates({ petitionId }),
+        (api) => api.getUpdatesForPetition({ petitionId }),
+      )) {
         assert.deepStrictEqual(expectData(yield* owner.browser.rpc(read)), [])
       }
       const unavailable = [
@@ -483,20 +491,20 @@ describe("activity visibility", () => {
       const petition = yield* insertPetition(app, { userId: owner.id })
       const guest = yield* makeBrowser(app)
       const petitionId = petition.id
-      for (const read of [
-        (api: ApiClient) => api.getSignatures({}),
-        (api: ApiClient) => api.getComments({}),
-        (api: ApiClient) => api.getUpdates({}),
-        (api: ApiClient) => api.getUpdatesForPetition({ petitionId }),
-      ]) {
+      for (const read of calls(
+        (api) => api.getSignatures({}),
+        (api) => api.getComments({}),
+        (api) => api.getUpdates({}),
+        (api) => api.getUpdatesForPetition({ petitionId }),
+      )) {
         assert.deepStrictEqual(expectErrors(yield* guest.rpc(read)), [
           { type: "unauthenticated", message: "Sign in to access petition activity." },
         ])
       }
-      for (const write of [
-        (api: ApiClient) => api.createComment({ petitionId, text: "Hi" }),
-        (api: ApiClient) => api.createUpdate({ petitionId, title: "News", body: "Progress" }),
-      ]) {
+      for (const write of calls(
+        (api) => api.createComment({ petitionId, text: "Hi" }),
+        (api) => api.createUpdate({ petitionId, title: "News", body: "Progress" }),
+      )) {
         assert.deepStrictEqual(expectErrors(yield* guest.rpc(write)), [
           { type: "unauthenticated", message: "Sign in to participate." },
         ])

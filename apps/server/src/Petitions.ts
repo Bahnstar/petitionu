@@ -20,6 +20,7 @@ import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
+import { selectPetitions } from "./PetitionQueries.ts"
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUuid = (value: string) => uuidPattern.test(value)
@@ -29,64 +30,16 @@ const petitionNotFound = new NotFound({ message: "Petition not found" })
 const invalid = (fields: ReadonlyArray<FieldError>) =>
   new Invalid({ message: fields[0]?.message ?? "is invalid", fields })
 
-const actorId = (actor: Actor) => (actor._tag === "SignedIn" ? actor.id : null)
-
 export const PetitionsHandlers = PetitionRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
-    /** The petition DTO columns for `actor`; `where` and `orderBy` refer to `p`. */
-    const selectPetitions = (
-      actor: Actor,
-      where: Statement.Fragment,
-      orderBy: Statement.Fragment = sql`p.inserted_at DESC, p.id DESC`,
-    ) => {
-      const id = actorId(actor)
-      return SqlSchema.findAll({
-        Request: Schema.Void,
-        Result: PetitionDto,
-        execute: () => sql`
-          SELECT p.id, p.title, p.description, coalesce(p.status, 'open') AS status,
-            p.classroom_id, p.organization_id, p.category_id, p.goal::float8 AS goal,
-            coalesce(p.allow_comments, true) AS allow_comments,
-            coalesce(p.is_anonymous, false) AS is_anonymous,
-            to_char(p.deadline, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS deadline,
-            to_char(p.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at,
-            s.count AS signatures_count,
-            EXISTS (SELECT 1 FROM signature hs WHERE hs.petition_id = p.id AND hs.user_id = ${id})
-              AS has_signed,
-            coalesce(${petitionManageable(sql, actor, "p")}, false) AS can_manage,
-            CASE WHEN p.deadline IS NULL
-              THEN 30 - EXTRACT(DAY FROM (now() AT TIME ZONE 'utc') - p.inserted_at)::int
-              ELSE EXTRACT(DAY FROM p.deadline - (now() AT TIME ZONE 'utc'))::int
-            END AS days_left,
-            coalesce(s.count > 5 AND s.count::numeric / nullif(p.goal, 0) >= 0.5, false)
-              AS trending,
-            CASE
-              WHEN coalesce(p.is_anonymous, false) THEN 'Anonymous student'
-              WHEN u.id IS NULL THEN 'Student'
-              ELSE concat_ws(' ', u.first_name, u.last_name)
-            END AS author,
-            CASE WHEN cat.id IS NULL THEN NULL
-              ELSE json_build_object('id', cat.id, 'name', cat.name, 'color', cat.color)
-            END AS category
-          FROM petition p
-          LEFT JOIN users u ON u.id = p.user_id
-          LEFT JOIN category cat ON cat.id = p.category_id
-          CROSS JOIN LATERAL (
-            SELECT count(*)::int AS count FROM signature WHERE petition_id = p.id
-          ) s
-          WHERE ${petitionVisible(sql, actor, "p")} AND ${where}
-          ORDER BY ${orderBy}
-        `,
-      })(undefined).pipe(Effect.orDie)
-    }
+    const petitions = (actor: Actor, where: Statement.Fragment, orderBy?: Statement.Fragment) =>
+      selectPetitions(sql, actor, where, orderBy ? { orderBy } : {})
 
     const findPetition = (actor: Actor, id: string) =>
       isUuid(id)
-        ? Effect.map(selectPetitions(actor, sql`p.id = ${id}`), (rows) =>
-            Option.fromNullishOr(rows[0]),
-          )
+        ? Effect.map(petitions(actor, sql`p.id = ${id}`), (rows) => Option.fromNullishOr(rows[0]))
         : Effect.succeed(Option.none<PetitionDto>())
 
     const getPetition = (actor: Actor, id: string) =>
@@ -239,16 +192,16 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       getCategories: () => categories(undefined).pipe(Effect.orDie),
       getPetitions: ({ organizationId }) =>
         Effect.flatMap(CurrentUser, (user) =>
-          selectPetitions(
+          petitions(
             user,
             organizationId ? sql`p.organization_id::text = ${organizationId}` : sql`true`,
           ),
         ),
       getPublicPetitions: () =>
-        Effect.flatMap(CurrentUser, (user) => selectPetitions(user, sql`p.classroom_id IS NULL`)),
+        Effect.flatMap(CurrentUser, (user) => petitions(user, sql`p.classroom_id IS NULL`)),
       getClassroomPetitions: ({ classroomId, sort }) =>
         Effect.flatMap(CurrentUser, (user) =>
-          selectPetitions(
+          petitions(
             user,
             sql`p.classroom_id::text = ${classroomId}`,
             sort === "goal"

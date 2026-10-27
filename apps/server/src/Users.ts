@@ -1,6 +1,4 @@
 import {
-  ActivityPetition,
-  ActivitySignature,
   type Actor,
   CurrentActor,
   CurrentUser,
@@ -14,6 +12,7 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
+import { selectPetitions } from "./PetitionQueries.ts"
 import {
   authorizeSetRole,
   canSeeActivity,
@@ -45,29 +44,6 @@ const userColumns = (sql: SqlClient.SqlClient) => sql`
     AND coalesce(u.first_name, '') <> '' AND coalesce(u.last_name, '') <> '') AS profile_complete
 `
 
-/** An `ActivityPetition` as JSON, from `petition` aliased `p`. */
-const petitionJson = (sql: SqlClient.SqlClient) => sql`
-  json_build_object(
-    'id', p.id, 'title', p.title, 'description', p.description,
-    'status', coalesce(p.status, 'open'),
-    'trending', sc.count > 5 AND sc.count::float / coalesce(p.goal, 1000) >= 0.5,
-    'signaturesCount', sc.count, 'goal', coalesce(p.goal, 1000),
-    'isAnonymous', coalesce(p.is_anonymous, false),
-    'deadline', to_char(p.deadline, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-    'insertedAt', ${isoUtc(sql, "p.inserted_at")},
-    'category', CASE WHEN cat.id IS NULL THEN NULL
-      ELSE json_build_object('id', cat.id, 'name', cat.name, 'color', cat.color) END,
-    'author', CASE WHEN coalesce(p.is_anonymous, false) THEN 'Anonymous student'
-      ELSE coalesce((SELECT concat_ws(' ', a.first_name, a.last_name) FROM users a
-        WHERE a.id = p.user_id), 'Student') END
-  )
-`
-
-const petitionJoins = (sql: SqlClient.SqlClient) => sql`
-  CROSS JOIN LATERAL (SELECT count(*)::int AS count FROM signature s2 WHERE s2.petition_id = p.id) sc
-  LEFT JOIN category cat ON cat.id = p.category_id
-`
-
 export const UsersHandlers = UsersRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
@@ -87,31 +63,32 @@ export const UsersHandlers = UsersRpcs.toLayer(
               WHERE p.user_id = ${actor.id} AND ${visible}) AS total_petition_signatures
         `,
       })(undefined)
-      const petitions = yield* SqlSchema.findAll({
-        Request: Schema.Void,
-        Result: Schema.Struct({ petition: ActivityPetition }),
-        execute: () => sql`
-          SELECT ${petitionJson(sql)} AS petition
-          FROM petition p ${petitionJoins(sql)}
-          WHERE p.user_id = ${actor.id} AND ${visible}
-          ORDER BY p.inserted_at DESC LIMIT 4
-        `,
-      })(undefined)
-      const signatures = yield* SqlSchema.findAll({
-        Request: Schema.Void,
-        Result: ActivitySignature,
-        execute: () => sql`
-          SELECT s.id, ${isoUtc(sql, "s.inserted_at")} AS inserted_at,
-            ${petitionJson(sql)} AS petition
-          FROM signature s JOIN petition p ON p.id = s.petition_id ${petitionJoins(sql)}
-          WHERE s.user_id = ${actor.id} AND ${visible}
-          ORDER BY s.inserted_at DESC LIMIT 4
-        `,
-      })(undefined)
+      const petitions = yield* selectPetitions(sql, actor, sql`p.user_id = ${actor.id}`, {
+        limit: 4,
+      })
+      const signed = yield* sql<{ id: string; insertedAt: string; petitionId: string }>`
+        SELECT s.id, ${isoUtc(sql, "s.inserted_at")} AS inserted_at, s.petition_id
+        FROM signature s JOIN petition p ON p.id = s.petition_id
+        WHERE s.user_id = ${actor.id} AND ${visible}
+        ORDER BY s.inserted_at DESC LIMIT 4
+      `
+      const signedPetitions =
+        signed.length === 0
+          ? []
+          : yield* selectPetitions(
+              sql,
+              actor,
+              sql`p.id IN ${sql.in(signed.map((s) => s.petitionId))}`,
+            )
+      const signatures = signed.map(({ id, insertedAt, petitionId }) => ({
+        id,
+        insertedAt,
+        petition: signedPetitions.find((petition) => petition.id === petitionId)!,
+      }))
       return {
         ...counts!,
         numPetitionSignees: counts!.numSigned,
-        petitions: petitions.map((row) => row.petition),
+        petitions,
         signatures,
       }
     })
