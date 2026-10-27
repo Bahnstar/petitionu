@@ -1,8 +1,16 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
+import { UserConfirmed } from "../src/Confirmation.ts"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp } from "./support/harness.ts"
-import { defaultPassword, uniqueEmail, withEmailTo } from "./support/users.ts"
+import {
+  confirmEmail,
+  defaultPassword,
+  lastEmailedToken,
+  registerUser,
+  uniqueEmail,
+  withEmailTo,
+} from "./support/users.ts"
 
 describe("registration and password sign-in", () => {
   it.live("registers, confirms only after a click, signs out and back in", () =>
@@ -86,6 +94,37 @@ describe("registration and password sign-in", () => {
       assert.deepStrictEqual(yield* app.mailer.messages, [])
       yield* Effect.sleep("100 millis")
       assert.deepStrictEqual(yield* app.mailer.messages, [])
+    }),
+  )
+})
+
+describe("becoming confirmed", () => {
+  it.live("runs the confirmation callback once, and again later if it failed", () =>
+    Effect.gen(function* () {
+      const ran: Array<string> = []
+      let failNext = true
+      const flaky = Layer.succeed(UserConfirmed)((userId) =>
+        Effect.suspend(() => {
+          ran.push(userId)
+          if (!failNext) return Effect.void
+          failNext = false
+          return Effect.fail(new Error("registry down"))
+        }),
+      )
+      const app = yield* makeTestApp({ userConfirmed: flaky })
+      const user = yield* registerUser(app)
+      const token = yield* lastEmailedToken(app, user.email)
+      yield* user.browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
+      assert.deepStrictEqual(ran, [user.id])
+
+      // The failed run rolled back; the next request from the user completes it.
+      const me = yield* user.browser.rpc((api) => api.getMe())
+      if (!me.success) return assert.fail(JSON.stringify(me))
+      assert.isTrue(me.data.emailVerified)
+      assert.deepStrictEqual(ran, [user.id, user.id])
+      yield* user.browser.rpc((api) => api.getMe())
+      yield* confirmEmail(app, user.browser, user.email)
+      assert.deepStrictEqual(ran, [user.id, user.id])
     }),
   )
 })

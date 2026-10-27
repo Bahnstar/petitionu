@@ -55,6 +55,11 @@ export class Auth extends Context.Service<
     readonly handler: (request: Request) => Promise<Response>
     /** Resolves the session from request headers; `None` when there is none or it expired. */
     getSession(headers: Headers): Effect.Effect<Option.Option<AuthSession>>
+    /**
+     * Finishes confirming a user whose email is verified but whose `confirmed_at` isn't set,
+     * because `UserConfirmed` failed when they verified. Logs and gives up on failure.
+     */
+    finishConfirmation(userId: string): Effect.Effect<void>
   }
 >()("petitionu/Auth") {
   static readonly layer = Layer.effect(
@@ -64,6 +69,7 @@ export class Auth extends Context.Service<
       const secret = yield* requireSecret("BETTER_AUTH_SECRET", config.betterAuthSecret)
       const env = yield* Config.String("NODE_ENV").pipe(Config.withDefault("production"))
       const context = yield* Effect.context<Mailer | SqlClient.SqlClient>()
+      // `UserConfirmed` is a reference: read it from the same context the hooks run in.
       const run = <A, E>(effect: Effect.Effect<A, E, Mailer | SqlClient.SqlClient>) =>
         Effect.runPromiseWith(context)(effect)
       const origin = `https://${config.publicHost}`
@@ -101,8 +107,17 @@ export class Auth extends Context.Service<
         )
       const link = (path: string, token: string) => `${path}?token=${encodeURIComponent(token)}`
 
+      // A failure leaves `confirmed_at` unset; `finishConfirmation` retries on the user's next
+      // request. Logged, not thrown, so the verification itself still succeeds.
+      const finishConfirmation = (userId: string) =>
+        markConfirmed(userId).pipe(
+          Effect.catchCause((cause) =>
+            Effect.logError("Could not finish confirming a user; will retry", { userId, cause }),
+          ),
+          Effect.provideContext(context),
+        )
       const confirmed = (user: { id: string; emailVerified: boolean }) =>
-        user.emailVerified ? run(markConfirmed(user.id)) : Promise.resolve()
+        user.emailVerified ? run(finishConfirmation(user.id)) : Promise.resolve()
 
       // The user whose password a `/reset-password` request just reset, keyed by request.
       const resetUsers = new WeakMap<Request, { id: string }>()
@@ -281,7 +296,7 @@ export class Auth extends Context.Service<
           Effect.orDie,
         )
 
-      return Auth.of({ handler: auth.handler, getSession })
+      return Auth.of({ handler: auth.handler, getSession, finishConfirmation })
     }),
   )
 }

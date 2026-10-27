@@ -23,6 +23,7 @@ const ActorRow = Schema.Struct({
   confirmedAt: Schema.NullOr(Schema.Date),
   firstName: Schema.NullOr(Schema.String),
   lastName: Schema.NullOr(Schema.String),
+  emailVerified: Schema.Boolean,
 })
 
 /**
@@ -42,10 +43,31 @@ export const RpcRequestGuard = HttpRouter.middleware(
       Result: ActorRow,
       execute: (id) => sql`
         SELECT id, email::text AS email, role, organization_id,
-          (confirmed_at AT TIME ZONE 'utc') AS confirmed_at, first_name, last_name
+          (confirmed_at AT TIME ZONE 'utc') AS confirmed_at, first_name, last_name, email_verified
         FROM users WHERE id = ${id}
       `,
     })
+    const loadActor = Effect.fnUntraced(function* (userId: string) {
+      let row = yield* findUser(userId).pipe(Effect.orDie)
+      if (Option.isSome(row) && row.value.emailVerified && row.value.confirmedAt === null) {
+        yield* auth.finishConfirmation(userId)
+        row = yield* findUser(userId).pipe(Effect.orDie)
+      }
+      return Option.match(row, {
+        onNone: (): Actor => guest,
+        onSome: (user): Actor => ({
+          _tag: "SignedIn",
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          organizationId: user.organizationId,
+          confirmedAt: user.confirmedAt,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        }),
+      })
+    })
+
     return (httpEffect) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
@@ -53,12 +75,7 @@ export const RpcRequestGuard = HttpRouter.middleware(
         if (!csrf.check(request, session)) {
           return HttpServerResponse.jsonUnsafe({ error: "Forbidden" }, { status: 403 })
         }
-        const actor: Actor = Option.isNone(session)
-          ? guest
-          : Option.match(yield* findUser(session.value.userId).pipe(Effect.orDie), {
-              onNone: () => guest,
-              onSome: (row) => ({ _tag: "SignedIn", ...row }),
-            })
+        const actor = Option.isNone(session) ? guest : yield* loadActor(session.value.userId)
         return yield* Effect.provideService(httpEffect, CurrentActor, actor)
       })
   }),
