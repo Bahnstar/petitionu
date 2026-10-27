@@ -13,13 +13,13 @@ import {
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { isUuid } from "./Input.ts"
+import { petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
 import {
   authorizeSetRole,
   canSeeActivity,
   canSeeDetails,
   validateRequestedRole,
-  visiblePetitions,
   visibleUsers,
 } from "./UsersPolicy.ts"
 import { isoTimestamp } from "./Timestamps.ts"
@@ -46,7 +46,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
     const sql = yield* SqlClient.SqlClient
 
     const activity = Effect.fnUntraced(function* (actor: SignedIn) {
-      const visible = visiblePetitions(sql, actor, "p")
+      const visible = petitionVisible(sql, actor, "p")
       const [counts] = yield* SqlSchema.findAll({
         Request: Schema.Void,
         Result: ActivityCounts,

@@ -1,7 +1,6 @@
 import { type Actor, Forbidden, invalidRequest, type Role, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
-import { petitionVisible } from "./PetitionPolicy.ts"
 
 /** The columns of a target user the policies look at. */
 export interface PolicyUser {
@@ -56,11 +55,3 @@ export const authorizeSetRole = (actor: SignedIn, target: PolicyUser) =>
   (target.role !== "superadmin" && isCampusAdminOf(actor, target.organizationId))
     ? Effect.void
     : Effect.fail(new Forbidden({ message: "You can't change this user's role." }))
-
-/**
- * Petitions whose activity the actor may see, as a filter on `petition` aliased `alias`: not
- * hidden, and either public or in a classroom the actor teaches or is an active member of
- * (the petition read rule in `PetitionPolicy`).
- */
-export const visiblePetitions = (sql: SqlClient.SqlClient, actor: SignedIn, alias: string) =>
-  petitionVisible(sql, actor, alias)
