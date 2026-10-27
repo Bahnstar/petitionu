@@ -1,0 +1,101 @@
+import { Schema } from "effect"
+import { Rpc, RpcGroup } from "effect/rpc"
+import { ActorMiddleware, RequireUser } from "./Actor.ts"
+import { Invalid, Unauthenticated } from "./Errors.ts"
+
+/** A signature. Who signed is never exposed; `hasSigned` on the petition tells the caller. */
+export const SignatureDto = Schema.Struct({
+  id: Schema.String,
+  petitionId: Schema.String,
+  reason: Schema.NullOr(Schema.String),
+  isVerified: Schema.Boolean,
+  /** ISO 8601, UTC. */
+  insertedAt: Schema.String,
+})
+export type SignatureDto = typeof SignatureDto.Type
+
+export const CommentDto = Schema.Struct({
+  id: Schema.String,
+  petitionId: Schema.String,
+  parentCommentId: Schema.NullOr(Schema.String),
+  text: Schema.NullOr(Schema.String),
+  /** The commenter's name, or "Student" when it's unknown. */
+  author: Schema.String,
+  /** ISO 8601, UTC. */
+  insertedAt: Schema.String,
+})
+export type CommentDto = typeof CommentDto.Type
+
+export const UpdateDto = Schema.Struct({
+  id: Schema.String,
+  petitionId: Schema.String,
+  title: Schema.String,
+  body: Schema.String,
+  /** ISO 8601, UTC. */
+  insertedAt: Schema.String,
+})
+export type UpdateDto = typeof UpdateDto.Type
+
+const petitionFilter = { petitionId: Schema.optional(Schema.NullOr(Schema.String)) }
+
+/**
+ * Signs an open petition once. Needs a confirmed user with a complete profile; a campus
+ * petition also needs the signer's campus unless the campus accepts public signatures.
+ */
+export const createSignature = Rpc.make("createSignature", {
+  payload: { petitionId: Schema.String, reason: Schema.optional(Schema.NullOr(Schema.String)) },
+  success: SignatureDto,
+  error: Schema.Union([Unauthenticated, Invalid]),
+})
+
+/** Signatures on petitions the caller may see, oldest first; optionally one petition's. */
+export const getSignatures = Rpc.make("getSignatures", {
+  payload: petitionFilter,
+  success: Schema.Array(SignatureDto),
+}).middleware(RequireUser)
+
+/** Comments on an open petition that allows them; `parentCommentId` replies on the same petition. */
+export const createComment = Rpc.make("createComment", {
+  payload: {
+    petitionId: Schema.String,
+    text: Schema.String,
+    parentCommentId: Schema.optional(Schema.NullOr(Schema.String)),
+  },
+  success: CommentDto,
+  error: Schema.Union([Unauthenticated, Invalid]),
+})
+
+/** Comments that aren't hidden, on petitions the caller may see, oldest first. */
+export const getComments = Rpc.make("getComments", {
+  payload: petitionFilter,
+  success: Schema.Array(CommentDto),
+}).middleware(RequireUser)
+
+/** Publishes an update on a petition the caller wrote or whose classroom they teach. */
+export const createUpdate = Rpc.make("createUpdate", {
+  payload: { petitionId: Schema.String, title: Schema.String, body: Schema.String },
+  success: UpdateDto,
+  error: Schema.Union([Unauthenticated, Invalid]),
+})
+
+/** Updates on petitions the caller may see, oldest first; optionally one petition's. */
+export const getUpdates = Rpc.make("getUpdates", {
+  payload: petitionFilter,
+  success: Schema.Array(UpdateDto),
+}).middleware(RequireUser)
+
+/** One petition's updates, newest first (empty when the caller can't see the petition). */
+export const getUpdatesForPetition = Rpc.make("getUpdatesForPetition", {
+  payload: { petitionId: Schema.String },
+  success: Schema.Array(UpdateDto),
+}).middleware(RequireUser)
+
+export class ParticipationRpcs extends RpcGroup.make(
+  createSignature,
+  getSignatures,
+  createComment,
+  getComments,
+  createUpdate,
+  getUpdates,
+  getUpdatesForPetition,
+).middleware(ActorMiddleware) {}
