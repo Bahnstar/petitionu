@@ -1,0 +1,565 @@
+import {
+  ClassroomDto,
+  ClassroomRpcs,
+  CurrentUser,
+  Forbidden,
+  Invalid,
+  MembershipDto,
+  type MembershipRole,
+  MembershipStatus,
+  NotFound,
+  type SignedIn,
+} from "@petitionu/domain"
+import { Effect, Option, Schema } from "effect"
+import { SqlClient, SqlSchema, type Statement } from "effect/sql"
+import { AppConfig } from "./Config.ts"
+import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
+import { Mailer } from "./Mailer.ts"
+import { requireParticipant } from "./Participant.ts"
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isUuid = (value: string) => uuidPattern.test(value)
+
+const forbidden = new Forbidden({ message: "Forbidden" })
+const classroomNotFound = new NotFound({ message: "Classroom not found" })
+const membershipNotFound = new NotFound({ message: "Membership not found" })
+
+const fieldError = (field: string, message: string) =>
+  new Invalid({ message, fields: [{ field, message }] })
+
+/** Admission messages, word for word from `ValidateAdmission`. */
+const existingMembershipMessages: Record<MembershipStatus, string> = {
+  active: "You are already a member of this classroom",
+  pending: "Your membership is awaiting approval",
+  removed: "Your membership was removed; contact the professor",
+}
+
+/** Trims like Ash strings do; an empty string becomes `null`. */
+const trimmed = (value: string | null | undefined) => {
+  const text = value?.trim() ?? ""
+  return text === "" ? null : text
+}
+
+const validName = (value: string | null | undefined) => {
+  const name = trimmed(value)
+  if (name === null) return Effect.fail(fieldError("name", "is required"))
+  if (name.length > 255) {
+    return Effect.fail(fieldError("name", "length must be less than or equal to 255"))
+  }
+  return Effect.succeed(name)
+}
+
+const validDescription = (value: string | null | undefined) => {
+  const description = trimmed(value)
+  if (description !== null && description.length > 2000) {
+    return Effect.fail(fieldError("description", "length must be less than or equal to 2000"))
+  }
+  return Effect.succeed(description)
+}
+
+/** Unconfirmed users can't create, change or remove memberships. */
+const requireConfirmed = (user: SignedIn) =>
+  user.confirmedAt === null ? Effect.fail(forbidden) : Effect.void
+
+const iso = (column: string) => `to_char(${column}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
+
+const ClassroomTarget = Schema.Struct({
+  id: Schema.String,
+  professorId: Schema.String,
+  archived: Schema.Boolean,
+})
+
+const MembershipTarget = Schema.Struct({
+  id: Schema.String,
+  userId: Schema.String,
+  role: Schema.Literals(["student", "ta"]),
+  status: MembershipStatus,
+  classroomId: Schema.String,
+  professorId: Schema.String,
+  archived: Schema.Boolean,
+  actorIsTa: Schema.Boolean,
+})
+type MembershipTarget = typeof MembershipTarget.Type
+
+const Recipient = Schema.Struct({
+  email: Schema.String,
+  firstName: Schema.NullOr(Schema.String),
+  classroomName: Schema.String,
+  classroomDescription: Schema.NullOr(Schema.String),
+})
+
+export const ClassroomHandlers = ClassroomRpcs.toLayer(
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const mailer = yield* Mailer
+    const { publicHost } = yield* AppConfig
+
+    // Read scoping -----------------------------------------------------------------------
+
+    /** Classrooms the actor teaches or is an active member of. */
+    const classroomVisibleTo = (actorId: string) => sql`(
+      c.professor_id = ${actorId} OR EXISTS (
+        SELECT 1 FROM classroom_memberships v
+        WHERE v.classroom_id = c.id AND v.user_id = ${actorId} AND v.status = 'active'))`
+
+    /** Their own memberships, and those of classrooms they teach or are an active TA of. */
+    const membershipVisibleTo = (actorId: string) => sql`(
+      m.user_id = ${actorId} OR c.professor_id = ${actorId} OR EXISTS (
+        SELECT 1 FROM classroom_memberships t
+        WHERE t.classroom_id = m.classroom_id AND t.user_id = ${actorId}
+          AND t.role = 'ta' AND t.status = 'active'))`
+
+    const classroomColumns = sql.literal(`
+      c.id, c.name, c.description, c.join_code::text AS join_code, c.archived,
+      c.allow_student_petitions,
+      (SELECT count(*)::int FROM classroom_memberships a
+        WHERE a.classroom_id = c.id AND a.status = 'active') AS member_count,
+      (SELECT count(*)::int FROM petition p WHERE p.classroom_id = c.id) AS petition_count,
+      c.professor_id,
+      json_build_object('id', pu.id, 'firstName', pu.first_name, 'lastName', pu.last_name)
+        AS professor,
+      c.organization_id, ${iso("c.inserted_at")} AS inserted_at,
+      ${iso("c.updated_at")} AS updated_at
+      FROM classrooms c JOIN users pu ON pu.id = c.professor_id`)
+
+    const membershipColumns = sql.literal(`
+      m.id, m.classroom_id, m.user_id, m.invited_by_id, m.role, m.status,
+      ${iso("m.joined_at")} AS joined_at, ${iso("m.inserted_at")} AS inserted_at,
+      concat_ws(' ', u.first_name, u.last_name) AS member_name,
+      json_build_object('id', u.id) AS "user",
+      json_build_object('id', c.id, 'name', c.name) AS classroom
+      FROM classroom_memberships m
+      JOIN users u ON u.id = m.user_id
+      JOIN classrooms c ON c.id = m.classroom_id`)
+
+    const decodeClassrooms = Schema.decodeUnknownEffect(Schema.Array(ClassroomDto))
+    const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(MembershipDto))
+
+    const listClassrooms = (
+      where: Statement.Fragment,
+      page: Statement.Fragment = sql.literal(""),
+    ) =>
+      sql`SELECT ${classroomColumns} WHERE ${where} ORDER BY c.name, c.id ${page}`.pipe(
+        Effect.flatMap(decodeClassrooms),
+        Effect.orDie,
+      )
+
+    const listMemberships = (where: Statement.Fragment) =>
+      sql`SELECT ${membershipColumns} WHERE ${where} ORDER BY m.inserted_at, m.id`.pipe(
+        Effect.flatMap(decodeMemberships),
+        Effect.orDie,
+      )
+
+    const classroomById = (id: string) =>
+      listClassrooms(sql`c.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
+
+    const membershipById = (id: string) =>
+      listMemberships(sql`m.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
+
+    // Decisions ----------------------------------------------------------------------------
+
+    const findClassroomTarget = SqlSchema.findOneOption({
+      Request: Schema.String,
+      Result: ClassroomTarget,
+      execute: (id) => sql`
+        SELECT id, professor_id, archived FROM classrooms WHERE id = ${id} FOR UPDATE`,
+    })
+
+    /**
+     * Loads a classroom for a write by its professor: `NotFound` when the actor can't see it,
+     * `Forbidden` when they can but don't teach it.
+     */
+    const professorsClassroom = (user: SignedIn, id: string) =>
+      Effect.gen(function* () {
+        if (!isUuid(id)) return yield* classroomNotFound
+        const visible = yield* listClassrooms(sql`c.id = ${id} AND ${classroomVisibleTo(user.id)}`)
+        if (visible.length === 0) return yield* classroomNotFound
+        const target = yield* findClassroomTarget(id).pipe(Effect.orDie)
+        if (Option.isNone(target)) return yield* classroomNotFound
+        if (target.value.professorId !== user.id) return yield* forbidden
+        return target.value
+      })
+
+    const findMembershipTarget = SqlSchema.findOneOption({
+      Request: Schema.Struct({ id: Schema.String, actorId: Schema.String }),
+      Result: MembershipTarget,
+      execute: ({ id, actorId }) => sql`
+        SELECT m.id, m.user_id, m.role, m.status, m.classroom_id, c.professor_id, c.archived,
+          EXISTS (
+            SELECT 1 FROM classroom_memberships t
+            WHERE t.classroom_id = m.classroom_id AND t.user_id = ${actorId}
+              AND t.role = 'ta' AND t.status = 'active') AS actor_is_ta
+        FROM classroom_memberships m JOIN classrooms c ON c.id = m.classroom_id
+        WHERE m.id = ${id} AND ${membershipVisibleTo(actorId)}
+        FOR UPDATE OF m`,
+    })
+
+    /** Loads a membership the actor can see, for a write; `NotFound` otherwise. */
+    const membershipTarget = (user: SignedIn, id: string) =>
+      Effect.gen(function* () {
+        yield* requireConfirmed(user)
+        if (!isUuid(id)) return yield* membershipNotFound
+        const target = yield* findMembershipTarget({ id, actorId: user.id }).pipe(Effect.orDie)
+        if (Option.isNone(target)) return yield* membershipNotFound
+        return target.value
+      })
+
+    const isProfessor = (user: SignedIn, target: { readonly professorId: string }) =>
+      target.professorId === user.id
+
+    const isStaff = (user: SignedIn, target: MembershipTarget) =>
+      isProfessor(user, target) || target.actorIsTa
+
+    const findAdmissionTarget = SqlSchema.findOneOption({
+      Request: Schema.String,
+      Result: ClassroomTarget,
+      execute: (id) => sql`SELECT id, professor_id, archived FROM classrooms WHERE id = ${id}`,
+    })
+
+    const findExisting = SqlSchema.findOneOption({
+      Request: Schema.Struct({ classroomId: Schema.String, userId: Schema.String }),
+      Result: Schema.Struct({ status: MembershipStatus }),
+      execute: ({ classroomId, userId }) => sql`
+        SELECT status FROM classroom_memberships
+        WHERE classroom_id = ${classroomId} AND user_id = ${userId}`,
+    })
+
+    /** `ValidateAdmission`: the classroom is open, and `userId` isn't its professor or member. */
+    const admit = (classroomId: string, userId: string) =>
+      Effect.gen(function* () {
+        const classroom = isUuid(classroomId)
+          ? yield* findAdmissionTarget(classroomId).pipe(Effect.orDie)
+          : Option.none()
+        if (Option.isNone(classroom) || classroom.value.archived) {
+          return yield* fieldError("classroomId", "Classroom is unavailable or archived")
+        }
+        if (classroom.value.professorId === userId) {
+          return yield* fieldError("classroomId", "The professor already owns this classroom")
+        }
+        const existing = yield* findExisting({ classroomId, userId }).pipe(Effect.orDie)
+        if (Option.isSome(existing)) {
+          return yield* fieldError("classroomId", existingMembershipMessages[existing.value.status])
+        }
+      })
+
+    /**
+     * Admits `userId` and inserts the membership. A concurrent insert of the same membership
+     * hits the unique index and reports the row that won.
+     */
+    const insertMembership = (row: {
+      readonly classroomId: string
+      readonly userId: string
+      readonly role: MembershipRole
+      readonly status: "pending" | "active"
+      readonly invitedById: string | null
+    }) =>
+      Effect.gen(function* () {
+        yield* admit(row.classroomId, row.userId)
+        const joinedAt = row.status === "active" ? sql.literal("(now() AT TIME ZONE 'utc')") : null
+        const inserted = yield* sql<{ id: string }>`
+          INSERT INTO classroom_memberships
+            (classroom_id, user_id, role, status, invited_by_id, joined_at)
+          VALUES (${row.classroomId}, ${row.userId}, ${row.role}, ${row.status},
+            ${row.invitedById}, ${joinedAt})
+          ON CONFLICT (classroom_id, user_id) DO NOTHING
+          RETURNING id
+        `.pipe(Effect.orDie)
+        if (inserted.length === 0) {
+          yield* admit(row.classroomId, row.userId)
+          return yield* Effect.die(new Error("membership insert conflicted without a row"))
+        }
+        return yield* membershipById(inserted[0]!.id)
+      })
+
+    const findRecipient = SqlSchema.findOne({
+      Request: Schema.String,
+      Result: Recipient,
+      execute: (membershipId) => sql`
+        SELECT u.email::text AS email, u.first_name, c.name AS classroom_name,
+          c.description AS classroom_description
+        FROM classroom_memberships m
+        JOIN users u ON u.id = m.user_id JOIN classrooms c ON c.id = m.classroom_id
+        WHERE m.id = ${membershipId}`,
+    })
+
+    /** Sends inside the transaction, so a failed send rolls the write back, as in Elixir. */
+    const sendInvite = (membershipId: string, invitedBy: SignedIn) =>
+      Effect.gen(function* () {
+        const recipient = yield* findRecipient(membershipId).pipe(Effect.orDie)
+        yield* mailer.send(
+          classroomInviteEmail({
+            publicHost,
+            to: recipient.email,
+            firstName: recipient.firstName,
+            classroom: {
+              name: recipient.classroomName,
+              description: recipient.classroomDescription,
+            },
+            invitedBy,
+          }),
+        )
+      }).pipe(Effect.orDie)
+
+    const sendApproval = (membershipId: string) =>
+      Effect.gen(function* () {
+        const recipient = yield* findRecipient(membershipId).pipe(Effect.orDie)
+        yield* mailer.send(
+          membershipApprovalEmail({
+            publicHost,
+            to: recipient.email,
+            firstName: recipient.firstName,
+            classroom: { name: recipient.classroomName },
+          }),
+        )
+      }).pipe(Effect.orDie)
+
+    const findUserByEmail = SqlSchema.findOneOption({
+      Request: Schema.String,
+      Result: Schema.Struct({ id: Schema.String }),
+      execute: (email) => sql`SELECT id FROM users WHERE email = ${email}`,
+    })
+
+    const transaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      sql.withTransaction(effect).pipe(Effect.catchTag("SqlError", Effect.die))
+
+    /** Updates a classroom its professor owns and returns it. */
+    const updateOwnClassroom = (id: string, set: Statement.Fragment) =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        return yield* transaction(
+          Effect.gen(function* () {
+            const target = yield* professorsClassroom(user, id)
+            yield* sql`
+              UPDATE classrooms SET ${set}, updated_at = (now() AT TIME ZONE 'utc')
+              WHERE id = ${target.id}`.pipe(Effect.orDie)
+            return yield* classroomById(target.id)
+          }),
+        )
+      })
+
+    /** Changes a membership the actor may change and returns it. */
+    const updateMembership = (
+      id: string,
+      allowed: (user: SignedIn, target: MembershipTarget) => boolean,
+      set: Statement.Fragment,
+      after: (target: MembershipTarget) => Effect.Effect<void> = () => Effect.void,
+    ) =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        return yield* transaction(
+          Effect.gen(function* () {
+            const target = yield* membershipTarget(user, id)
+            if (!allowed(user, target)) return yield* forbidden
+            yield* sql`
+              UPDATE classroom_memberships
+              SET ${set}, updated_at = (now() AT TIME ZONE 'utc')
+              WHERE id = ${target.id}`.pipe(Effect.orDie)
+            yield* after(target)
+            return yield* membershipById(target.id)
+          }),
+        )
+      })
+
+    return ClassroomRpcs.of({
+      getClassrooms: () =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          return yield* listClassrooms(classroomVisibleTo(user.id))
+        }),
+
+      getClassroomById: ({ id }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          if (!isUuid(id)) return yield* classroomNotFound
+          const [classroom] = yield* listClassrooms(
+            sql`c.id = ${id} AND ${classroomVisibleTo(user.id)}`,
+          )
+          return classroom ?? (yield* classroomNotFound)
+        }),
+
+      getMyClassrooms: ({ archived, limit, offset }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const where = sql.and([
+            classroomVisibleTo(user.id),
+            archived === undefined ? sql`TRUE` : sql`c.archived = ${archived}`,
+          ])
+          const pageLimit =
+            limit === undefined ? null : Math.min(Math.max(Math.trunc(limit), 1), 250)
+          const pageOffset = Math.max(Math.trunc(offset ?? 0), 0)
+          const page =
+            pageLimit === null
+              ? sql`OFFSET ${pageOffset}`
+              : sql`LIMIT ${pageLimit} OFFSET ${pageOffset}`
+          const results = yield* listClassrooms(where, page)
+          const [total] = yield* sql<{ count: number }>`
+            SELECT count(*)::int AS count FROM classrooms c WHERE ${where}`.pipe(Effect.orDie)
+          const count = total!.count
+          return {
+            results,
+            count,
+            limit: pageLimit,
+            offset: pageOffset,
+            hasMore: pageOffset + results.length < count,
+          }
+        }),
+
+      createClassroom: (input) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          if (user.role !== "professor" && user.role !== "admin") return yield* forbidden
+          yield* requireParticipant
+          const name = yield* validName(input.name)
+          const description = yield* validDescription(input.description)
+          const [row] = yield* sql<{ id: string }>`
+            INSERT INTO classrooms
+              (name, description, allow_student_petitions, join_code, professor_id,
+                organization_id)
+            VALUES (${name}, ${description}, ${input.allowStudentPetitions ?? true},
+              gen_random_uuid(), ${user.id}, ${user.organizationId})
+            RETURNING id
+          `.pipe(Effect.orDie)
+          return yield* classroomById(row!.id)
+        }),
+
+      updateClassroom: ({ id, ...input }) =>
+        Effect.gen(function* () {
+          const changes: Record<string, unknown> = {}
+          if (input.name !== undefined) changes.name = yield* validName(input.name)
+          if (input.description !== undefined) {
+            changes.description = yield* validDescription(input.description)
+          }
+          if (input.allowStudentPetitions !== undefined) {
+            changes.allowStudentPetitions = input.allowStudentPetitions
+          }
+          if (Object.keys(changes).length === 0) {
+            const user = yield* CurrentUser
+            const target = yield* transaction(professorsClassroom(user, id))
+            return yield* classroomById(target.id)
+          }
+          return yield* updateOwnClassroom(id, sql`${sql.update(changes)}`)
+        }),
+
+      archiveClassroom: ({ id }) => updateOwnClassroom(id, sql`archived = TRUE`),
+
+      unarchiveClassroom: ({ id }) => updateOwnClassroom(id, sql`archived = FALSE`),
+
+      regenerateJoinCode: ({ id }) => updateOwnClassroom(id, sql`join_code = gen_random_uuid()`),
+
+      getClassroomMemberships: () =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          return yield* listMemberships(membershipVisibleTo(user.id))
+        }),
+
+      getMembershipsForClassroom: ({ classroomId }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          if (!isUuid(classroomId)) return []
+          return yield* listMemberships(
+            sql`m.classroom_id = ${classroomId} AND ${membershipVisibleTo(user.id)}`,
+          )
+        }),
+
+      getPendingMemberships: ({ classroomId }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          if (!isUuid(classroomId)) return []
+          return yield* listMemberships(
+            sql`m.classroom_id = ${classroomId} AND m.status = 'pending'
+              AND ${membershipVisibleTo(user.id)}`,
+          )
+        }),
+
+      joinClassroomByCode: ({ joinCode }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          yield* requireConfirmed(user)
+          const [classroom] = isUuid(joinCode)
+            ? yield* sql<{ id: string }>`
+                SELECT id FROM classrooms WHERE join_code = ${joinCode} AND NOT archived
+              `.pipe(Effect.orDie)
+            : []
+          if (classroom === undefined) {
+            return yield* fieldError("joinCode", "Invalid or archived join code")
+          }
+          return yield* insertMembership({
+            classroomId: classroom.id,
+            userId: user.id,
+            role: "student",
+            status: "active",
+            invitedById: null,
+          })
+        }),
+
+      requestToJoinClassroom: ({ classroomId }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          yield* requireConfirmed(user)
+          return yield* insertMembership({
+            classroomId,
+            userId: user.id,
+            role: "student",
+            status: "pending",
+            invitedById: null,
+          })
+        }),
+
+      inviteToClassroom: ({ classroomId, email, role = "student" }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          yield* requireConfirmed(user)
+          const [staff] = isUuid(classroomId)
+            ? yield* sql<{ isProfessor: boolean; isTa: boolean }>`
+                SELECT c.professor_id = ${user.id} AS is_professor,
+                  EXISTS (
+                    SELECT 1 FROM classroom_memberships t
+                    WHERE t.classroom_id = c.id AND t.user_id = ${user.id}
+                      AND t.role = 'ta' AND t.status = 'active') AS is_ta
+                FROM classrooms c WHERE c.id = ${classroomId}
+              `.pipe(Effect.orDie)
+            : []
+          const allowed =
+            staff !== undefined && (staff.isProfessor || (staff.isTa && role === "student"))
+          if (!allowed) return yield* forbidden
+          const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
+          if (Option.isNone(invitee)) return yield* fieldError("email", "User not found")
+          return yield* transaction(
+            Effect.gen(function* () {
+              const membership = yield* insertMembership({
+                classroomId,
+                userId: invitee.value.id,
+                role,
+                status: "pending",
+                invitedById: user.id,
+              })
+              yield* sendInvite(membership.id, user)
+              return membership
+            }),
+          )
+        }),
+
+      approveMembership: ({ id }) =>
+        updateMembership(
+          id,
+          (user, target) =>
+            isStaff(user, target) && target.status === "pending" && !target.archived,
+          sql`status = 'active', joined_at = (now() AT TIME ZONE 'utc')`,
+          (target) => sendApproval(target.id),
+        ),
+
+      removeFromClassroom: ({ id }) =>
+        updateMembership(
+          id,
+          (user, target) =>
+            isStaff(user, target) ||
+            (target.userId === user.id && target.role === "student" && target.status === "active"),
+          sql`status = 'removed'`,
+        ),
+
+      promoteToTa: ({ id }) => updateMembership(id, isProfessor, sql`role = 'ta'`),
+
+      demoteToStudent: ({ id }) => updateMembership(id, isProfessor, sql`role = 'student'`),
+    })
+  }),
+)
