@@ -3,7 +3,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { Effect, Exit, Redacted } from "effect"
 import { SqlClient } from "effect/sql"
 import { runMigrations } from "../src/Migrations.ts"
-import { makeTestDatabase } from "./support/harness.ts"
+import { makeTestApp, makeTestDatabase } from "./support/harness.ts"
 import { dumpSchema, normalizeDump, readFixture, runPsql } from "./support/postgres-tools.ts"
 
 const migrate = (url: string) =>
@@ -91,6 +91,14 @@ describe("migrations", () => {
       const exit = yield* migrate(database.url).pipe(Effect.exit)
       assert.isTrue(Exit.isFailure(exit))
       assert.include(String(exit), "Ecto migrations are incomplete")
+    }),
+  )
+
+  it.live("are applied to the database of every test app", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const rows = yield* query(app.database.url, "SELECT count(*)::int AS petitions FROM petition")
+      assert.deepStrictEqual(rows, [{ petitions: 0 }])
     }),
   )
 })

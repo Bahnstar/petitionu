@@ -5,6 +5,7 @@ import { HttpRouter } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { fileURLToPath } from "node:url"
 import { makeAppLayer } from "../../src/App.ts"
+import { runMigrations } from "../../src/Migrations.ts"
 
 const adminUrl =
   process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@127.0.0.1:55432/postgres"
@@ -51,13 +52,24 @@ export interface TestApp {
   readonly request: (path: string, init?: RequestInit) => Effect.Effect<Response>
 }
 
+/** Applies the real migrations to a database, as the deploy's migrate step does. */
+export const migrateDatabase = (url: string) =>
+  runMigrations.pipe(
+    Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })),
+    Effect.orDie,
+  )
+
+/** A fresh test database with every migration applied, dropped when the scope closes. */
+export const makeMigratedTestDatabase = Effect.tap(makeTestDatabase, ({ url }) => migrateDatabase(url))
+
 /**
- * Builds the composed app as an in-process web handler (Seam A), pointed at a fresh database.
+ * Builds the composed app as an in-process web handler (Seam A), pointed at a fresh, migrated
+ * database.
  * `env` overrides configuration variables.
  */
 export const makeTestApp = (options: { readonly env?: Record<string, string> } = {}) =>
   Effect.gen(function* () {
-    const database = yield* makeTestDatabase
+    const database = yield* makeMigratedTestDatabase
     const config = ConfigProvider.fromUnknown({
       DATABASE_URL: database.url,
       WEB_DIST_DIR: fixtureWebDist,
