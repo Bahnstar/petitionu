@@ -2,6 +2,7 @@ import { type Actor, PetitionDto } from "@petitionu/domain"
 import { Effect, Schema } from "effect"
 import { type SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 const actorId = (actor: Actor) => (actor._tag === "SignedIn" ? actor.id : null)
 
@@ -27,7 +28,7 @@ export const selectPetitions = (
         coalesce(p.allow_comments, true) AS allow_comments,
         coalesce(p.is_anonymous, false) AS is_anonymous,
         to_char(p.deadline, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS deadline,
-        to_char(p.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at,
+        ${isoTimestamp(sql, "p.inserted_at")} AS inserted_at,
         s.count AS signatures_count,
         EXISTS (SELECT 1 FROM signature hs WHERE hs.petition_id = p.id AND hs.user_id = ${id})
           AS has_signed,

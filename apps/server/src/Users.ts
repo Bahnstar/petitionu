@@ -22,6 +22,7 @@ import {
   visiblePetitions,
   visibleUsers,
 } from "./UsersPolicy.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 const userNotFound = new NotFound({ message: "User not found" })
 
@@ -30,9 +31,6 @@ const ActivityCounts = Schema.Struct({
   numSigned: Schema.Number,
   totalPetitionSignatures: Schema.Number,
 })
-
-const isoUtc = (sql: SqlClient.SqlClient, column: string) =>
-  sql`to_char(${sql.literal(column)}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
 
 /** Fields of `UserDetails`, selected from `users` aliased `u`. */
 const userColumns = (sql: SqlClient.SqlClient) => sql`
@@ -66,7 +64,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
         limit: 4,
       })
       const signed = yield* sql<{ id: string; insertedAt: string; petitionId: string }>`
-        SELECT s.id, ${isoUtc(sql, "s.inserted_at")} AS inserted_at, s.petition_id
+        SELECT s.id, ${isoTimestamp(sql, "s.inserted_at")} AS inserted_at, s.petition_id
         FROM signature s JOIN petition p ON p.id = s.petition_id
         WHERE s.user_id = ${actor.id} AND ${visible}
         ORDER BY s.inserted_at DESC LIMIT 4
@@ -126,7 +124,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
       Request: Schema.String,
       Result: Notification,
       execute: (userId) => sql`
-        SELECT n.id, n.title, n.body, n.status, ${isoUtc(sql, "n.inserted_at")} AS inserted_at
+        SELECT n.id, n.title, n.body, n.status, ${isoTimestamp(sql, "n.inserted_at")} AS inserted_at
         FROM notification n WHERE n.user_id = ${userId} ORDER BY n.inserted_at DESC, n.id DESC
       `,
     })

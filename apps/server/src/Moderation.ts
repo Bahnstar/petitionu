@@ -14,6 +14,7 @@ import { authorizeHide, authorizeResolve, visibleReports } from "./ModerationPol
 import { requireParticipant } from "./Participant.ts"
 import { isUuid, optionalNote, requiredNote } from "./Input.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 const reportNotFound = new NotFound({ message: "Content report not found" })
 
@@ -41,8 +42,8 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
     const columns = sql`
       r.id, r.petition_id, r.comment_id, r.target_title, r.target_text, r.reason, r.details,
       r.state, r.resolution_note,
-      to_char(r.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at,
-      to_char(r.resolved_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS resolved_at
+      ${isoTimestamp(sql, "r.inserted_at")} AS inserted_at,
+      ${isoTimestamp(sql, "r.resolved_at")} AS resolved_at
     `
 
     const findById = SqlSchema.findOne({

@@ -22,6 +22,7 @@ import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 const petitionNotFound = new NotFound({ message: "Petition not found" })
 
@@ -47,7 +48,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       Result: PetitionCommentDto,
       execute: (petitionId) => sql`
         SELECT c.id, c.text,
-          to_char(c.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at,
+          ${isoTimestamp(sql, "c.inserted_at")} AS inserted_at,
           CASE WHEN u.id IS NULL THEN 'Student' ELSE concat_ws(' ', u.first_name, u.last_name) END
             AS author
         FROM comment c LEFT JOIN users u ON u.id = c.user_id
@@ -59,7 +60,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       Request: Schema.String,
       Result: PetitionSignatureDto,
       execute: (petitionId) => sql`
-        SELECT id, reason, to_char(inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at
+        SELECT id, reason, ${isoTimestamp(sql, "inserted_at")} AS inserted_at
         FROM signature WHERE petition_id = ${petitionId}
         ORDER BY inserted_at, id
       `,
@@ -69,7 +70,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       Result: PetitionUpdateDto,
       execute: (petitionId) => sql`
         SELECT id, title, body,
-          to_char(inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at
+          ${isoTimestamp(sql, "inserted_at")} AS inserted_at
         FROM update WHERE petition_id = ${petitionId}
         ORDER BY inserted_at, id
       `,

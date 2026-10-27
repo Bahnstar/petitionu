@@ -12,6 +12,7 @@ import { SqlClient, SqlSchema } from "effect/sql"
 import { AppConfig } from "./Config.ts"
 import { isUuid, requiredNote } from "./Input.ts"
 import { authorizeResolve, visibleSupportRequests } from "./SupportPolicy.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 /** Used outside production when `SUPPORT_EMAIL` isn't set, as the Phoenix app did. */
 const developmentSupportEmail = "support@localhost.test"
@@ -31,8 +32,8 @@ export const SupportHandlers = SupportRpcs.toLayer(
     const columns = sql`
       r.id, r.kind, r.requester_email::text AS requester_email, r.message, r.state,
       r.resolution_note,
-      to_char(r.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at,
-      to_char(r.resolved_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS resolved_at
+      ${isoTimestamp(sql, "r.inserted_at")} AS inserted_at,
+      ${isoTimestamp(sql, "r.resolved_at")} AS resolved_at
     `
 
     const findById = SqlSchema.findOne({

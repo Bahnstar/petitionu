@@ -15,9 +15,10 @@ import { requireParticipant } from "./Participant.ts"
 import { checkInput, isUuid, text } from "./Input.ts"
 import { checkPetition, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 const insertedAt = (sql: SqlClient.SqlClient, alias: string) =>
-  sql`to_char(${sql(alias)}.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at`
+  sql`${isoTimestamp(sql, `${alias}.inserted_at`)} AS inserted_at`
 
 export const ParticipationHandlers = ParticipationRpcs.toLayer(
   Effect.gen(function* () {

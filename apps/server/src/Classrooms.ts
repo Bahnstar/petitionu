@@ -17,6 +17,7 @@ import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
 import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
+import { isoTimestamp } from "./Timestamps.ts"
 
 const forbidden = new Forbidden({ message: "Forbidden" })
 const classroomNotFound = new NotFound({ message: "Classroom not found" })
@@ -55,8 +56,6 @@ const validDescription = (value: string | null | undefined) => {
 /** Unconfirmed users can't create, change or remove memberships. */
 const requireConfirmed = (user: SignedIn) =>
   user.confirmedAt === null ? Effect.fail(forbidden) : Effect.void
-
-const iso = (column: string) => `to_char(${column}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
 
 const ClassroomTarget = Schema.Struct({
   id: Schema.String,
@@ -104,7 +103,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         WHERE t.classroom_id = m.classroom_id AND t.user_id = ${actorId}
           AND t.role = 'ta' AND t.status = 'active'))`
 
-    const classroomColumns = sql.literal(`
+    const classroomColumns = sql`
       c.id, c.name, c.description, c.join_code::text AS join_code, c.archived,
       c.allow_student_petitions,
       (SELECT count(*)::int FROM classroom_memberships a
@@ -113,19 +112,19 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       c.professor_id,
       json_build_object('id', pu.id, 'firstName', pu.first_name, 'lastName', pu.last_name)
         AS professor,
-      c.organization_id, ${iso("c.inserted_at")} AS inserted_at,
-      ${iso("c.updated_at")} AS updated_at
-      FROM classrooms c JOIN users pu ON pu.id = c.professor_id`)
+      c.organization_id, ${isoTimestamp(sql, "c.inserted_at")} AS inserted_at,
+      ${isoTimestamp(sql, "c.updated_at")} AS updated_at
+      FROM classrooms c JOIN users pu ON pu.id = c.professor_id`
 
-    const membershipColumns = sql.literal(`
+    const membershipColumns = sql`
       m.id, m.classroom_id, m.user_id, m.invited_by_id, m.role, m.status,
-      ${iso("m.joined_at")} AS joined_at, ${iso("m.inserted_at")} AS inserted_at,
+      ${isoTimestamp(sql, "m.joined_at")} AS joined_at, ${isoTimestamp(sql, "m.inserted_at")} AS inserted_at,
       concat_ws(' ', u.first_name, u.last_name) AS member_name,
       json_build_object('id', u.id) AS "user",
       json_build_object('id', c.id, 'name', c.name) AS classroom
       FROM classroom_memberships m
       JOIN users u ON u.id = m.user_id
-      JOIN classrooms c ON c.id = m.classroom_id`)
+      JOIN classrooms c ON c.id = m.classroom_id`
 
     const decodeClassrooms = Schema.decodeUnknownEffect(Schema.Array(ClassroomDto))
     const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(MembershipDto))
