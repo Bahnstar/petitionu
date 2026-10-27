@@ -13,14 +13,11 @@
 @import "./application.css";
 @import "./petition-page.css";
 @import "./site-header.css";
-@source "../../../deps/ash_authentication_phoenix";
 @source "../css";
 @source "../js";
 @source "../components";
-@source "../../../lib/petitionu_web";
 
-/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
-   The heroicons installation itself is managed by your mix.exs */
+/* A Tailwind plugin that makes "hero-#{ICON}" classes available, from the heroicons package. */
 @plugin "../vendor/heroicons";
 
 /* daisyUI Tailwind Plugin. You can update this file by fetching the latest version with:

@@ -8,8 +8,6 @@ export default defineConfig({
   plugins: [tailwindcss()],
   resolve: {
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
-    // Match esbuild's order so `./app` resolves to app.tsx, not the LiveView app.js.
-    extensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".mts", ".json"],
   },
   build: {
     outDir: "dist",
