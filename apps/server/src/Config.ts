@@ -34,8 +34,9 @@ export const appSettings = (defaults: { readonly webDistDir: string }) =>
     publicHost: Config.String("PUBLIC_HOST").pipe(Config.withDefault("localhost")),
     port: Config.Port("PORT").pipe(Config.withDefault(4000)),
     clientIpHeader: Config.String("CLIENT_IP_HEADER").pipe(
-      Config.map((name) => name.trim().toLowerCase()),
-      Config.withDefault("x-forwarded-for"),
+      Config.withDefault(""),
+      // Blank (an env file's `CLIENT_IP_HEADER=`) means unset.
+      Config.map((name) => name.trim().toLowerCase() || "x-forwarded-for"),
     ),
     betterAuthSecret: Config.option(Config.Redacted("BETTER_AUTH_SECRET")),
     csrfSecret: Config.option(Config.Redacted("CSRF_SECRET")),
