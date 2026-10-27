@@ -14,8 +14,8 @@ import { makeTestApp } from "./harness.ts"
  *
  * Test apps don't run the queue worker (`JOB_WORKERS=false`), so jobs stay queued until a test
  * drains them. Backoff is tested with the real SQL store: it times retries and deferrals with
- * the database clock, which `TestClock` can't move, so `elapse` moves the queue's due times
- * back instead, as if that much time had passed.
+ * the database clock, which `TestClock` can't move, so `elapse` moves the stored times back
+ * instead, as if that much time had passed.
  */
 export interface Jobs {
   /**
@@ -23,7 +23,10 @@ export interface Jobs {
    * outcome: `activated`, `skipped`, `cancelled`, `deferred`, or `failed:<reason>`.
    */
   readonly drain: Effect.Effect<ReadonlyArray<string>>
-  /** Makes jobs due up to `duration` from now due now. */
+  /**
+   * Lets `duration` pass for the job: moves queued jobs' due times and schools' last registry
+   * checks back by that much.
+   */
   elapse(duration: Duration.Input): Effect.Effect<void>
   /** The queued verification jobs for a user (at most one, since jobs dedupe by user). */
   jobsFor(userId: string): Effect.Effect<
@@ -92,6 +95,11 @@ export const makeJobsApp = (options: Parameters<typeof makeTestApp>[0] = {}) =>
           yield* sql`
             UPDATE ${sql(queueTable)} SET visible_at = visible_at - make_interval(secs => ${seconds})
             WHERE queue_name = ${queueName} AND state = 'pending'
+          `
+          yield* sql`
+            UPDATE organization
+            SET registry_checked_at = registry_checked_at - make_interval(secs => ${seconds})
+            WHERE registry_checked_at IS NOT NULL
           `
         }),
       )
