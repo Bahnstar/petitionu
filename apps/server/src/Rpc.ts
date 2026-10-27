@@ -8,6 +8,7 @@ import { SupportHandlers } from "./Support.ts"
 import { UsersHandlers } from "./Users.ts"
 import { ActorMiddlewareLive, RequireUserLive, RpcRequestGuard } from "./Actor.ts"
 import { PetitionsHandlers } from "./Petitions.ts"
+import { ParticipationHandlers } from "./Participation.ts"
 
 /**
  * Composition point for RPC handlers. Each feature area adds one line for the handler layer
@@ -18,6 +19,7 @@ export const RpcHandlers = Layer.mergeAll(
   UsersHandlers,
   SupportHandlers,
   PetitionsHandlers,
+  ParticipationHandlers,
   ClassroomHandlers,
   CampusHandlers,
 )

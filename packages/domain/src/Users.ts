@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser, Role } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound } from "./Errors.ts"
+import { PetitionDto } from "./Petitions.ts"
 
 /** Anyone may see a user's id and names. */
 export const PublicUser = Schema.Struct({
@@ -23,29 +24,8 @@ export const UserDetails = Schema.Struct({
 })
 export type UserDetails = typeof UserDetails.Type
 
-const CategorySummary = Schema.Struct({
-  id: Schema.String,
-  name: Schema.NullOr(Schema.String),
-  color: Schema.NullOr(Schema.String),
-})
-
-/** One of the user's own petitions, as the dashboard lists it. */
-export const ActivityPetition = Schema.Struct({
-  id: Schema.String,
-  title: Schema.NullOr(Schema.String),
-  description: Schema.NullOr(Schema.String),
-  status: Schema.Literals(["open", "closed", "victory"]),
-  trending: Schema.Boolean,
-  signaturesCount: Schema.Number,
-  goal: Schema.Number,
-  isAnonymous: Schema.Boolean,
-  /** ISO 8601, UTC. */
-  deadline: Schema.NullOr(Schema.String),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
-  category: Schema.NullOr(CategorySummary),
-  author: Schema.String,
-})
+/** One of the user's own petitions, as the dashboard lists it: the petition list shape. */
+export const ActivityPetition = PetitionDto
 export type ActivityPetition = typeof ActivityPetition.Type
 
 /** One of the user's own signatures, with the petition it's on. */
