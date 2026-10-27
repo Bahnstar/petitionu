@@ -18,7 +18,11 @@ export default function MagicSignInPage() {
 
   const signIn = useMutation({
     mutationFn: async (token: string) => {
-      const { error } = await authClient.magicLink.verify({ query: { token } })
+      // Better Auth redirects a rejected token to `/?error=`; don't follow it, it isn't JSON.
+      const { error } = await authClient.magicLink.verify({
+        query: { token },
+        fetchOptions: { redirect: "manual" },
+      })
       throwLinkError(error, invalidLink)
       await afterAuthChange()
     },

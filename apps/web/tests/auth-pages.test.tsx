@@ -21,6 +21,11 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/rpc/csrf-token") return Response.json({ token: "fresh-token" })
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/verify-email") return Response.json({ status: true, user: null })
+  if (url.pathname === "/api/auth/magic-link/verify" && url.searchParams.get("token") === "bad") {
+    // Better Auth redirects every rejected magic link to `/?error=`, even without a callbackURL.
+    if (request.redirect !== "manual") throw new TypeError("Failed to fetch")
+    return Response.redirect("http://localhost:4100/?error=INVALID_TOKEN", 302)
+  }
   if (url.pathname === "/api/auth/magic-link/verify") {
     return Response.json({ token: "session", user: { id: "u1" }, session: {} })
   }
@@ -104,3 +109,14 @@ for (const page of [
     )
   })
 }
+
+test("/auth/magic explains a rejected link", async () => {
+  const container = await render("/auth/magic?token=bad")
+  await act(() => button(container, /^Sign in/).click())
+  await settle()
+
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+    "This sign-in link is invalid or has expired",
+  )
+  expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(false)
+})

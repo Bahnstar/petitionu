@@ -94,7 +94,10 @@ export function throwAuthError(error: AuthClientError | null, fallback: string):
   if (error) throw failure(error, error.message || fallback)
 }
 
-/** Throws `message` for a rejected emailed link: the server only says the token is invalid. */
+/**
+ * Throws `message` for a rejected emailed link: the server only says the token is invalid.
+ * A redirect not followed (status 0 in browsers, 3xx elsewhere) is also a rejection.
+ */
 export function throwLinkError(error: AuthClientError | null, message: string): void {
-  if (error) throw failure(error, message)
+  if (error) throw error.status ? failure(error, message) : new AuthFailure(message)
 }
