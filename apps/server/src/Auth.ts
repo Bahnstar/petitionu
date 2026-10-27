@@ -132,7 +132,7 @@ export class Auth extends Context.Service<
         database: pool,
         advanced: {
           database: { generateId: "uuid" },
-          ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
+          ipAddress: { ipAddressHeaders: [config.clientIpHeader] },
           // Better Auth skips its origin check when NODE_ENV=test; keep it on everywhere.
           disableOriginCheck: false,
           backgroundTasks: { handler: () => {} },

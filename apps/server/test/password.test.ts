@@ -166,4 +166,26 @@ describe("rate limits", () => {
       assert.deepStrictEqual(magic, [200, 200, 200, 429])
     }),
   )
+
+  it.live("key clients by the configured client-IP header, e.g. Cloudflare's", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp({ env: { CLIENT_IP_HEADER: "cf-connecting-ip" } })
+      const user = yield* createUser(app, { stage: "confirmed" })
+      // One proxy hop (the same X-Forwarded-For) in front of two different clients.
+      const proxy = yield* makeBrowser(app)
+      const signInFrom = (client: string) =>
+        Effect.map(
+          proxy.request("/api/auth/sign-in/email", {
+            method: "POST",
+            headers: { "content-type": "application/json", "cf-connecting-ip": client },
+            body: JSON.stringify({ email: user.email, password: "a-wrong-guess" }),
+          }),
+          (response) => response.status,
+        )
+      const statuses: Array<number> = []
+      for (let attempt = 0; attempt < 6; attempt++) statuses.push(yield* signInFrom("203.0.113.7"))
+      assert.deepStrictEqual(statuses, [401, 401, 401, 401, 401, 429])
+      assert.strictEqual(yield* signInFrom("203.0.113.8"), 401)
+    }),
+  )
 })
