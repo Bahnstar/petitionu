@@ -15,10 +15,8 @@ import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { AppConfig } from "./Config.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
+import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const isUuid = (value: string) => uuidPattern.test(value)
 
 const forbidden = new Forbidden({ message: "Forbidden" })
 const classroomNotFound = new NotFound({ message: "Classroom not found" })

@@ -12,6 +12,7 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
+import { isUuid } from "./Input.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
 import {
   authorizeSetRole,
@@ -21,8 +22,6 @@ import {
   visiblePetitions,
   visibleUsers,
 } from "./UsersPolicy.ts"
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const userNotFound = new NotFound({ message: "User not found" })
 
@@ -142,7 +141,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
       getUserById: ({ id, includeStats }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentActor
-          if (!uuidPattern.test(id)) return yield* userNotFound
+          if (!isUuid(id)) return yield* userNotFound
           const found = yield* findUser(actor, id).pipe(Effect.orDie)
           if (Option.isNone(found)) return yield* userNotFound
           const user = found.value
@@ -160,7 +159,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
       setUserRole: ({ id, role }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          if (!uuidPattern.test(id)) return yield* userNotFound
+          if (!isUuid(id)) return yield* userNotFound
           const target = yield* findUser(actor, id, { lock: true }).pipe(Effect.orDie)
           if (Option.isNone(target)) return yield* userNotFound
           yield* validateRequestedRole(actor, role)

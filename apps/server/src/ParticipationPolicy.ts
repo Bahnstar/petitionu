@@ -1,14 +1,11 @@
 import { invalidField, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
+import { isUuid } from "./Input.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 
 /** What the caller wants to add to the petition: each kind has its own rules. */
 export type ParticipationKind = "signature" | "comment" | "update"
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-export const isUuid = (value: string) => uuidPattern.test(value)
 
 const rejected = (message: string) => invalidField("petitionId", message)
 

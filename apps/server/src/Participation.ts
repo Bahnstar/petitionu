@@ -2,10 +2,8 @@ import {
   type Actor,
   CommentDto,
   CurrentUser,
-  type FieldError,
   type Invalid,
   invalidField,
-  invalidFields,
   ParticipationRpcs,
   SignatureDto,
   type SignedIn,
@@ -14,43 +12,12 @@ import {
 import { Effect, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { requireParticipant } from "./Participant.ts"
-import { checkPetition, isUuid, type ParticipationKind } from "./ParticipationPolicy.ts"
+import { checkInput, isUuid, text } from "./Input.ts"
+import { checkPetition, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 
 const insertedAt = (sql: SqlClient.SqlClient, alias: string) =>
   sql`to_char(${sql(alias)}.inserted_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS inserted_at`
-
-/**
- * An Ash string attribute's cast: trimmed, blank becomes null, then `required` and `maxLength`
- * are checked. Returns the value or the field's error.
- */
-const text = (
-  field: string,
-  raw: string | null | undefined,
-  options: { readonly maxLength: number; readonly required?: string },
-): { readonly value: string | null; readonly error?: FieldError } => {
-  const value = raw?.trim() || null
-  if (value === null && options.required) {
-    return { value, error: { field, message: options.required } }
-  }
-  if (value !== null && value.length > options.maxLength) {
-    const message = `length must be less than or equal to ${options.maxLength}`
-    return { value, error: { field, message } }
-  }
-  return { value }
-}
-
-const checkInput = <K extends string>(
-  values: Record<K, { readonly value: string | null; readonly error?: FieldError }>,
-) =>
-  Effect.gen(function* () {
-    const entries = Object.values(values) as Array<{ error?: FieldError }>
-    const errors = entries.flatMap((entry) => (entry.error ? [entry.error] : []))
-    if (errors.length > 0) return yield* invalidFields(errors)
-    return Object.fromEntries(
-      Object.entries(values).map(([key, entry]) => [key, (entry as { value: unknown }).value]),
-    ) as Record<K, string | null>
-  })
 
 export const ParticipationHandlers = ParticipationRpcs.toLayer(
   Effect.gen(function* () {

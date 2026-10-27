@@ -12,33 +12,12 @@ import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { authorizeHide, authorizeResolve, visibleReports } from "./ModerationPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
-import { isUuid } from "./ParticipationPolicy.ts"
+import { isUuid, optionalNote, requiredNote } from "./Input.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 
 const reportNotFound = new NotFound({ message: "Content report not found" })
 
 const unavailable = invalidField("petitionId", "This content is unavailable.")
-
-/** Trims `value`, blank becoming null, and checks it is at most 5000 characters. */
-const details = (value: string | null | undefined) => {
-  const trimmed = value?.trim() || null
-  if (trimmed !== null && trimmed.length > 5000) {
-    return Effect.fail(invalidField("details", "length must be less than or equal to 5000"))
-  }
-  return Effect.succeed(trimmed)
-}
-
-/** Trims the resolution note and checks it is 1 to 5000 characters. */
-const resolutionNote = (value: string) => {
-  const trimmed = value.trim()
-  if (trimmed.length < 1) {
-    return Effect.fail(invalidField("resolutionNote", "length must be greater than or equal to 1"))
-  }
-  if (trimmed.length > 5000) {
-    return Effect.fail(invalidField("resolutionNote", "length must be less than or equal to 5000"))
-  }
-  return Effect.succeed(trimmed)
-}
 
 const LockedReport = Schema.Struct({
   organizationId: Schema.NullOr(Schema.String),
@@ -149,7 +128,7 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
       createContentReport: (input) =>
         Effect.gen(function* () {
           const user = yield* requireParticipant
-          const text = yield* details(input.details)
+          const text = yield* optionalNote("details", input.details)
           const commentId = input.commentId ?? null
           const found = yield* target(user, input.petitionId ?? null, commentId)
           const [row] = yield* sql<{ id: string }>`
@@ -171,7 +150,7 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
           if (!isUuid(id)) return yield* reportNotFound
           const locked = yield* lockVisible(actor, id).pipe(Effect.orDie)
           if (Option.isNone(locked)) return yield* reportNotFound
-          const text = yield* resolutionNote(note)
+          const text = yield* requiredNote("resolutionNote", note)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
             return yield* invalidRequest("This report has already been reviewed.")

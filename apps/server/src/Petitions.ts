@@ -18,12 +18,10 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
+import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const isUuid = (value: string) => uuidPattern.test(value)
 
 const petitionNotFound = new NotFound({ message: "Petition not found" })
 

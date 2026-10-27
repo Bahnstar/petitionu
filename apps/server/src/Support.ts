@@ -1,6 +1,5 @@
 import {
   CurrentUser,
-  invalidField,
   invalidRequest,
   NotFound,
   type SignedIn,
@@ -11,23 +10,13 @@ import {
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { AppConfig } from "./Config.ts"
+import { isUuid, requiredNote } from "./Input.ts"
 import { authorizeResolve, visibleSupportRequests } from "./SupportPolicy.ts"
-
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Used outside production when `SUPPORT_EMAIL` isn't set, as the Phoenix app did. */
 const developmentSupportEmail = "support@localhost.test"
 
 const requestNotFound = new NotFound({ message: "Support request not found" })
-
-/** Trims `value` and checks it is 1 to 5000 characters, or fails `Invalid` for `field`. */
-const note = (field: string, value: string) => {
-  const trimmed = value.trim()
-  const invalid = (message: string) => Effect.fail(invalidField(field, message))
-  if (trimmed.length < 1) return invalid("length must be greater than or equal to 1")
-  if (trimmed.length > 5000) return invalid("length must be less than or equal to 5000")
-  return Effect.succeed(trimmed)
-}
 
 const LockedRequest = Schema.Struct({
   organizationId: Schema.NullOr(Schema.String),
@@ -78,7 +67,7 @@ export const SupportHandlers = SupportRpcs.toLayer(
       createSupportRequest: ({ kind, message }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          const text = yield* note("message", message)
+          const text = yield* requiredNote("message", message)
           const [row] = yield* sql<{ id: string }>`
             INSERT INTO support_requests (kind, message, requester_email, user_id, organization_id)
             VALUES (${kind}, ${text}, ${actor.email}, ${actor.id}, ${actor.organizationId})
@@ -97,10 +86,10 @@ export const SupportHandlers = SupportRpcs.toLayer(
       resolveSupportRequest: ({ id, resolutionNote }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          if (!uuidPattern.test(id)) return yield* requestNotFound
+          if (!isUuid(id)) return yield* requestNotFound
           const locked = yield* lockVisible(actor, id).pipe(Effect.orDie)
           if (Option.isNone(locked)) return yield* requestNotFound
-          const text = yield* note("resolutionNote", resolutionNote)
+          const text = yield* requiredNote("resolutionNote", resolutionNote)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
             return yield* invalidRequest("This request has already been resolved.")
