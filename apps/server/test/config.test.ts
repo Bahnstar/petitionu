@@ -18,14 +18,19 @@ const secrets = {
   RESEND_API_KEY: "re_secret",
   MAIL_FROM: "mail@campus.test",
   SUPPORT_EMAIL: "help@campus.test",
+  PUBLIC_HOST: "petition.campus.edu",
 }
 
+const database = { DATABASE_URL: "postgres://u:p@127.0.0.1:1/x" }
+
 describe("startup configuration", () => {
-  it.live("starts with only DATABASE_URL, the three secrets and the mail addresses set", () =>
-    Effect.gen(function* () {
-      const exit = yield* startWith({ DATABASE_URL: "postgres://u:p@127.0.0.1:1/x", ...secrets })
-      assert.isTrue(Exit.isSuccess(exit), String(exit))
-    }),
+  it.live(
+    "starts with only DATABASE_URL, PUBLIC_HOST, the secrets and the mail addresses set",
+    () =>
+      Effect.gen(function* () {
+        const exit = yield* startWith({ ...database, ...secrets })
+        assert.isTrue(Exit.isSuccess(exit), String(exit))
+      }),
   )
 
   for (const name of ["BETTER_AUTH_SECRET", "CSRF_SECRET"] as const) {
@@ -90,6 +95,50 @@ describe("startup configuration", () => {
       })
       assert.isTrue(Exit.isFailure(exit))
       assert.include(String(exit), "PORT")
+    }),
+  )
+
+  it.live("refuses to start in production without PUBLIC_HOST", () =>
+    Effect.gen(function* () {
+      const { PUBLIC_HOST: _, ...withoutHost } = secrets
+      for (const env of [
+        {},
+        { NODE_ENV: "production" },
+        { NODE_ENV: "production", PUBLIC_HOST: "" },
+      ]) {
+        const exit = yield* startWith({ ...database, ...withoutHost, ...env })
+        assert.isTrue(Exit.isFailure(exit))
+        assert.include(String(exit), "PUBLIC_HOST")
+      }
+    }),
+  )
+
+  it.live("starts in development and test without PUBLIC_HOST", () =>
+    Effect.gen(function* () {
+      const { PUBLIC_HOST: _, ...withoutHost } = secrets
+      for (const NODE_ENV of ["development", "test"]) {
+        const exit = yield* startWith({ ...database, ...withoutHost, NODE_ENV })
+        assert.isTrue(Exit.isSuccess(exit), String(exit))
+      }
+    }),
+  )
+
+  it.live("refuses a PUBLIC_HOST with a scheme, a path or whitespace, and accepts a port", () =>
+    Effect.gen(function* () {
+      for (const PUBLIC_HOST of [
+        "https://petition.campus.edu",
+        "petition.campus.edu/app",
+        "petition campus.edu",
+        " petition.campus.edu",
+      ]) {
+        for (const NODE_ENV of ["production", "development"]) {
+          const exit = yield* startWith({ ...database, ...secrets, NODE_ENV, PUBLIC_HOST })
+          assert.isTrue(Exit.isFailure(exit), `${NODE_ENV} accepted ${JSON.stringify(PUBLIC_HOST)}`)
+          assert.include(String(exit), "PUBLIC_HOST")
+        }
+      }
+      const exit = yield* startWith({ ...database, ...secrets, PUBLIC_HOST: "localhost:5173" })
+      assert.isTrue(Exit.isSuccess(exit), String(exit))
     }),
   )
 })

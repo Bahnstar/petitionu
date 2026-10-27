@@ -16,7 +16,7 @@ Copy `.env.example` into your hosting provider's secret configuration, or to `.e
 | `DATABASE_URL` | PostgreSQL connection URL. Use an account that may run the migrations. |
 | `DATABASE_SSL` | `true` when the database requires TLS. Defaults to `false`. |
 | `POOL_SIZE` | Database connections per process. Defaults to 10. |
-| `PUBLIC_HOST` | Public hostname, without `https://` or a port. Email links use `https://PUBLIC_HOST`, and auth and RPC requests are only accepted from that origin. |
+| `PUBLIC_HOST` | Public hostname, with a port only if the site isn't on 443, and without `https://` or a path. Email links use `https://PUBLIC_HOST`, and auth and RPC requests are only accepted from that origin. Required: outside `NODE_ENV=development` and `test` the app refuses to start without a valid value (`migrate` doesn't need it). |
 | `PORT` | HTTP port. Defaults to 4000. |
 | `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required: the app refuses to start without them (`migrate` doesn't need them). Independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
 | `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address (sent as `PetitionU <MAIL_FROM>`) and monitored reply-to mailbox. Required: outside `NODE_ENV=development` the app refuses to start without them. In development without `RESEND_API_KEY`, emails are logged instead of sent. |

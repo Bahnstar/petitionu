@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Layer, type Option, type Redacted } from "effect"
+import { Config, Context, Effect, Layer, type Option, type Redacted, Schema } from "effect"
 
 /**
  * Every environment variable the server reads. Validated once at startup; secrets stay
@@ -8,7 +8,7 @@ export interface AppSettings {
   readonly databaseUrl: Redacted.Redacted<string>
   readonly databaseSsl: boolean
   readonly poolSize: number
-  /** Public host name the app is reached at, e.g. `petition.your-campus.edu`. */
+  /** Public host the app is reached at, e.g. `petition.your-campus.edu` or `localhost:5173`. */
   readonly publicHost: string
   readonly port: number
   /**
@@ -26,12 +26,41 @@ export interface AppSettings {
   readonly webDistDir: string
 }
 
-export const appSettings = (defaults: { readonly webDistDir: string }) =>
+/** A host name with an optional port: no scheme, path or whitespace. */
+const PublicHost = Schema.String.check(
+  Schema.isPattern(/^[^\s/:]+(:\d+)?$/, {
+    message: "must be a host name with an optional port, without a scheme, path or whitespace",
+  }),
+)
+
+/** What an entry point defaults: the web app's directory, and whether it uses `PUBLIC_HOST`. */
+export interface SettingsDefaults {
+  readonly webDistDir: string
+  /** `migrate` and `seed` build no links, so they don't need `PUBLIC_HOST`. */
+  readonly publicHostUnused?: boolean
+}
+
+/**
+ * `PUBLIC_HOST`, required in production when the entry point uses it; development and tests
+ * default to `localhost`.
+ */
+const publicHost = (defaults: SettingsDefaults) =>
+  Config.String("NODE_ENV").pipe(
+    Config.withDefault("production"),
+    Config.flatMap((env) => {
+      const host = Config.schema(PublicHost, "PUBLIC_HOST")
+      return env === "development" || env === "test" || defaults.publicHostUnused
+        ? host.pipe(Config.withDefault("localhost"))
+        : host
+    }),
+  )
+
+export const appSettings = (defaults: SettingsDefaults) =>
   Config.all({
     databaseUrl: Config.Redacted("DATABASE_URL"),
     databaseSsl: Config.Boolean("DATABASE_SSL").pipe(Config.withDefault(false)),
     poolSize: Config.Int("POOL_SIZE").pipe(Config.withDefault(10)),
-    publicHost: Config.String("PUBLIC_HOST").pipe(Config.withDefault("localhost")),
+    publicHost: publicHost(defaults),
     port: Config.Port("PORT").pipe(Config.withDefault(4000)),
     clientIpHeader: Config.String("CLIENT_IP_HEADER").pipe(
       Config.withDefault(""),
@@ -48,7 +77,7 @@ export const appSettings = (defaults: { readonly webDistDir: string }) =>
   })
 
 export class AppConfig extends Context.Service<AppConfig, AppSettings>()("petitionu/AppConfig") {
-  static readonly layer = (defaults: { readonly webDistDir: string }) =>
+  static readonly layer = (defaults: SettingsDefaults) =>
     Layer.effect(
       AppConfig,
       Effect.gen(function* () {

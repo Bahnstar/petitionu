@@ -247,7 +247,7 @@ const guarded = Effect.gen(function* () {
 
 guarded.pipe(
   Effect.provide(DatabaseLive),
-  Effect.provide(AppConfig.layer({ webDistDir: "" })),
+  Effect.provide(AppConfig.layer({ webDistDir: "", publicHostUnused: true })),
   Effect.provide(ObservabilityLive),
   NodeRuntime.runMain,
 )

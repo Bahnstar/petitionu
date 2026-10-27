@@ -49,7 +49,11 @@ const mailerWith = (env: Record<string, string>, http: Layer.Layer<HttpClient.Ht
     Layer.provide([AppConfig.layer({ webDistDir: "unused" }), http]),
     Layer.provide(
       ConfigProvider.layer(
-        ConfigProvider.fromUnknown({ DATABASE_URL: "postgres://unused", ...env }),
+        ConfigProvider.fromUnknown({
+          DATABASE_URL: "postgres://unused",
+          PUBLIC_HOST: "petitionu.test",
+          ...env,
+        }),
       ),
     ),
   )
