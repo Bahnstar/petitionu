@@ -47,6 +47,27 @@ describe("SPA shell", () => {
     }),
   )
 
+  it.live("serves the shell for every auth page, including emailed links", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const paths = [
+        "/sign-in",
+        "/sign-in?return_to=%2Fash-typescript%2Fpetitions",
+        "/register",
+        "/reset",
+        "/reset?token=abc",
+        "/auth/confirm?token=abc",
+        "/auth/magic?token=abc",
+      ]
+      for (const path of paths) {
+        const response = yield* app.request(path, { redirect: "manual" })
+        assert.strictEqual(response.status, 200, path)
+        assert.match(response.headers.get("content-type") ?? "", /^text\/html/, path)
+        assert.include(yield* text(response), "<title>PetitionU fixture</title>", path)
+      }
+    }),
+  )
+
   it.live("redirects the site root to the app", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
