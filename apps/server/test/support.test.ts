@@ -77,4 +77,105 @@ describe("support requests", () => {
       assert.deepStrictEqual(outsiderView, { success: true, data: [] })
     }),
   )
+
+  it.live("requests from users without a campus are for superadmins only", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app, { domain: "school.edu" })
+      const other = yield* createOrganization(app, { domain: "other.edu" })
+      const admin = yield* createUser(app, { organizationId: school.id, role: "admin" })
+      const superadmin = yield* createUser(app, { organizationId: other.id, role: "superadmin" })
+      const unassigned = yield* createUser(app, { stage: "unconfirmed" })
+
+      const created = yield* unassigned.browser.rpc((api) =>
+        api.createSupportRequest({ kind: "support", message: "My campus is missing" }),
+      )
+      if (!created.success) return assert.fail(JSON.stringify(created))
+      const id = created.data.id
+
+      assert.deepStrictEqual(yield* admin.browser.rpc((api) => api.getSupportRequests({})), {
+        success: true,
+        data: [],
+      })
+      const byAdmin = yield* admin.browser.rpc((api) =>
+        api.resolveSupportRequest({ id, resolutionNote: "Done" }),
+      )
+      assert.deepStrictEqual(errorTypes(byAdmin), ["not_found"])
+
+      const queue = yield* superadmin.browser.rpc((api) => api.getSupportRequests({ state: "open" }))
+      if (!queue.success) return assert.fail(JSON.stringify(queue))
+      assert.deepStrictEqual(
+        queue.data.map((request) => request.id),
+        [id],
+      )
+      const resolved = yield* superadmin.browser.rpc((api) =>
+        api.resolveSupportRequest({ id, resolutionNote: "Contacted campus" }),
+      )
+      assert.deepInclude(resolved, { success: true })
+      assert.deepStrictEqual(
+        yield* superadmin.browser.rpc((api) => api.getSupportRequests({ state: "open" })),
+        { success: true, data: [] },
+      )
+      const reviewed = yield* superadmin.browser.rpc((api) =>
+        api.getSupportRequests({ state: "resolved" }),
+      )
+      assert.deepStrictEqual(reviewed.success && reviewed.data.map((request) => request.id), [id])
+
+      const guest = yield* makeBrowser(app)
+      const byGuest = yield* guest.rpc((api) =>
+        api.createSupportRequest({ kind: "support", message: "Guest" }),
+      )
+      assert.deepStrictEqual(errorTypes(byGuest), ["unauthenticated"])
+    }),
+  )
+
+  it.live("messages and notes must be 1 to 5000 characters, and ownership can't be forged", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app, { domain: "school.edu" })
+      const other = yield* createOrganization(app, { domain: "other.edu" })
+      const reporter = yield* createUser(app, { organizationId: school.id })
+      const admin = yield* createUser(app, { organizationId: school.id, role: "admin" })
+
+      for (const message of ["   ", "x".repeat(5001)]) {
+        const result = yield* reporter.browser.rpc((api) =>
+          api.createSupportRequest({ kind: "support", message }),
+        )
+        assert.deepInclude(result, { success: false })
+        if (!result.success) assert.deepInclude(result.errors[0], { type: "invalid", field: "message" })
+      }
+
+      const forged = yield* reporter.browser.rpc((api) =>
+        api.createSupportRequest({
+          kind: "support",
+          message: "Help",
+          organizationId: other.id,
+          userId: admin.id,
+        } as never),
+      )
+      if (!forged.success) return assert.fail(JSON.stringify(forged))
+      const [row] = yield* app.sql<{ user_id: string; organization_id: string }>`
+        SELECT user_id, organization_id FROM support_requests WHERE id = ${forged.data.id}
+      `.pipe(Effect.orDie)
+      assert.deepStrictEqual({ ...row }, { user_id: reporter.id, organization_id: school.id })
+
+      const blank = yield* admin.browser.rpc((api) =>
+        api.resolveSupportRequest({ id: forged.data.id, resolutionNote: "  " }),
+      )
+      assert.deepInclude(blank, { success: false })
+      if (!blank.success) assert.deepInclude(blank.errors[0], { type: "invalid", field: "resolutionNote" })
+    }),
+  )
+
+  it.live("anyone can read the support mailbox", () =>
+    Effect.gen(function* () {
+      const configured = yield* makeTestApp({ env: { SUPPORT_EMAIL: "help@campus.test" } })
+      const guest = yield* makeBrowser(configured)
+      assert.deepStrictEqual(yield* guest.rpc((api) => api.supportContact()), {
+        success: true,
+        data: "help@campus.test",
+      })
+    }),
+  )
 })
+
