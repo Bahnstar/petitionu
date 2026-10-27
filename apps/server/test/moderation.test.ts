@@ -326,7 +326,7 @@ describe("content reports", () => {
     Effect.gen(function* () {
       const { app, school, other, reporter, admin, petition } = yield* makeModeration
       const unavailable = {
-        success: false,
+        success: false as const,
         errors: [{ type: "invalid", message: "This content is unavailable.", field: "petitionId" }],
       }
       for (const input of [{}, { petitionId: "not-a-uuid" }, { petitionId: crypto.randomUUID() }]) {
