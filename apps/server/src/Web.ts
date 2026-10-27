@@ -12,12 +12,24 @@ import { AppConfig } from "./Config.ts"
 const headMarker = "<!-- petitionu:head -->"
 
 /**
+ * Tags for the shell's `<head>`, an optional change to the response (e.g. a cookie), or a
+ * redirect served instead of the shell.
+ */
+export interface ShellHeadResult {
+  readonly html: string
+  readonly redirect?: string
+  readonly decorate?: (
+    response: HttpServerResponse.HttpServerResponse,
+  ) => HttpServerResponse.HttpServerResponse
+}
+
+/**
  * Hook for tags rendered into the shell's `<head>` on every request. The default adds
- * nothing; the CSRF feature provides one that renders the CSRF meta tag.
+ * nothing; `SessionShellHead` renders the CSRF meta tag and redirects guests.
  */
 export const ShellHead = Context.Reference<
-  (request: HttpServerRequest.HttpServerRequest) => Effect.Effect<string>
->("petitionu/ShellHead", { defaultValue: () => () => Effect.succeed("") })
+  (request: HttpServerRequest.HttpServerRequest) => Effect.Effect<ShellHeadResult>
+>("petitionu/ShellHead", { defaultValue: () => () => Effect.succeed({ html: "" }) })
 
 /** The HTML shell served for every SPA route. */
 export const ShellRoutes = HttpRouter.use(
@@ -40,13 +52,21 @@ export const ShellRoutes = HttpRouter.use(
       }
       const request = yield* HttpServerRequest.HttpServerRequest
       const head = yield* renderHead(request)
-      return HttpServerResponse.html(template.value.replace(headMarker, head)).pipe(
+      if (head.redirect !== undefined) {
+        return HttpServerResponse.redirect(head.redirect, { status: 302 })
+      }
+      const response = HttpServerResponse.html(template.value.replace(headMarker, head.html)).pipe(
         HttpServerResponse.setHeader("cache-control", "no-store"),
       )
+      return head.decorate ? head.decorate(response) : response
     })
 
     // Also matches `/ash-typescript` itself.
     yield* router.add("GET", "/ash-typescript/*", shell)
+    // Auth pages; emailed links open `/auth/confirm`, `/auth/magic` and `/reset`.
+    for (const path of ["/sign-in", "/register", "/reset", "/auth/*"] as const) {
+      yield* router.add("GET", path, shell)
+    }
   }),
 )
 

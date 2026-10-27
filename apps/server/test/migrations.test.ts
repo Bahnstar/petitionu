@@ -2,12 +2,15 @@ import { PgClient } from "@effect/sql-pg"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Exit, Redacted } from "effect"
 import { SqlClient } from "effect/sql"
-import { runMigrations } from "../src/Migrations.ts"
+import { migrations, runMigrationsFrom } from "../src/Migrations.ts"
 import { makeTestApp, makeTestDatabase } from "./support/harness.ts"
 import { dumpSchema, normalizeDump, readFixture, runPsql } from "./support/postgres-tools.ts"
 
+/** Only the baseline: these tests compare it with the Ecto schema. */
 const migrate = (url: string) =>
-  runMigrations.pipe(Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })))
+  runMigrationsFrom({ "0001_baseline": migrations["0001_baseline"] }).pipe(
+    Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })),
+  )
 
 const query = <Row extends object = Record<string, unknown>>(url: string, statement: string) =>
   Effect.gen(function* () {

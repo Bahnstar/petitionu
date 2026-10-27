@@ -1,5 +1,8 @@
 import { Layer } from "effect"
+import type { HttpRouter } from "effect/http"
+import { Auth, AuthRoutes } from "./Auth.ts"
 import { AppConfig } from "./Config.ts"
+import { Csrf, CsrfRoutes, SessionShellHead } from "./Csrf.ts"
 import { DatabaseLive } from "./Database.ts"
 import { HealthRoutes } from "./Health.ts"
 import { MailerLive } from "./Mailer.ts"
@@ -12,17 +15,30 @@ import { ShellRoutes, StaticRoutes } from "./Web.ts"
  */
 export const AppRoutes = Layer.mergeAll(
   HealthRoutes,
+  AuthRoutes,
+  CsrfRoutes,
   RpcRoutes,
-  ShellRoutes,
+  ShellRoutes.pipe(Layer.provide(SessionShellHead)),
   StaticRoutes,
-  // T05: AuthRoutes (Better Auth under /api/auth/*)
 )
+
+/**
+ * What runs when a user becomes confirmed: a layer providing `UserConfirmed` (see
+ * `Confirmation.ts`). Campus assignment (T06) goes here.
+ */
+export const UserConfirmedLive = Layer.empty
 
 /**
  * Composition point for internal services shared by the routes (database, queue, auth, ...).
  * Each feature area adds one line for its service layer.
  */
-export const AppServices = Layer.mergeAll(DatabaseLive)
+export const AppServices = Layer.mergeAll(Auth.layer, Csrf.layer).pipe(
+  Layer.provide(UserConfirmedLive),
+  Layer.provideMerge(DatabaseLive),
+)
+
+/** Every service the routes may use, for layers passed in as extra `routes`. */
+export type AppServiceTypes = Layer.Success<typeof AppServices> | AppConfig
 
 /**
  * Services that reach outside the process and that tests replace with fakes
@@ -33,14 +49,16 @@ export const ExternalServicesLive = Layer.mergeAll(MailerLive, SchoolRegistry.la
 /**
  * The whole application as a router layer. `serve` runs it on Node; tests turn it into an
  * in-process web handler. Configuration comes from the ambient `ConfigProvider`.
+ * `routes` adds router layers, e.g. a test-only RPC group.
  */
 export const makeAppLayer = (
   options: {
-    readonly external?: typeof ExternalServicesLive
+    readonly external?: Layer.Layer<Layer.Success<typeof ExternalServicesLive>, unknown>
     readonly webDistDir?: string
+    readonly routes?: Layer.Layer<never, never, HttpRouter.HttpRouter | AppServiceTypes>
   } = {},
 ) =>
-  AppRoutes.pipe(
+  Layer.mergeAll(AppRoutes, options.routes ?? Layer.empty).pipe(
     Layer.provide(AppServices),
     Layer.provide(options.external ?? ExternalServicesLive),
     Layer.provideMerge(AppConfig.layer({ webDistDir: options.webDistDir ?? "../web/dist" })),
