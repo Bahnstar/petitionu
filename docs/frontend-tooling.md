@@ -11,10 +11,15 @@ From `apps/web/`, run:
 | `bun run lint` | Run Oxlint and anti-slop; warnings also fail |
 | `bun run typecheck` | Run TypeScript without emitting files |
 | `bun run test:tooling` | Prove the configured rules and exclusions with temporary fixtures |
-| `bun run check` | Run all web checks, including the web tests |
+| `bun run size` | Build the app and fail if its JavaScript is over 300 kB gzipped (`tools/check-bundle-size.mjs`) |
+| `bun run check` | Run all web checks, including the web tests and `size` |
 | `bun run build` | Build the app into `apps/web/dist` with Vite |
 
-The root `bun run check` runs every package's `check`, and `bun run precommit` adds formatting and the build. CI runs both `bun run check` and `bun run build`.
+The root `bun run check` runs every package's `check` (so the bundle-size budget runs in CI and precommit), and `bun run precommit` adds formatting and the build. CI runs both `bun run check` and `bun run build`.
+
+## Bundle size
+
+The shared client and everything else the browser loads must stay within a gzipped JavaScript budget. `tools/check-bundle-size.mjs` sums the gzipped size of `dist/assets/*.js`. The budget sits about 10% above the 275 kB the app weighed when it was set; when a change legitimately needs more, raise `defaultBudget` in the same change and say why.
 
 ## Policy
 
