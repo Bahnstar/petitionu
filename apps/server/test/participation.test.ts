@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
 import type { ApiClient } from "@petitionu/domain"
-import { Effect } from "effect"
+import { Effect, Fiber } from "effect"
 import { makeTestApp } from "./support/harness.ts"
 import { makeBrowser } from "./support/browser.ts"
 import { insertClassroom, setClassroomArchived, upsertMembership } from "./support/classrooms.ts"
@@ -196,3 +196,402 @@ describe("signatures", () => {
     }),
   )
 })
+
+describe("comments", () => {
+  it.live("a student comments and replies, with author names; client user ids are ignored", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent({ firstName: "Private", lastName: "Owner" })
+      const commenter = yield* newStudent({ firstName: "Ada", lastName: "Lovelace" })
+      const petition = yield* insertPetition(app, { userId: owner.id, isAnonymous: true })
+
+      const comment = expectData(
+        yield* commenter.browser.rpc((api) =>
+          api.createComment({
+            petitionId: petition.id,
+            text: "  Love this!  ",
+            userId: owner.id,
+          } as never),
+        ),
+      )
+      assert.include(comment, {
+        petitionId: petition.id,
+        text: "Love this!",
+        author: "Ada Lovelace",
+        parentCommentId: null,
+      })
+      const [row] = yield* app.sql<{ user_id: string }>`
+        SELECT user_id FROM comment WHERE id = ${comment.id}`
+      assert.strictEqual(row!.user_id, commenter.id)
+
+      const reply = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.createComment({
+            petitionId: petition.id,
+            text: "Thanks",
+            parentCommentId: comment.id,
+          }),
+        ),
+      )
+      assert.strictEqual(reply.parentCommentId, comment.id)
+      // Comment authors are named even on anonymous petitions, as in Ash.
+      assert.deepStrictEqual(
+        expectData(
+          yield* commenter.browser.rpc((api) => api.getComments({ petitionId: petition.id })),
+        ).map((c) => [c.text, c.author]),
+        [
+          ["Love this!", "Ada Lovelace"],
+          ["Thanks", "Private Owner"],
+        ],
+      )
+    }),
+  )
+
+  it.live("blank, long, disabled and misplaced comments are rejected", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const commenter = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const other = yield* insertPetition(app, { userId: owner.id })
+      const elsewhere = expectData(
+        yield* owner.browser.rpc((api) => api.createComment({ petitionId: other.id, text: "Hi" })),
+      )
+      const comment = (input: { text?: string; parentCommentId?: string }) =>
+        commenter.browser.rpc((api) =>
+          api.createComment({ petitionId: petition.id, text: "Reply", ...input }),
+        )
+
+      for (const [input, expected] of [
+        [{ text: "   " }, { field: "text", message: "must be present" }],
+        [
+          { text: "x".repeat(5001) },
+          { field: "text", message: "length must be less than or equal to 5000" },
+        ],
+        [
+          { parentCommentId: elsewhere.id },
+          { field: "parentCommentId", message: "Reply to a comment in this petition." },
+        ],
+        [
+          { parentCommentId: "not-a-comment" },
+          { field: "parentCommentId", message: "Reply to a comment in this petition." },
+        ],
+      ] as const) {
+        assert.deepStrictEqual(
+          expectErrors(yield* comment(input)),
+          [{ type: "invalid", ...expected }],
+          JSON.stringify(input).slice(0, 80),
+        )
+      }
+
+      yield* updatePetitionRow(app, petition.id, { allow_comments: false })
+      assert.deepStrictEqual(expectErrors(yield* comment({})), [
+        {
+          type: "invalid",
+          field: "petitionId",
+          message: "Comments are disabled for this petition.",
+        },
+      ])
+      yield* updatePetitionRow(app, petition.id, { allow_comments: true, status: "closed" })
+      assert.deepStrictEqual(expectErrors(yield* comment({})), [
+        { type: "invalid", field: "petitionId", message: "This petition is closed." },
+      ])
+      assert.strictEqual(yield* count(app, "comment"), 1)
+    }),
+  )
+
+  it.live("hidden comments, and replies to them, are unavailable", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const hidden = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.createComment({ petitionId: petition.id, text: "Rude" }),
+        ),
+      )
+      expectData(
+        yield* owner.browser.rpc((api) =>
+          api.createComment({ petitionId: petition.id, text: "Kind" }),
+        ),
+      )
+      yield* app.sql`UPDATE comment SET hidden_at = now() WHERE id = ${hidden.id}`
+
+      assert.deepStrictEqual(
+        expectData(yield* owner.browser.rpc((api) => api.getComments({}))).map((c) => c.text),
+        ["Kind"],
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.createComment({ petitionId: petition.id, text: "Re", parentCommentId: hidden.id }),
+          ),
+        ),
+        [
+          {
+            type: "invalid",
+            field: "parentCommentId",
+            message: "Reply to a comment in this petition.",
+          },
+        ],
+      )
+    }),
+  )
+})
+
+describe("updates", () => {
+  it.live("only the author or the classroom's professor publishes updates", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const professor = yield* newStudent()
+      const classroom = yield* insertClassroom(app, { professorId: professor.id })
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: owner.id })
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: signer.id })
+      const petition = yield* insertPetition(app, { userId: owner.id, classroomId: classroom.id })
+      const publish =
+        (title: string, body = "Progress") =>
+        (api: ApiClient) =>
+          api.createUpdate({ petitionId: petition.id, title, body })
+
+      assert.deepStrictEqual(expectErrors(yield* signer.browser.rpc(publish("News"))), [
+        {
+          type: "invalid",
+          field: "petitionId",
+          message: "Only the petition owner or classroom professor can publish updates.",
+        },
+      ])
+      assert.deepStrictEqual(expectErrors(yield* owner.browser.rpc(publish(" ", ""))), [
+        { type: "invalid", field: "title", message: "is required" },
+        { type: "invalid", field: "body", message: "is required" },
+      ])
+      const first = expectData(yield* owner.browser.rpc(publish("  First  ")))
+      assert.include(first, { petitionId: petition.id, title: "First", body: "Progress" })
+      // Updates don't need an open petition.
+      yield* updatePetitionRow(app, petition.id, { status: "closed" })
+      expectData(yield* professor.browser.rpc(publish("Second")))
+
+      const forPetition = (api: ApiClient) => api.getUpdatesForPetition({ petitionId: petition.id })
+      assert.deepStrictEqual(
+        expectData(yield* signer.browser.rpc(forPetition)).map((u) => u.title),
+        ["Second", "First"],
+      )
+      assert.deepStrictEqual(
+        expectData(yield* signer.browser.rpc((api) => api.getUpdates({}))).map((u) => u.title),
+        ["First", "Second"],
+      )
+    }),
+  )
+})
+
+describe("activity visibility", () => {
+  it.live("private classroom activity is hidden from outsiders until they join", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const professor = yield* newStudent()
+      const outsider = yield* newStudent()
+      const classroom = yield* insertClassroom(app, { professorId: professor.id })
+      const petition = yield* insertPetition(app, {
+        userId: professor.id,
+        classroomId: classroom.id,
+      })
+      const petitionId = petition.id
+      expectData(yield* professor.browser.rpc((api) => api.createSignature({ petitionId })))
+      expectData(
+        yield* professor.browser.rpc((api) => api.createComment({ petitionId, text: "Private" })),
+      )
+      expectData(
+        yield* professor.browser.rpc((api) =>
+          api.createUpdate({ petitionId, title: "News", body: "Private" }),
+        ),
+      )
+      const reads = (browser: typeof outsider.browser) =>
+        Effect.gen(function* () {
+          const lengths: Array<number> = []
+          for (const read of [
+            (api: ApiClient) => api.getSignatures({}),
+            (api: ApiClient) => api.getComments({}),
+            (api: ApiClient) => api.getUpdates({}),
+            (api: ApiClient) => api.getUpdatesForPetition({ petitionId }),
+          ]) {
+            lengths.push(expectData(yield* browser.rpc(read)).length)
+          }
+          return lengths
+        })
+
+      assert.deepStrictEqual(yield* reads(outsider.browser), [0, 0, 0, 0])
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: outsider.id })
+      assert.deepStrictEqual(yield* reads(outsider.browser), [1, 1, 1, 1])
+      yield* upsertMembership(app, {
+        classroomId: classroom.id,
+        userId: outsider.id,
+        status: "removed",
+      })
+      assert.deepStrictEqual(yield* reads(outsider.browser), [0, 0, 0, 0])
+    }),
+  )
+
+  it.live("hiding a petition hides its activity and blocks new activity", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const petitionId = petition.id
+      expectData(yield* signer.browser.rpc((api) => api.createSignature({ petitionId })))
+      expectData(yield* signer.browser.rpc((api) => api.createComment({ petitionId, text: "Hi" })))
+      expectData(
+        yield* owner.browser.rpc((api) =>
+          api.createUpdate({ petitionId, title: "News", body: "Progress" }),
+        ),
+      )
+      yield* updatePetitionRow(app, petitionId, { hidden_at: new Date() })
+
+      for (const read of [
+        (api: ApiClient) => api.getSignatures({ petitionId }),
+        (api: ApiClient) => api.getComments({ petitionId }),
+        (api: ApiClient) => api.getUpdates({ petitionId }),
+        (api: ApiClient) => api.getUpdatesForPetition({ petitionId }),
+      ]) {
+        assert.deepStrictEqual(expectData(yield* owner.browser.rpc(read)), [])
+      }
+      const unavailable = [
+        { type: "invalid", field: "petitionId", message: "This petition is unavailable." },
+      ]
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.createUpdate({ petitionId, title: "News", body: "More" }),
+          ),
+        ),
+        unavailable,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* signer.browser.rpc((api) => api.createComment({ petitionId, text: "More" })),
+        ),
+        unavailable,
+      )
+    }),
+  )
+
+  it.live("guests can't load signatures, comments or updates", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const guest = yield* makeBrowser(app)
+      const petitionId = petition.id
+      for (const read of [
+        (api: ApiClient) => api.getSignatures({}),
+        (api: ApiClient) => api.getComments({}),
+        (api: ApiClient) => api.getUpdates({}),
+        (api: ApiClient) => api.getUpdatesForPetition({ petitionId }),
+      ]) {
+        assert.deepStrictEqual(expectErrors(yield* guest.rpc(read)), [
+          { type: "unauthenticated", message: "Sign in to access petition activity." },
+        ])
+      }
+      for (const write of [
+        (api: ApiClient) => api.createComment({ petitionId, text: "Hi" }),
+        (api: ApiClient) => api.createUpdate({ petitionId, title: "News", body: "Progress" }),
+      ]) {
+        assert.deepStrictEqual(expectErrors(yield* guest.rpc(write)), [
+          { type: "unauthenticated", message: "Sign in to participate." },
+        ])
+      }
+    }),
+  )
+})
+
+describe("concurrency", () => {
+  it.live("concurrent signing by one student leaves exactly one signature", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      const results = yield* Effect.all(
+        Array.from({ length: 8 }, () =>
+          signer.browser.rpc((api) => api.createSignature({ petitionId: petition.id })),
+        ),
+        { concurrency: "unbounded" },
+      )
+      assert.strictEqual(results.filter((result) => result.success).length, 1)
+      for (const result of results.filter((result) => !result.success)) {
+        assert.deepStrictEqual(expectErrors(result), [
+          { type: "invalid", field: "petitionId", message: "has already been taken" },
+        ])
+      }
+      assert.strictEqual(yield* count(app, "signature"), 1)
+    }),
+  )
+
+  it.live("a signature waiting on a petition that is being closed is rejected", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      // Hold the petition's row lock, as closing does, while the signature arrives.
+      const signing = yield* Effect.gen(function* () {
+        yield* app.sql`SELECT id FROM petition WHERE id = ${petition.id} FOR UPDATE`
+        const signing = yield* Effect.forkChild(
+          signer.browser.rpc((api) => api.createSignature({ petitionId: petition.id })),
+        )
+        yield* waitForLockWaiter(app)
+        yield* app.sql`UPDATE petition SET status = 'closed' WHERE id = ${petition.id}`
+        return signing
+      }).pipe(app.sql.withTransaction, Effect.orDie)
+
+      assert.deepStrictEqual(expectErrors(yield* Fiber.join(signing)), [
+        { type: "invalid", field: "petitionId", message: "This petition is closed." },
+      ])
+      assert.strictEqual(yield* count(app, "signature"), 0)
+    }),
+  )
+
+  it.live("closing waits for a signature in progress, which then counts", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      const [signed, closed] = yield* Effect.all(
+        [
+          signer.browser.rpc((api) => api.createSignature({ petitionId: petition.id })),
+          owner.browser.rpc((api) => api.closePetition({ id: petition.id })),
+        ],
+        { concurrency: "unbounded" },
+      )
+      const signatures = yield* count(app, "signature")
+      assert.strictEqual(expectData(closed).status, "closed")
+      if (signed.success) {
+        assert.strictEqual(signatures, 1)
+        assert.strictEqual(expectData(closed).signaturesCount, 1)
+      } else {
+        assert.deepStrictEqual(signed.errors, [
+          { type: "invalid", field: "petitionId", message: "This petition is closed." },
+        ])
+        assert.strictEqual(signatures, 0)
+      }
+    }),
+  )
+})
+
+/** Waits until some query in the test database is blocked on a row lock. */
+const waitForLockWaiter = (app: TestApp) =>
+  Effect.gen(function* () {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const [row] = yield* app.sql<{ waiting: number }>`
+        SELECT count(*)::int AS waiting FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'`
+      if (row!.waiting > 0) return
+      yield* Effect.sleep("20 millis")
+    }
+    return yield* Effect.die("no query waited on the lock")
+  })
