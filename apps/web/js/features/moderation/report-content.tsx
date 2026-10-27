@@ -4,10 +4,11 @@ import { Flag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { buildCSRFHeaders, createContentReport, type CreateContentReportInput } from "../../ash_rpc"
+import type { ContentReportReason } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { useAuth } from "../../contexts/auth-context"
 
-const reasons: { value: CreateContentReportInput["reason"]; label: string }[] = [
+const reasons: { value: ContentReportReason; label: string }[] = [
   { value: "spam", label: "Spam" },
   { value: "harassment", label: "Harassment" },
   { value: "privacy", label: "Personal information" },
@@ -24,15 +25,11 @@ export function ReportContent({
   const { user } = useAuth()
   const id = useId()
   const [expanded, setExpanded] = useState(false)
-  const [reason, setReason] = useState<CreateContentReportInput["reason"]>("spam")
+  const [reason, setReason] = useState<ContentReportReason>("spam")
   const [details, setDetails] = useState("")
   const report = useMutation({
     mutationFn: async () => {
-      const result = await createContentReport({
-        input: { petitionId, commentId, reason, details },
-        fields: ["id"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.createContentReport({ petitionId, commentId, reason, details })
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
       return result.data

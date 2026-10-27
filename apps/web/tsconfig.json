@@ -34,7 +34,7 @@
     "allowJs": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "strict": false
+    "strict": true
   },
   "include": ["js/**/*", "components/**/*", "lib/**/*", "tests/rpc-fields.mts"]
 }

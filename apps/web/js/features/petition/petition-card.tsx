@@ -1,10 +1,9 @@
 import { useCurrentTime } from "../../hooks/use-current-time"
-import { CleanResource } from "@/lib/types"
 import { Link } from "react-router-dom"
-import { PetitionResourceSchema } from "../../ash_rpc"
+import type { PetitionDto } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
 
-type Petition = CleanResource<PetitionResourceSchema>
+type Petition = PetitionDto
 
 export function PetitionCard({ petition }: { petition: Petition }) {
   const now = useCurrentTime()

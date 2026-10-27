@@ -2,13 +2,16 @@ import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { CleanResource } from "@/lib/types"
-import { SignatureResourceSchema } from "@/js/ash_rpc"
+import type { ActivitySignature } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
 
-type Signature = CleanResource<SignatureResourceSchema>
+type Signature = ActivitySignature
 
-export function SignedPetitions({ signedPetitions }: { signedPetitions: Signature[] }) {
+export function SignedPetitions({
+  signedPetitions,
+}: {
+  signedPetitions: ReadonlyArray<Signature>
+}) {
   const visibleSignatures = signedPetitions.filter((signature) => signature.petition)
 
   return (

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { buildCSRFHeaders, updateMyProfile } from "../ash_rpc"
+import { api } from "@/lib/api"
 import { useAuth, type CurrentUser } from "../contexts/auth-context"
 import { AuthLink } from "../components/auth-link"
 import { useDocumentTitle } from "../hooks/use-document-title"
@@ -57,14 +57,10 @@ function ProfileForm({ user }: { user: CurrentUser }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      const result = await updateMyProfile({
-        input: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          graduationYear: graduationYear ? Number(graduationYear) : null,
-        },
-        fields: ["id", "profileComplete", { organization: ["name"] }],
-        headers: buildCSRFHeaders(),
+      const result = await api.updateMyProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        graduationYear: graduationYear ? Number(graduationYear) : null,
       })
       if (result.success === false) {
         throw new Error(

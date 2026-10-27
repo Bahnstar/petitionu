@@ -15,16 +15,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  removeFromClassroom,
-  getClassroomById,
-  getClassroomPetitions,
-  getMembershipsForClassroom,
-  regenerateJoinCode,
-  archiveClassroom,
-  unarchiveClassroom,
-  buildCSRFHeaders,
-} from "@/js/ash_rpc"
+import { api } from "@/lib/api"
 import { MemberList } from "../features/classroom/member-list"
 import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
@@ -111,21 +102,7 @@ export default function ClassroomDetailPage() {
   const classroomQuery = useQuery({
     queryKey: ["classroom", id],
     queryFn: async () => {
-      const result = await getClassroomById({
-        input: { id: id! },
-        fields: [
-          "id",
-          "name",
-          "description",
-          "joinCode",
-          "archived",
-          "allowStudentPetitions",
-          "memberCount",
-          "petitionCount",
-          "professorId",
-        ],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getClassroomById({ id: id! })
 
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to fetch classroom")
@@ -140,24 +117,9 @@ export default function ClassroomDetailPage() {
   const petitionsQuery = useQuery({
     queryKey: ["classroomPetitions", id, goalSort],
     queryFn: async () => {
-      const result = await getClassroomPetitions({
-        sort: goalSort ? ["-goal", "id"] : ["-insertedAt", "id"],
-        input: { classroomId: id! },
-        fields: [
-          "id",
-          "title",
-          "description",
-          "status",
-          "signaturesCount",
-          "goal",
-          "daysLeft",
-          "trending",
-          "author",
-          "isAnonymous",
-          "deadline",
-          { category: ["id", "name", "color"] },
-        ],
-        headers: buildCSRFHeaders(),
+      const result = await api.getClassroomPetitions({
+        classroomId: id!,
+        sort: goalSort ? "goal" : "newest",
       })
 
       if (result.success === false) {
@@ -173,11 +135,7 @@ export default function ClassroomDetailPage() {
   const membershipsQuery = useQuery({
     queryKey: ["classroomMemberships", id],
     queryFn: async () => {
-      const result = await getMembershipsForClassroom({
-        input: { classroomId: id! },
-        fields: ["id", "role", "status", "joinedAt", "memberName", { user: ["id"] }],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getMembershipsForClassroom({ classroomId: id! })
 
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to fetch memberships")
@@ -193,11 +151,7 @@ export default function ClassroomDetailPage() {
   // Regenerate join code mutation
   const regenerateMutation = useMutation({
     mutationFn: async () => {
-      const result = await regenerateJoinCode({
-        identity: id!,
-        fields: ["joinCode"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.regenerateJoinCode({ id: id! })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to regenerate join code")
       }
@@ -214,10 +168,7 @@ export default function ClassroomDetailPage() {
   // Archive/unarchive mutations
   const archiveMutation = useMutation({
     mutationFn: async () => {
-      const result = await archiveClassroom({
-        identity: id!,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.archiveClassroom({ id: id! })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to archive classroom")
       }
@@ -232,10 +183,7 @@ export default function ClassroomDetailPage() {
 
   const unarchiveMutation = useMutation({
     mutationFn: async () => {
-      const result = await unarchiveClassroom({
-        identity: id!,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.unarchiveClassroom({ id: id! })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to unarchive classroom")
       }
@@ -250,10 +198,7 @@ export default function ClassroomDetailPage() {
 
   const leaveMutation = useMutation({
     mutationFn: async (membershipId: string) => {
-      const result = await removeFromClassroom({
-        identity: membershipId,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.removeFromClassroom({ id: membershipId })
       if (!result.success) throw new Error("Couldn’t leave the classroom. Please try again.")
     },
     onSuccess: async () => {

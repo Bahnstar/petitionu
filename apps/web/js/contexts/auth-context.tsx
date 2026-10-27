@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Reading the session through Better Auth keeps its cookie alive; `getMe` doesn't refresh it.
   useEffect(() => {
-    void authClient.getSession({ query: {} })
+    void authClient.getSession()
   }, [])
 
   const userQuery = useQuery({
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    await authClient.signOut({})
+    await authClient.signOut()
     await afterAuthChange()
   }
 

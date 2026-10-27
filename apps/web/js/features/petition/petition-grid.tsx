@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom"
 import { PetitionCard } from "./petition-card"
-import { PetitionResourceSchema } from "../../ash_rpc"
-import { CleanResource } from "@/lib/types"
+import type { PetitionDto } from "@petitionu/domain"
 import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/lib/routes"
 
 interface PetitionGridProps {
-  petitions?: CleanResource<PetitionResourceSchema>[]
+  petitions?: ReadonlyArray<PetitionDto>
 }
 
 export function PetitionGrid({ petitions = [] }: PetitionGridProps) {

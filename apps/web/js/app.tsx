@@ -46,7 +46,7 @@ const queryClient = new QueryClient({
         let status: number | undefined
         if (hasHttpStatus(error)) status = error.status
         else if (hasHttpResponse(error)) status = error.response.status
-        if (status >= 400 && status < 500) return false
+        if (status !== undefined && status >= 400 && status < 500) return false
         return failureCount < 3
       },
       refetchOnWindowFocus: false,

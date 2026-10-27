@@ -4,11 +4,10 @@ import { Users, FileText, Archive, Copy, Check } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CleanResource } from "@/lib/types"
-import { ClassroomResourceSchema } from "@/js/ash_rpc"
+import type { ClassroomDto } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
 
-export type Classroom = CleanResource<ClassroomResourceSchema>
+export type Classroom = ClassroomDto
 
 interface ClassroomCardProps {
   classroom: Classroom

@@ -450,7 +450,11 @@ export function HomePrototype({
   const [params] = useSearchParams()
   const rawVariant = params.get("variant")?.toUpperCase()
   const variant = homeVariants.some((item) => item.key === rawVariant) ? rawVariant! : "D"
-  const LandingVariant = publicLandingVariants[variant]
+  const LandingVariant =
+    variant in publicLandingVariants
+      ? // SAFETY: the `in` check above proves `variant` is one of the landing variants' keys.
+        publicLandingVariants[variant as keyof typeof publicLandingVariants]
+      : undefined
   const [landingIdea, setLandingIdea] = useState(0)
   const [category, setCategory] = useState("All causes")
   const [search, setSearch] = useState("")

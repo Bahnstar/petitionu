@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getMyClassrooms, buildCSRFHeaders } from "@/js/ash_rpc"
+import { api } from "@/lib/api"
 import { ClassroomList } from "../features/classroom/classroom-list"
 import { JoinClassroomForm } from "../features/classroom/join-classroom-form"
 import { useAuth } from "../contexts/auth-context"
@@ -63,24 +63,9 @@ export default function ClassroomsPage() {
   const classroomsQuery = useQuery({
     queryKey: ["myClassrooms", currentUserId, showArchived, page],
     queryFn: async () => {
-      const result = await getMyClassrooms({
-        filter: showArchived ? undefined : { archived: { eq: false } },
-        sort: ["name", "id"],
-        page: { limit: 12, offset: page * 12, count: true },
-        fields: [
-          "id",
-          "name",
-          "description",
-          "joinCode",
-          "archived",
-          "allowStudentPetitions",
-          "memberCount",
-          "petitionCount",
-          "professorId",
-          { professor: ["id", "firstName", "lastName"] },
-        ],
-        headers: buildCSRFHeaders(),
-      })
+      const range = { limit: 12, offset: page * 12 }
+      // Without `archived`, archived classrooms are listed too.
+      const result = await api.getMyClassrooms(showArchived ? range : { ...range, archived: false })
 
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to fetch classrooms")
@@ -95,11 +80,7 @@ export default function ClassroomsPage() {
     queryKey: ["myClassrooms", currentUserId, "presence"],
     enabled: !!currentUserId && classroomsQuery.data?.count === 0 && !showArchived,
     queryFn: async () => {
-      const result = await getMyClassrooms({
-        fields: ["id"],
-        page: { limit: 1, count: true },
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getMyClassrooms({ limit: 1 })
       if (!result.success) throw new Error("Couldn’t check your classrooms")
       return result.data.count
     },
@@ -143,13 +124,14 @@ export default function ClassroomsPage() {
     )
   }
 
-  const classrooms = classroomsQuery.data.results
+  const classroomPage = classroomsQuery.data
+  const classrooms = classroomPage.results
   const ownedClassrooms = classrooms.filter((c) => c.professorId === currentUserId)
   const memberClassrooms = classrooms.filter((c) => c.professorId !== currentUserId)
 
   const canCreate = ["professor", "admin"].includes(currentUser.role)
   const firstClassroom =
-    classroomsQuery.data.count === 0 && (showArchived || allClassroomsQuery.data === 0)
+    classroomPage.count === 0 && (showArchived || allClassroomsQuery.data === 0)
   const joinExpanded = joinOpen ?? firstClassroom
 
   function renderClassroomToolbar() {
@@ -186,7 +168,7 @@ export default function ClassroomsPage() {
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
           <p className="text-sm text-muted-foreground">
-            {classroomsQuery.data.count}{" "}
+            {classroomPage.count}{" "}
             {showArchived ? "classrooms, including archived" : "active classrooms"}
           </p>
           <Button
@@ -259,7 +241,7 @@ export default function ClassroomsPage() {
               <span>Page {page + 1}</span>
               <Button
                 variant="outline"
-                disabled={!classroomsQuery.data.hasMore}
+                disabled={!classroomPage.hasMore}
                 onClick={() => setPage(page + 1)}
               >
                 Next

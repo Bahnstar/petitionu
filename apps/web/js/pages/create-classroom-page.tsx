@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { createClassroom, buildCSRFHeaders } from "@/js/ash_rpc"
+import { api } from "@/lib/api"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
@@ -39,14 +39,10 @@ export default function CreateClassroomPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const result = await createClassroom({
-        input: {
-          name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
-          allowStudentPetitions: formData.allowStudentPetitions,
-        },
-        fields: ["id", "name", "joinCode"],
-        headers: buildCSRFHeaders(),
+      const result = await api.createClassroom({
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        allowStudentPetitions: formData.allowStudentPetitions,
       })
 
       if (result.success === false) {

@@ -28,12 +28,7 @@ try {
   formatConfig.sortTailwindcss.stylesheet = resolve(assets, formatConfig.sortTailwindcss.stylesheet)
   writeFileSync(join(fixture, ".oxfmtrc.json"), JSON.stringify(formatConfig))
 
-  const excluded = [
-    "js/ash_rpc.ts",
-    "js/ash_types.ts",
-    "vendor/example.js",
-    "tools/oxlint/anti-slop/example.ts",
-  ]
+  const excluded = ["vendor/example.js", "tools/oxlint/anti-slop/example.ts"]
   for (const path of excluded) {
     mkdirSync(dirname(join(fixture, path)), { recursive: true })
     writeFileSync(join(fixture, path), "generated content: leave this untouched")

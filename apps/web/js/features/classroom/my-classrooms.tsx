@@ -4,11 +4,11 @@ import { GraduationCap, Users, FileText, ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { getMyClassrooms, buildCSRFHeaders, ClassroomResourceSchema } from "@/js/ash_rpc"
-import { CleanResource } from "@/lib/types"
+import type { ClassroomDto } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { ROUTES } from "@/lib/routes"
 
-type Classroom = CleanResource<ClassroomResourceSchema>
+type Classroom = ClassroomDto
 
 interface MyClassroomsProps {
   limit?: number
@@ -19,16 +19,13 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
   const classroomsQuery = useQuery({
     queryKey: ["myClassrooms", "summary"],
     queryFn: async () => {
-      const result = await getMyClassrooms({
-        fields: ["id", "name", "memberCount", "petitionCount", "professorId", "archived"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getMyClassrooms({})
 
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to fetch classrooms")
       }
 
-      return result.data
+      return result.data.results
     },
   })
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ROUTES } from "@/lib/routes"
 
 interface ClassroomListProps {
-  classrooms: Classroom[]
+  classrooms: ReadonlyArray<Classroom>
   currentUserId?: string
   showCreateButton?: boolean
   emptyMessage?: string

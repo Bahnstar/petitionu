@@ -5,28 +5,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  buildCSRFHeaders,
-  getContentReports,
-  getSupportRequests,
-  resolveContentReport,
-  resolveSupportRequest,
-  type ResolveContentReportInput,
-} from "../ash_rpc"
+import type { ContentReportOutcome } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
 function ReportResolution({ id, onResolved }: { id: string; onResolved: () => void }) {
-  const [outcome, setOutcome] = useState<ResolveContentReportInput["outcome"]>("resolved")
+  const [outcome, setOutcome] = useState<ContentReportOutcome>("resolved")
   const [hideContent, setHideContent] = useState(false)
   const [resolutionNote, setResolutionNote] = useState("")
   const resolve = useMutation({
     mutationFn: async () => {
-      const result = await resolveContentReport({
-        identity: id,
-        input: { outcome, hideContent: outcome === "resolved" && hideContent, resolutionNote },
-        fields: ["id"],
-        headers: buildCSRFHeaders(),
+      const result = await api.resolveContentReport({
+        id,
+        outcome,
+        hideContent: outcome === "resolved" && hideContent,
+        resolutionNote,
       })
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
@@ -106,12 +100,7 @@ function SupportResolution({ id, onResolved }: { id: string; onResolved: () => v
   const [resolutionNote, setResolutionNote] = useState("")
   const resolve = useMutation({
     mutationFn: async () => {
-      const result = await resolveSupportRequest({
-        identity: id,
-        input: { resolutionNote },
-        fields: ["id"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.resolveSupportRequest({ id, resolutionNote })
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
       return result.data
@@ -263,24 +252,7 @@ export default function ModerationPage() {
     queryKey: ["moderationReports", user?.id, showReviewed],
     enabled: isOperator && tab === "reports",
     queryFn: async () => {
-      const result = await getContentReports({
-        fields: [
-          "id",
-          "petitionId",
-          "commentId",
-          "targetTitle",
-          "targetText",
-          "reason",
-          "details",
-          "state",
-          "resolutionNote",
-          "insertedAt",
-          "resolvedAt",
-        ],
-        filter: showReviewed ? undefined : { state: { eq: "open" } },
-        sort: "-insertedAt",
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getContentReports(showReviewed ? {} : { state: "open" })
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
       return result.data
@@ -290,21 +262,7 @@ export default function ModerationPage() {
     queryKey: ["moderationSupport", user?.id, showReviewed],
     enabled: isOperator && tab === "support",
     queryFn: async () => {
-      const result = await getSupportRequests({
-        fields: [
-          "id",
-          "kind",
-          "requesterEmail",
-          "message",
-          "state",
-          "resolutionNote",
-          "insertedAt",
-          "resolvedAt",
-        ],
-        filter: showReviewed ? undefined : { state: { eq: "open" } },
-        sort: "-insertedAt",
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getSupportRequests(showReviewed ? {} : { state: "open" })
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
       return result.data

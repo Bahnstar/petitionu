@@ -5,7 +5,8 @@ import { AuthLink } from "../components/auth-link"
 import { useEffect, useRef, useState } from "react"
 import { formatDate } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
-import { buildCSRFHeaders, getPetitionById, type GetPetitionByIdFields } from "../ash_rpc"
+import type { PetitionDetailDto, SharedPetitionDto } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,44 +16,18 @@ import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 
-async function loadPetition(id: string, authenticated: boolean) {
-  const result = await getPetitionById({
-    input: { id },
-    fields: [
-      "id",
-      "title",
-      "description",
-      "status",
-      "classroomId",
-      "organizationId",
-      "hasSigned",
-      "canManage",
-      "goal",
-      "signaturesCount",
-      "daysLeft",
-      "trending",
-      "author",
-      "allowComments",
-      "isAnonymous",
-      "deadline",
-      "insertedAt",
-      { category: ["id", "name"] },
-      ...(authenticated
-        ? ([
-            { comments: ["id", "text", "insertedAt", "author"] },
-            { signatures: ["id", "reason", "insertedAt"] },
-            { updates: ["id", "title", "body", "insertedAt"] },
-          ] satisfies GetPetitionByIdFields)
-        : []),
-    ] as const satisfies GetPetitionByIdFields,
-    headers: buildCSRFHeaders(),
-  })
-  if (result.success === false)
-    throw new Error("This petition couldn't be loaded. Please try again.")
-  return result.data ?? null
-}
+// Guests get the shared fields only; signed-in readers also get the petition's activity.
+type Petition = SharedPetitionDto &
+  Partial<Pick<PetitionDetailDto, "comments" | "signatures" | "updates">>
 
-type Petition = NonNullable<Awaited<ReturnType<typeof loadPetition>>>
+async function loadPetition(id: string): Promise<Petition | null> {
+  const result = await api.getPetitionById({ id })
+  if (result.success === false) {
+    if (result.errors.some((error) => error.type === "not_found")) return null
+    throw new Error("This petition couldn't be loaded. Please try again.")
+  }
+  return result.data
+}
 
 // On phones the signing panel sits after the comments, so a fixed bar keeps the count and the
 // sign action reachable. It hides once the panel itself is on screen.
@@ -592,7 +567,7 @@ export default function PetitionIndexPage() {
     enabled: !authLoading && !!id,
     queryFn: () => {
       if (!id) throw new Error("Missing petition ID")
-      return loadPetition(id, !!user)
+      return loadPetition(id)
     },
   })
   useDocumentTitle(petitionQuery.data?.title ?? "Petition")

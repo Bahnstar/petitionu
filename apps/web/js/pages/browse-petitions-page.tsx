@@ -13,8 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PetitionCard } from "../features/petition/petition-card"
-import { buildCSRFHeaders, getCategories, getPetitions, PetitionResourceSchema } from "../ash_rpc"
-import { CleanResource } from "../../lib/types"
+import type { PetitionDto } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { useQuery, type UseQueryResult } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ROUTES } from "@/lib/routes"
@@ -26,7 +26,7 @@ const SORT_OPTIONS = [
   { value: "ending-soon", label: "Ending soon" },
 ]
 
-type Petition = CleanResource<PetitionResourceSchema>
+type Petition = PetitionDto
 
 const PAGE_SIZE = 12
 
@@ -101,7 +101,7 @@ function CategoryFilter({
   selectedCategory,
   onSelect,
 }: {
-  categoryQuery: UseQueryResult<{ id: string; name: string | null }[]>
+  categoryQuery: UseQueryResult<ReadonlyArray<{ id: string; name: string | null }>>
   selectedCategory: string
   onSelect: (category: string) => void
 }) {
@@ -266,26 +266,7 @@ function AuthenticatedBrowsePetitionsPage() {
     enabled: !authLoading,
     staleTime: 60_000,
     queryFn: async () => {
-      const result = await getPetitions({
-        fields: [
-          "id",
-          "title",
-          "description",
-          "status",
-          "goal",
-          "signaturesCount",
-          "trending",
-          "author",
-          "categoryId",
-          "isAnonymous",
-          "deadline",
-          "insertedAt",
-          { category: ["id", "name"] },
-        ],
-        sort: "-insertedAt",
-        filter: organizationId ? { organizationId: { eq: organizationId } } : undefined,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getPetitions({ organizationId: organizationId || null })
       if (result.success === false)
         throw new Error("We couldn't load the petitions. Please try again.")
       return result.data
@@ -295,7 +276,7 @@ function AuthenticatedBrowsePetitionsPage() {
     queryKey: ["categories"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const result = await getCategories({ fields: ["id", "name"], headers: buildCSRFHeaders() })
+      const result = await api.getCategories()
       if (result.success === false) throw new Error("We couldn't load the categories.")
       return result.data
     },

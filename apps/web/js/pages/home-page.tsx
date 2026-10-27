@@ -1,7 +1,7 @@
 import React from "react"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { buildCSRFHeaders, getPetitions } from "../ash_rpc"
+import { api } from "@/lib/api"
 import { HomePrototype } from "./home-prototype"
 import { homePrototypesEnabled } from "../components/prototype-switcher"
 import { useDocumentTitle } from "../hooks/use-document-title"
@@ -27,10 +27,7 @@ function PrototypePage() {
   const petitionsQuery = useQuery({
     queryKey: ["homePetitions"],
     queryFn: async () => {
-      const result = await getPetitions({
-        fields: ["id", "title", "description"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getPetitions({})
 
       if (result.success === false) {
         throw new Error(
@@ -38,7 +35,11 @@ function PrototypePage() {
         )
       }
 
-      return result.data
+      return result.data.map(({ id, title, description }) => ({
+        id,
+        title: title ?? "",
+        description,
+      }))
     },
   })
 

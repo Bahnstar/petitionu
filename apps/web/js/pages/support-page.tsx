@@ -4,13 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  buildCSRFHeaders,
-  createSupportRequest,
-  getMySupportRequests,
-  supportContact,
-  type CreateSupportRequestInput,
-} from "../ash_rpc"
+import type { SupportRequestKind } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
@@ -174,12 +169,12 @@ export default function SupportPage() {
   useDocumentTitle("Support")
   const { user, isLoading } = useAuth()
   const client = useQueryClient()
-  const [kind, setKind] = useState<CreateSupportRequestInput["kind"]>("support")
+  const [kind, setKind] = useState<SupportRequestKind>("support")
   const [message, setMessage] = useState("")
   const contact = useQuery({
     queryKey: ["supportContact"],
     queryFn: async () => {
-      const result = await supportContact({ headers: buildCSRFHeaders() })
+      const result = await api.supportContact()
       if (result.success === false)
         throw new Error("The support address could not be loaded. Try again.")
       return result.data
@@ -189,11 +184,7 @@ export default function SupportPage() {
     queryKey: ["supportRequests", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const result = await getMySupportRequests({
-        fields: ["id", "kind", "message", "state", "resolutionNote", "insertedAt"],
-        sort: "-insertedAt",
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getMySupportRequests()
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
       return result.data
@@ -201,11 +192,7 @@ export default function SupportPage() {
   })
   const submit = useMutation({
     mutationFn: async () => {
-      const result = await createSupportRequest({
-        input: { kind, message },
-        fields: ["id"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.createSupportRequest({ kind, message })
       if (result.success === false)
         throw new Error(result.errors.map((error) => error.message).join(" "))
       return result.data

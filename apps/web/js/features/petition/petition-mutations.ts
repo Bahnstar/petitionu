@@ -1,23 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query"
-import {
-  buildCSRFHeaders,
-  createPetition,
-  createClassroomPetition,
-  createComment,
-  createSignature,
-  updatePetition,
-  createUpdate,
-  closePetition,
-  markPetitionVictory,
-  type CreatePetitionInput,
-  type UpdatePetitionInput,
-  type CreateUpdateInput,
-} from "../../ash_rpc"
+import type { PetitionInput } from "@petitionu/domain"
+import { api } from "@/lib/api"
 
 type PetitionTarget = { id: string; classroomId?: string | null }
+type CreatePetitionInput = PetitionInput & { categoryId: string }
 export type PetitionOwnerCommand =
-  | { kind: "edit"; input: UpdatePetitionInput }
-  | { kind: "update"; input: Omit<CreateUpdateInput, "petitionId"> }
+  | { kind: "edit"; input: PetitionInput }
+  | { kind: "update"; input: { title: string; body: string } }
   | { kind: "close" | "victory" }
 
 type PetitionCommand =
@@ -29,57 +18,41 @@ type PetitionCommand =
     ))
 
 function failureMessage(command: PetitionCommand) {
-  if (command.kind === "create") return "Your petition couldn't be created. Please try again."
+  if (command.kind === "create")
+    return "Your petition couldn't be created. Check your connection and try again."
   if (command.kind === "comment") return "Your comment couldn't be posted. Please try again."
   if (command.kind === "sign") return "Your signature couldn't be added. Please try again."
   return "Your change couldn't be saved. Please try again."
 }
 
-async function execute(command: PetitionCommand) {
-  const shared = { fields: ["id"] satisfies ["id"], headers: buildCSRFHeaders() }
+function execute(command: PetitionCommand) {
   if (command.kind === "create") {
     return command.classroomId
-      ? createClassroomPetition({
-          ...shared,
-          input: { ...command.input, classroomId: command.classroomId },
-        })
-      : createPetition({ ...shared, input: command.input })
+      ? api.createClassroomPetition({ ...command.input, classroomId: command.classroomId })
+      : api.createPetition(command.input)
   }
-  if (command.kind === "comment")
-    return createComment({
-      ...shared,
-      input: { petitionId: command.petition.id, text: command.text },
-    })
+  const petitionId = command.petition.id
+  if (command.kind === "comment") return api.createComment({ petitionId, text: command.text })
   if (command.kind === "sign")
-    return createSignature({
-      ...shared,
-      input: { petitionId: command.petition.id, reason: command.reason.trim() || null },
-    })
-  if (command.kind === "update")
-    return createUpdate({
-      ...shared,
-      input: { ...command.input, petitionId: command.petition.id },
-    })
-  const target = { ...shared, identity: command.petition.id }
-  if (command.kind === "edit") return updatePetition({ ...target, input: command.input })
-  if (command.kind === "close") return closePetition(target)
-  return markPetitionVictory(target)
+    return api.createSignature({ petitionId, reason: command.reason.trim() || null })
+  if (command.kind === "update") return api.createUpdate({ ...command.input, petitionId })
+  if (command.kind === "edit") return api.updatePetition({ ...command.input, id: petitionId })
+  if (command.kind === "close") return api.closePetition({ id: petitionId })
+  return api.markPetitionVictory({ id: petitionId })
 }
 
 // Callers own form state and participation hints; the server remains authoritative.
 // Successful writes refresh their projections only. Owner commands wait for refreshed
 // detail before closing the form; creation and participation confirm immediately.
 export async function mutatePetition(queryClient: QueryClient, command: PetitionCommand) {
-  const result = await execute(command).catch((error) => {
-    if (command.kind === "create")
-      throw new Error("Your petition couldn't be created. Check your connection and try again.")
-    throw error
-  })
+  const result = await execute(command)
   if (result.success === false) {
+    // `unknown` errors are transport failures or unexpected responses; their text isn't for users.
+    const errors = result.errors.filter((error) => error.type !== "unknown")
     const message =
       command.kind === "comment" || command.kind === "sign"
-        ? result.errors[0]?.message
-        : result.errors.map((error) => error.message).join(" ")
+        ? errors[0]?.message
+        : errors.map((error) => error.message).join(" ")
     throw new Error(message || failureMessage(command))
   }
 

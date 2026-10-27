@@ -3,11 +3,14 @@ import { afterEach, test } from "node:test"
 import { QueryClient, QueryObserver } from "@tanstack/react-query"
 import { mutatePetition } from "../js/features/petition/petition-mutations.ts"
 
-const originalFetch = globalThis.fetch
+// The API client keeps the `fetch` it first sees, so one stub forwards to each test's server.
+let respond
 const originalDocument = globalThis.document
+const originalLocation = globalThis.location
+globalThis.fetch = (url, init) => respond(url, init)
 afterEach(() => {
-  globalThis.fetch = originalFetch
   globalThis.document = originalDocument
+  globalThis.location = originalLocation
 })
 
 const petition = { id: "petition-1", classroomId: "classroom-1" }
@@ -25,24 +28,80 @@ const allKeys = [
 ]
 const input = { title: "A better campus", categoryId: "category-1" }
 const cases = [
-  { command: { kind: "create", input }, action: "create_petition", affected: [2, 3] },
+  { command: { kind: "create", input }, action: "createPetition", affected: [2, 3] },
   {
     command: { kind: "create", input, classroomId: petition.classroomId },
-    action: "create_classroom_petition",
+    action: "createClassroomPetition",
     affected: [2, 3, 4, 5, 6],
   },
-  { command: { kind: "comment", petition, text: "I agree" }, action: "create_comment" },
-  { command: { kind: "sign", petition, reason: "  " }, action: "create_signature" },
-  { command: { kind: "edit", petition, input: { title: "New title" } }, action: "update_petition" },
+  { command: { kind: "comment", petition, text: "I agree" }, action: "createComment" },
+  { command: { kind: "sign", petition, reason: "  " }, action: "createSignature" },
+  { command: { kind: "edit", petition, input: { title: "New title" } }, action: "updatePetition" },
   {
     command: { kind: "update", petition, input: { title: "News", body: "We did it" } },
-    action: "create_update",
+    action: "createUpdate",
   },
-  { command: { kind: "close", petition }, action: "close_petition" },
-  { command: { kind: "victory", petition }, action: "mark_petition_victory" },
+  { command: { kind: "close", petition }, action: "closePetition" },
+  { command: { kind: "victory", petition }, action: "markPetitionVictory" },
 ]
 
-function setup(response = { success: true, data: { id: "result-1" } }) {
+const insertedAt = "2026-10-01T12:00:00.000Z"
+const petitionDto = {
+  id: "result-1",
+  title: "A better campus",
+  description: "More benches",
+  status: "open",
+  classroomId: null,
+  organizationId: null,
+  hasSigned: false,
+  canManage: true,
+  goal: 100,
+  signaturesCount: 0,
+  daysLeft: 0,
+  trending: false,
+  author: "Ada Lovelace",
+  allowComments: true,
+  isAnonymous: false,
+  deadline: null,
+  insertedAt,
+  categoryId: "category-1",
+  category: { id: "category-1", name: "Campus", color: null },
+}
+const results = {
+  createComment: {
+    id: "result-1",
+    petitionId: petition.id,
+    parentCommentId: null,
+    text: "I agree",
+    author: "Ada Lovelace",
+    insertedAt,
+  },
+  createSignature: {
+    id: "result-1",
+    petitionId: petition.id,
+    reason: null,
+    isVerified: false,
+    insertedAt,
+  },
+  createUpdate: {
+    id: "result-1",
+    petitionId: petition.id,
+    title: "News",
+    body: "We did it",
+    insertedAt,
+  },
+}
+
+// Answers like the server's `POST /rpc` endpoint: one exit per request, in Effect's JSON form.
+const exitFor = (request, failure) => ({
+  _tag: "Exit",
+  requestId: request.id,
+  exit: failure
+    ? { _tag: "Failure", cause: [{ _tag: "Fail", error: failure(request.tag) }] }
+    : { _tag: "Success", value: results[request.tag] ?? petitionDto },
+})
+
+function setup(failure) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: Infinity } },
   })
@@ -51,30 +110,46 @@ function setup(response = { success: true, data: { id: "result-1" } }) {
   globalThis.document = {
     querySelector: () => ({ getAttribute: () => "csrf-token" }),
   }
-  globalThis.fetch = async (url, init) => {
-    requests.push({ url, ...init, payload: JSON.parse(init.body) })
-    return Response.json(response)
+  // The client resolves `/rpc` against the page, as in a browser.
+  globalThis.location = new URL("http://localhost:5173/")
+  respond = async (url, init) => {
+    const body = JSON.parse(new TextDecoder().decode(init.body))
+    requests.push({ url: String(url), method: init.method, headers: init.headers, body })
+    return Response.json([exitFor(body, failure)])
   }
   return { client, requests }
 }
 
+// Close and victory can only be refused with one message; the other writes can name fields.
+const refusal = (tag) =>
+  ["closePetition", "markPetitionVictory"].includes(tag)
+    ? { _tag: "Forbidden", message: "Not allowed." }
+    : {
+        _tag: "Invalid",
+        message: "Invalid",
+        fields: [
+          { field: "petitionId", message: "Not allowed." },
+          { field: "petitionId", message: "Please try later." },
+        ],
+      }
+
 for (const { command, action, affected = [0, 1, 2, 3, 4] } of cases) {
   test(`${action}: sends CSRF and refreshes only related cached projections`, async () => {
     const { client, requests } = setup()
-    assert.deepEqual(await mutatePetition(client, command), { id: "result-1" })
+    const data = await mutatePetition(client, command)
+    assert.equal(data.id, "result-1")
     assert.equal(requests.length, 1)
     const request = requests[0]
-    assert.equal(request.url, "/rpc/run")
+    assert.match(request.url, /\/rpc\/?$/)
     assert.equal(request.method, "POST")
-    assert.equal(request.headers["X-CSRF-Token"], "csrf-token")
-    assert.equal(request.payload.action, action)
-    assert.deepEqual(request.payload.fields, ["id"])
-    if (["edit", "close", "victory"].includes(command.kind))
-      assert.equal(request.payload.identity, petition.id)
+    assert.equal(request.headers["x-csrf-token"], "csrf-token")
+    assert.equal(request.body.tag, action)
+    const payload = request.body.payload
+    if (["edit", "close", "victory"].includes(command.kind)) assert.equal(payload.id, petition.id)
     if (["sign", "comment", "update"].includes(command.kind))
-      assert.equal(request.payload.input.petitionId, petition.id)
-    if (command.classroomId) assert.equal(request.payload.input.classroomId, command.classroomId)
-    if (command.kind === "sign") assert.equal(request.payload.input.reason, null)
+      assert.equal(payload.petitionId, petition.id)
+    if (command.classroomId) assert.equal(payload.classroomId, command.classroomId)
+    if (command.kind === "sign") assert.equal(payload.reason, null)
     allKeys.forEach((key, index) => {
       assert.equal(
         client.getQueryState(key).isInvalidated,
@@ -86,11 +161,8 @@ for (const { command, action, affected = [0, 1, 2, 3, 4] } of cases) {
   })
 
   test(`${action}: rejected writes preserve the cache and show server errors`, async () => {
-    const { client } = setup({
-      success: false,
-      errors: [{ message: "Not allowed." }, { message: "Please try later." }],
-    })
-    const message = ["comment", "sign"].includes(command.kind)
+    const { client } = setup(refusal)
+    const message = ["comment", "sign", "close", "victory"].includes(command.kind)
       ? "Not allowed."
       : "Not allowed. Please try later."
     await assert.rejects(mutatePetition(client, command), { message })
@@ -101,13 +173,25 @@ for (const { command, action, affected = [0, 1, 2, 3, 4] } of cases) {
 
 test("transport failure preserves the cache and creation's connection guidance", async () => {
   const { client } = setup()
-  globalThis.fetch = async () => {
+  respond = async () => {
     throw new TypeError("Failed to fetch")
   }
   await assert.rejects(mutatePetition(client, { kind: "create", input }), {
     message: "Your petition couldn't be created. Check your connection and try again.",
   })
   for (const key of allKeys) assert.equal(client.getQueryState(key).isInvalidated, false)
+  client.clear()
+})
+
+test("an unreadable response shows the generic message, not the decoder's", async () => {
+  const { client } = setup()
+  respond = async (url, init) => {
+    const { id } = JSON.parse(new TextDecoder().decode(init.body))
+    return Response.json([{ _tag: "Exit", requestId: id, exit: {} }])
+  }
+  await assert.rejects(mutatePetition(client, { kind: "close", petition }), {
+    message: "Your change couldn't be saved. Please try again.",
+  })
   client.clear()
 })
 

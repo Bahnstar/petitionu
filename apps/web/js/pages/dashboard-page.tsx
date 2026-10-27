@@ -5,15 +5,13 @@ import { UserPetitions } from "../features/dashboard/user-petitions"
 import { SignedPetitions } from "../features/dashboard/signed-petitions"
 import { MyClassrooms } from "../features/classroom/my-classrooms"
 import { Button } from "@/components/ui/button"
-import { buildCSRFHeaders, getUserById, UserResourceSchema } from "../ash_rpc"
+import type { UserWithActivity } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { CleanResource } from "@/lib/types"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
-
-type User = CleanResource<UserResourceSchema>
 
 function DashboardLoadingState() {
   return (
@@ -53,60 +51,18 @@ export default function Dashboard() {
         throw new Error("No authenticated user")
       }
 
-      const result = await getUserById({
-        input: { id: currentUser.id, includeStats: true },
-        fields: [
-          "id",
-          "email",
-          "firstName",
-          "lastName",
-          "numPetitions",
-          "numSigned",
-          "totalPetitionSignatures",
-          {
-            petitions: [
-              "id",
-              "title",
-              "description",
-              "status",
-              "trending",
-              "signaturesCount",
-              "goal",
-              "deadline",
-              "insertedAt",
-              { category: ["id", "name", "color"] },
-              "author",
-            ],
-          },
-          {
-            signatures: [
-              "id",
-              "insertedAt",
-              {
-                petition: [
-                  "id",
-                  "title",
-                  "signaturesCount",
-                  "goal",
-                  "isAnonymous",
-                  { category: ["name", "color"] },
-                  "author",
-                ],
-              },
-            ],
-          },
-        ],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getUserById({ id: currentUser.id, includeStats: true })
 
       if (result.success === false) {
         result.errors.forEach((error) => {
-          console.error("API Error:", error.message, error.fields, error.type)
+          console.error("API Error:", error.message, error.field, error.type)
         })
         throw new Error(`Failed to fetch user: ${result.errors.map((e) => e.message).join(", ")}`)
       }
 
-      const fetchedUser: User = result.data
+      // Only the caller's own record carries activity, so anything else is unexpected.
+      if (!("numPetitions" in result.data)) throw new Error("Failed to fetch user activity")
+      const fetchedUser: UserWithActivity = result.data
       return fetchedUser
     },
     enabled: !!currentUser?.id,

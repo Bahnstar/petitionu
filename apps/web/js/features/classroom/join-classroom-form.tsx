@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { joinClassroomByCode, buildCSRFHeaders } from "@/js/ash_rpc"
+import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,11 +29,7 @@ export function JoinClassroomForm({ onSuccess, focusOnMount = false }: JoinClass
 
   const joinMutation = useMutation({
     mutationFn: async (code: string) => {
-      const result = await joinClassroomByCode({
-        input: { joinCode: code },
-        fields: ["id", { classroom: ["id", "name"] }],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.joinClassroomByCode({ joinCode: code })
 
       if (result.success === false) {
         const messages = result.errors.map((error) => error.message).join(" ")

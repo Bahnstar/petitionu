@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { buildCSRFHeaders, getCategories, getClassroomById } from "../ash_rpc"
+import { api } from "@/lib/api"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ROUTES } from "@/lib/routes"
@@ -55,11 +55,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     queryKey: ["classroomContext", classroomId],
     enabled: !!classroomId && !!user,
     queryFn: async () => {
-      const result = await getClassroomById({
-        input: { id: classroomId! },
-        fields: ["id", "name"],
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.getClassroomById({ id: classroomId! })
       if (result.success === false)
         throw new Error(
           "This classroom could not be loaded. Return to the classroom and try again.",
@@ -82,7 +78,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
   const categoryQuery = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      const result = await getCategories({ fields: ["id", "name"], headers: buildCSRFHeaders() })
+      const result = await api.getCategories()
       if (result.success === false)
         throw new Error("We couldn't load the categories. Please try again.")
       return result.data

@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import type { PetitionResourceSchema } from "../../ash_rpc"
+import type { SharedPetitionDto } from "@petitionu/domain"
 import { mutatePetition, type PetitionOwnerCommand } from "./petition-mutations"
-import type { CleanResource } from "@/lib/types"
 
-type Petition = { id: string } & Pick<
-  CleanResource<PetitionResourceSchema>,
+type Petition = Pick<
+  SharedPetitionDto,
   | "id"
   | "title"
   | "description"

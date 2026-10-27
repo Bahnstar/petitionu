@@ -13,5 +13,5 @@
     "stylesheet": "./css/app.css",
     "functions": ["cn", "clsx", "cva"]
   },
-  "ignorePatterns": ["js/ash_rpc.ts", "js/ash_types.ts", "vendor/**", "tools/oxlint/anti-slop/**"]
+  "ignorePatterns": ["vendor/**", "tools/oxlint/anti-slop/**"]
 }

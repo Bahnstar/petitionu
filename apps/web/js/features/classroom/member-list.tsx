@@ -1,24 +1,17 @@
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import {
-  approveMembership,
-  removeFromClassroom,
-  promoteToTa,
-  demoteToStudent,
-  buildCSRFHeaders,
-  ClassroomMembershipResourceSchema,
-} from "@/js/ash_rpc"
+import type { MembershipDto } from "@petitionu/domain"
+import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { CleanResource } from "@/lib/types"
 import { Check, X, ChevronUp, ChevronDown, Loader2, User, Clock } from "lucide-react"
 
-type Membership = CleanResource<ClassroomMembershipResourceSchema>
+type Membership = MembershipDto
 
 interface MemberListProps {
-  memberships: Membership[]
+  memberships: ReadonlyArray<Membership>
   classroomId: string
   canManage?: boolean
   canChangeRoles?: boolean
@@ -38,10 +31,7 @@ export function MemberList({
 
   const approveMutation = useMutation({
     mutationFn: async (membershipId: string) => {
-      const result = await approveMembership({
-        identity: membershipId,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.approveMembership({ id: membershipId })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to approve membership")
       }
@@ -58,10 +48,7 @@ export function MemberList({
 
   const removeMutation = useMutation({
     mutationFn: async (membershipId: string) => {
-      const result = await removeFromClassroom({
-        identity: membershipId,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.removeFromClassroom({ id: membershipId })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to remove member")
       }
@@ -77,10 +64,7 @@ export function MemberList({
 
   const promoteMutation = useMutation({
     mutationFn: async (membershipId: string) => {
-      const result = await promoteToTa({
-        identity: membershipId,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.promoteToTa({ id: membershipId })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to promote to TA")
       }
@@ -96,10 +80,7 @@ export function MemberList({
 
   const demoteMutation = useMutation({
     mutationFn: async (membershipId: string) => {
-      const result = await demoteToStudent({
-        identity: membershipId,
-        headers: buildCSRFHeaders(),
-      })
+      const result = await api.demoteToStudent({ id: membershipId })
       if (result.success === false) {
         throw new Error(result.errors[0]?.message || "Failed to demote to student")
       }

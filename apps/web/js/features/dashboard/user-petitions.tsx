@@ -3,13 +3,12 @@ import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { CleanResource } from "@/lib/types"
-import { PetitionResourceSchema } from "@/js/ash_rpc"
+import type { ActivityPetition } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
 
-type Petition = CleanResource<PetitionResourceSchema>
+type Petition = ActivityPetition
 
-export function UserPetitions({ petitions }: { petitions: Petition[] }) {
+export function UserPetitions({ petitions }: { petitions: ReadonlyArray<Petition> }) {
   const now = useCurrentTime()
   return (
     <section
