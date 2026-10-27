@@ -1,7 +1,6 @@
 import { AccountsRpcs, CurrentActor, MeDto, NotFound } from "@petitionu/domain"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
-import { Schema } from "effect"
 
 const MeRow = Schema.Struct({
   ...MeDto.fields,
