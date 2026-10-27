@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { createServer } from "node:net"
+import { ScriptedSchoolRegistry } from "./support/external.ts"
 import {
   SchoolRegistry,
   SchoolRegistryError,
@@ -193,5 +194,25 @@ describe("TCP WHOIS transport", () => {
           assert.strictEqual(error.reason, "unavailable")
         }),
     ),
+  )
+})
+
+describe("scripted SchoolRegistry (test double)", () => {
+  it.effect("answers the default registration, then scripted results, and records lookups", () =>
+    Effect.gen(function* () {
+      const scripted = yield* ScriptedSchoolRegistry
+      const lookupHere = (domain: string) =>
+        SchoolRegistry.use((registry) => registry.lookup(domain))
+
+      assert.deepStrictEqual(yield* lookupHere("school.edu"), {
+        name: "Registry University",
+        source: "test-registry",
+      })
+      yield* scripted.script("not_found")
+      assert.strictEqual((yield* Effect.flip(lookupHere("other.edu"))).reason, "not_found")
+      yield* scripted.script((domain) => ({ name: domain.toUpperCase(), source: "s" }))
+      assert.deepStrictEqual(yield* lookupHere("x.ac.uk"), { name: "X.AC.UK", source: "s" })
+      assert.deepStrictEqual(yield* scripted.lookups, ["school.edu", "other.edu", "x.ac.uk"])
+    }).pipe(Effect.provide(ScriptedSchoolRegistry.layer)),
   )
 })
