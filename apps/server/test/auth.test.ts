@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp } from "./support/harness.ts"
-import { defaultPassword, lastEmailedToken, uniqueEmail } from "./support/users.ts"
+import { defaultPassword, uniqueEmail, withEmailTo } from "./support/users.ts"
 
 describe("registration and password sign-in", () => {
   it.live("registers, confirms only after a click, signs out and back in", () =>
@@ -11,12 +11,20 @@ describe("registration and password sign-in", () => {
       const browser = yield* makeBrowser(app)
       const email = uniqueEmail()
 
-      const signUp = yield* browser.auth("/sign-up/email", {
+      const {
+        result: signUp,
+        link,
+        token,
+      } = yield* withEmailTo(
+        app,
         email,
-        password: defaultPassword,
-        passwordConfirmation: defaultPassword,
-        name: "",
-      })
+        browser.auth("/sign-up/email", {
+          email,
+          password: defaultPassword,
+          passwordConfirmation: defaultPassword,
+          name: "",
+        }),
+      )
       assert.strictEqual(signUp.status, 200, JSON.stringify(signUp.body))
       yield* browser.reloadCsrf
       const registered = yield* browser.rpc((api) => api.getMe())
@@ -25,7 +33,6 @@ describe("registration and password sign-in", () => {
       assert.strictEqual(registered.data.email, email)
       assert.isFalse(registered.data.emailVerified)
 
-      const link = yield* app.mailer.lastLinkTo(email)
       assert.strictEqual(link.origin, "https://petitionu.test")
       assert.strictEqual(link.pathname, "/auth/confirm")
       const page = yield* browser.request(`${link.pathname}${link.search}`)
@@ -34,7 +41,6 @@ describe("registration and password sign-in", () => {
       assert.deepInclude(afterVisit, { success: true })
       if (afterVisit.success) assert.isFalse(afterVisit.data.emailVerified)
 
-      const token = yield* lastEmailedToken(app, email)
       const confirm = yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
       assert.strictEqual(confirm.status, 200)
       const confirmed = yield* browser.rpc((api) => api.getMe())
@@ -77,6 +83,8 @@ describe("registration and password sign-in", () => {
         name: "",
       })
       assert.strictEqual(short.status, 400)
+      assert.deepStrictEqual(yield* app.mailer.messages, [])
+      yield* Effect.sleep("100 millis")
       assert.deepStrictEqual(yield* app.mailer.messages, [])
     }),
   )

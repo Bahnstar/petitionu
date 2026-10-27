@@ -32,13 +32,22 @@ export const UserConfirmedLive = Layer.empty
  * Composition point for internal services shared by the routes (database, queue, auth, ...).
  * Each feature area adds one line for its service layer.
  */
-export const AppServices = Layer.mergeAll(Auth.layer, Csrf.layer).pipe(
-  Layer.provide(UserConfirmedLive),
-  Layer.provideMerge(DatabaseLive),
-)
+const makeAppServices = (userConfirmed: Layer.Layer<never, unknown, BaseServiceTypes>) =>
+  Layer.mergeAll(Auth.layer, Csrf.layer).pipe(
+    Layer.provide(userConfirmed),
+    Layer.provideMerge(DatabaseLive),
+  )
+
+export const AppServices = makeAppServices(UserConfirmedLive)
+
+/** Services available to `UserConfirmed`: database, config, mail and the school registry. */
+export type BaseServiceTypes =
+  | Layer.Success<typeof DatabaseLive>
+  | AppConfig
+  | Layer.Success<typeof ExternalServicesLive>
 
 /** Every service the routes may use, for layers passed in as extra `routes`. */
-export type AppServiceTypes = Layer.Success<typeof AppServices> | AppConfig
+export type AppServiceTypes = Auth | Csrf | BaseServiceTypes
 
 /**
  * Services that reach outside the process and that tests replace with fakes
@@ -49,17 +58,19 @@ export const ExternalServicesLive = Layer.mergeAll(MailerLive, SchoolRegistry.la
 /**
  * The whole application as a router layer. `serve` runs it on Node; tests turn it into an
  * in-process web handler. Configuration comes from the ambient `ConfigProvider`.
- * `routes` adds router layers, e.g. a test-only RPC group.
+ * `routes` adds router layers, e.g. a test-only RPC group; `userConfirmed` replaces
+ * `UserConfirmedLive`.
  */
 export const makeAppLayer = (
   options: {
     readonly external?: Layer.Layer<Layer.Success<typeof ExternalServicesLive>, unknown>
     readonly webDistDir?: string
     readonly routes?: Layer.Layer<never, never, HttpRouter.HttpRouter | AppServiceTypes>
+    readonly userConfirmed?: Layer.Layer<never, unknown, BaseServiceTypes>
   } = {},
 ) =>
   Layer.mergeAll(AppRoutes, options.routes ?? Layer.empty).pipe(
-    Layer.provide(AppServices),
+    Layer.provide(makeAppServices(options.userConfirmed ?? UserConfirmedLive)),
     Layer.provide(options.external ?? ExternalServicesLive),
     Layer.provideMerge(AppConfig.layer({ webDistDir: options.webDistDir ?? "../web/dist" })),
   )

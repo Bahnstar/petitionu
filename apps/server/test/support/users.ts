@@ -1,6 +1,7 @@
 import type { Role } from "@petitionu/domain"
 import { Effect } from "effect"
 import { type Browser, makeBrowser } from "./browser.ts"
+import { linksIn } from "./external.ts"
 import type { TestApp } from "./harness.ts"
 
 export const defaultPassword = "correct horse battery"
@@ -26,6 +27,36 @@ const fail = (message: string, detail: unknown) =>
 export const lastEmailedToken = (app: TestApp, email: string) =>
   Effect.map(app.mailer.lastLinkTo(email), (url) => url.searchParams.get("token")!)
 
+const sentTo = (app: TestApp, to: string) =>
+  Effect.map(app.mailer.messages, (messages) => messages.filter((message) => message.to === to))
+
+/**
+ * Runs `action`, then waits for the email it sends to `to` (auth emails go out in the
+ * background). Returns the action's result, the email, its link and the link's token.
+ */
+export const withEmailTo = <A, E, R>(app: TestApp, to: string, action: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const before = (yield* sentTo(app, to)).length
+    const result = yield* action
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const messages = yield* sentTo(app, to)
+      if (messages.length > before) {
+        const email = messages.at(-1)!
+        const link = new URL(linksIn(email)[0]!)
+        return { result, email, link, token: link.searchParams.get("token")! }
+      }
+      yield* Effect.sleep("20 millis")
+    }
+    return yield* Effect.die(new Error(`no email sent to ${to}`))
+  })
+
+/** How many emails have been sent to `to`, after letting background sends finish. */
+export const emailsTo = (app: TestApp, to: string) =>
+  Effect.andThen(
+    Effect.sleep("100 millis"),
+    Effect.map(sentTo(app, to), (sent) => sent.length),
+  )
+
 /** Registers through the real sign-up endpoint; the new user is unconfirmed and signed in. */
 export const registerUser = (
   app: TestApp,
@@ -35,12 +66,11 @@ export const registerUser = (
     const email = options.email ?? uniqueEmail()
     const password = options.password ?? defaultPassword
     const browser = yield* makeBrowser(app)
-    const response = yield* browser.auth("/sign-up/email", {
+    const { result: response } = yield* withEmailTo(
+      app,
       email,
-      password,
-      passwordConfirmation: password,
-      name: "",
-    })
+      browser.auth("/sign-up/email", { email, password, passwordConfirmation: password, name: "" }),
+    )
     if (response.status !== 200) return yield* fail("sign-up failed", response)
     yield* browser.reloadCsrf
     return { id: response.body.user.id as string, email, password, browser } satisfies TestUser

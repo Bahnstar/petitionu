@@ -73,7 +73,9 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       )
       const headers = new Headers(request.headers)
       headers.set("x-forwarded-for", ip)
+      // An empty `origin` sends none, like a request made outside a browser.
       if (!headers.has("origin")) headers.set("origin", testOrigin)
+      else if (headers.get("origin") === "") headers.delete("origin")
       if (jar.size > 0) headers.set("cookie", cookieHeader())
       const response = await Effect.runPromise(
         app.request(request.url, {

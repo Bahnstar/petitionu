@@ -4,7 +4,7 @@ import { ConfigProvider, Context, Effect, Layer, Redacted, type Scope } from "ef
 import { HttpRouter } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { fileURLToPath } from "node:url"
-import { type AppServiceTypes, makeAppLayer } from "../../src/App.ts"
+import { type AppServiceTypes, type BaseServiceTypes, makeAppLayer } from "../../src/App.ts"
 import { runMigrations } from "../../src/Migrations.ts"
 import { ExternalServicesTest, MemoryMailer, ScriptedSchoolRegistry } from "./external.ts"
 
@@ -87,13 +87,15 @@ export interface TestApp {
  * database, with the in-memory Mailer and scripted SchoolRegistry.
  * - `env` overrides configuration variables;
  * - `database` uses an existing (already migrated) database instead of a fresh one;
- * - `routes` adds router layers, e.g. a test-only RPC group.
+ * - `routes` adds router layers, e.g. a test-only RPC group;
+ * - `userConfirmed` replaces what runs when a user becomes confirmed.
  */
 export const makeTestApp = (
   options: {
     readonly env?: Record<string, string>
     readonly database?: { readonly name: string; readonly url: string }
     readonly routes?: Layer.Layer<never, never, HttpRouter.HttpRouter | AppServiceTypes>
+    readonly userConfirmed?: Layer.Layer<never, unknown, BaseServiceTypes>
   } = {},
 ) =>
   Effect.gen(function* () {
@@ -112,6 +114,7 @@ export const makeTestApp = (
     const app = makeAppLayer({
       external: Layer.succeedContext(external),
       ...(options.routes ? { routes: options.routes } : {}),
+      ...(options.userConfirmed ? { userConfirmed: options.userConfirmed } : {}),
     }).pipe(
       Layer.provide(ConfigProvider.layer(config)),
       Layer.provide(NodeHttpServer.layerHttpServices),

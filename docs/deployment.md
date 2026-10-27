@@ -16,9 +16,9 @@ Copy `.env.example` into your hosting provider's secret configuration, or to `.e
 | `DATABASE_URL` | PostgreSQL connection URL. Use an account that may run the migrations. |
 | `DATABASE_SSL` | `true` when the database requires TLS. Defaults to `false`. |
 | `POOL_SIZE` | Database connections per process. Defaults to 10. |
-| `PUBLIC_HOST` | Public hostname, without `https://` or a port. Email links use `https://PUBLIC_HOST`. |
+| `PUBLIC_HOST` | Public hostname, without `https://` or a port. Email links use `https://PUBLIC_HOST`, and auth and RPC requests are only accepted from that origin. |
 | `PORT` | HTTP port. Defaults to 4000. |
-| `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Independent secrets. Generate each with `openssl rand -base64 48`. |
+| `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required by the app (not by `migrate`): independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
 | `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address and monitored reply-to mailbox. Without `RESEND_API_KEY`, every email send fails outside development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional OpenTelemetry collector base URL. Export is off when unset. |
 

@@ -49,7 +49,7 @@ interface PageDocument {
   readonly head: { append(element: MetaElement): void }
 }
 
-const page = () => (globalThis as { document?: PageDocument }).document
+const page = () => (globalThis as unknown as { document?: PageDocument }).document
 
 const metaSelector = 'meta[name="csrf-token"]'
 
