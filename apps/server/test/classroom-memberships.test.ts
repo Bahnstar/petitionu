@@ -1,4 +1,3 @@
-import type { ApiClient } from "@petitionu/domain"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import type { Browser } from "./support/browser.ts"
@@ -12,12 +11,9 @@ import {
   seedMembership,
 } from "./support/classrooms.ts"
 import { makeTestApp, type TestApp, testOrigin } from "./support/harness.ts"
-import type { TestUser } from "./support/users.ts"
 
 const join = (user: { readonly browser: Browser }, joinCode: string) =>
   user.browser.rpc((api) => api.joinClassroomByCode({ joinCode }))
-
-const call = <A>(user: TestUser, f: (api: ApiClient) => Promise<A>) => user.browser.rpc(f)
 
 /** A professor, a student on another campus, and the professor's classroom "Civics". */
 const setup = Effect.gen(function* () {
@@ -39,7 +35,7 @@ describe("joining a classroom", () => {
     Effect.gen(function* () {
       const { student, classroom } = yield* setup
       const before = yield* failure(
-        yield* call(student, (api) => api.getClassroomById({ id: classroom.id })),
+        yield* student.browser.rpc((api) => api.getClassroomById({ id: classroom.id })),
       )
       assert.strictEqual(before[0]!.type, "not_found")
 
@@ -51,7 +47,7 @@ describe("joining a classroom", () => {
       assert.deepStrictEqual(membership.classroom, { id: classroom.id, name: "Civics" })
 
       const joined = yield* ok(
-        yield* call(student, (api) => api.getClassroomById({ id: classroom.id })),
+        yield* student.browser.rpc((api) => api.getClassroomById({ id: classroom.id })),
       )
       assert.strictEqual(joined.id, classroom.id)
       assert.strictEqual(joined.memberCount, 1)
@@ -84,12 +80,14 @@ describe("joining a classroom", () => {
       ])
       assert.deepStrictEqual(yield* failure(yield* join(student, "not-a-code")), [invalidCode])
 
-      yield* ok(yield* call(professor, (api) => api.archiveClassroom({ id: classroom.id })))
+      yield* ok(yield* professor.browser.rpc((api) => api.archiveClassroom({ id: classroom.id })))
       assert.deepStrictEqual(yield* failure(yield* join(student, classroom.joinCode)), [
         invalidCode,
       ])
       const request = yield* failure(
-        yield* call(student, (api) => api.requestToJoinClassroom({ classroomId: classroom.id })),
+        yield* student.browser.rpc((api) =>
+          api.requestToJoinClassroom({ classroomId: classroom.id }),
+        ),
       )
       assert.deepStrictEqual(request, [
         {
@@ -160,7 +158,10 @@ describe("joining a classroom", () => {
   it.live("joining doesn't open other classrooms to an outsider", () =>
     Effect.gen(function* () {
       const { student } = yield* setup
-      assert.deepStrictEqual(yield* ok(yield* call(student, (api) => api.getClassrooms())), [])
+      assert.deepStrictEqual(
+        yield* ok(yield* student.browser.rpc((api) => api.getClassrooms())),
+        [],
+      )
     }),
   )
 })
@@ -170,7 +171,7 @@ describe("invitations and requests", () => {
     Effect.gen(function* () {
       const { app, professor, student, classroom } = yield* setup
       const invited = yield* ok(
-        yield* call(professor, (api) =>
+        yield* professor.browser.rpc((api) =>
           api.inviteToClassroom({ classroomId: classroom.id, email: student.email.toUpperCase() }),
         ),
       )
@@ -184,7 +185,7 @@ describe("invitations and requests", () => {
       assert.include(invite.html, 'href="https://petitionu.test/"')
 
       const approved = yield* ok(
-        yield* call(professor, (api) => api.approveMembership({ id: invited.id })),
+        yield* professor.browser.rpc((api) => api.approveMembership({ id: invited.id })),
       )
       assert.strictEqual(approved.status, "active")
       assert.isNotNull(approved.joinedAt)
@@ -199,7 +200,7 @@ describe("invitations and requests", () => {
     Effect.gen(function* () {
       const { professor, classroom } = yield* setup
       const errors = yield* failure(
-        yield* call(professor, (api) =>
+        yield* professor.browser.rpc((api) =>
           api.inviteToClassroom({ classroomId: classroom.id, email: "nobody@example.edu" }),
         ),
       )
@@ -214,12 +215,14 @@ describe("invitations and requests", () => {
       const { app, professor, student, classroom } = yield* setup
       const invitee = yield* createStudent(app)
       const input = { classroomId: classroom.id, email: invitee.email }
-      const outsider = yield* failure(yield* call(student, (api) => api.inviteToClassroom(input)))
+      const outsider = yield* failure(
+        yield* student.browser.rpc((api) => api.inviteToClassroom(input)),
+      )
       assert.strictEqual(outsider[0]!.type, "forbidden")
 
-      yield* ok(yield* call(professor, (api) => api.archiveClassroom({ id: classroom.id })))
+      yield* ok(yield* professor.browser.rpc((api) => api.archiveClassroom({ id: classroom.id })))
       assert.deepStrictEqual(
-        yield* failure(yield* call(professor, (api) => api.inviteToClassroom(input))),
+        yield* failure(yield* professor.browser.rpc((api) => api.inviteToClassroom(input))),
         [
           {
             type: "invalid",
@@ -245,15 +248,19 @@ describe("invitations and requests", () => {
       assert.strictEqual(asGuest[0]!.type, "unauthenticated")
       const unconfirmed = yield* createStudent(app, { stage: "unconfirmed" })
       const asUnconfirmed = yield* failure(
-        yield* call(unconfirmed, (api) => api.requestToJoinClassroom(input)),
+        yield* unconfirmed.browser.rpc((api) => api.requestToJoinClassroom(input)),
       )
       assert.strictEqual(asUnconfirmed[0]!.type, "forbidden")
 
-      const requested = yield* ok(yield* call(student, (api) => api.requestToJoinClassroom(input)))
+      const requested = yield* ok(
+        yield* student.browser.rpc((api) => api.requestToJoinClassroom(input)),
+      )
       assert.strictEqual(requested.status, "pending")
       assert.isNull(requested.joinedAt)
       const pending = yield* ok(
-        yield* call(professor, (api) => api.getPendingMemberships({ classroomId: classroom.id })),
+        yield* professor.browser.rpc((api) =>
+          api.getPendingMemberships({ classroomId: classroom.id }),
+        ),
       )
       assert.deepStrictEqual(
         pending.map((membership) => membership.id),
@@ -261,11 +268,11 @@ describe("invitations and requests", () => {
       )
 
       const removed = yield* ok(
-        yield* call(professor, (api) => api.removeFromClassroom({ id: requested.id })),
+        yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: requested.id })),
       )
       assert.strictEqual(removed.status, "removed")
       assert.deepStrictEqual(
-        yield* failure(yield* call(student, (api) => api.requestToJoinClassroom(input))),
+        yield* failure(yield* student.browser.rpc((api) => api.requestToJoinClassroom(input))),
         [
           {
             type: "invalid",
@@ -275,7 +282,7 @@ describe("invitations and requests", () => {
         ],
       )
       const approve = yield* failure(
-        yield* call(professor, (api) => api.approveMembership({ id: requested.id })),
+        yield* professor.browser.rpc((api) => api.approveMembership({ id: requested.id })),
       )
       assert.strictEqual(approve[0]!.type, "forbidden")
     }),
@@ -285,8 +292,10 @@ describe("invitations and requests", () => {
     Effect.gen(function* () {
       const { app, professor, student, classroom } = yield* setup
       const id = yield* seedMembership(app, classroom.id, student.id, "pending")
-      yield* ok(yield* call(professor, (api) => api.archiveClassroom({ id: classroom.id })))
-      const errors = yield* failure(yield* call(professor, (api) => api.approveMembership({ id })))
+      yield* ok(yield* professor.browser.rpc((api) => api.archiveClassroom({ id: classroom.id })))
+      const errors = yield* failure(
+        yield* professor.browser.rpc((api) => api.approveMembership({ id })),
+      )
       assert.strictEqual(errors[0]!.type, "forbidden")
       assert.strictEqual(yield* membershipStatus(app, id), "pending")
     }),
@@ -300,12 +309,14 @@ describe("teaching assistants", () => {
       const ta = yield* createStudent(app)
       yield* seedMembership(app, classroom.id, ta.id, "active", "ta")
       const member = yield* seedMembership(app, classroom.id, student.id, "active")
-      const promote = yield* failure(yield* call(ta, (api) => api.promoteToTa({ id: member })))
+      const promote = yield* failure(
+        yield* ta.browser.rpc((api) => api.promoteToTa({ id: member })),
+      )
       assert.strictEqual(promote[0]!.type, "forbidden")
 
       const invitee = yield* createStudent(app)
       const inviteTa = yield* failure(
-        yield* call(ta, (api) =>
+        yield* ta.browser.rpc((api) =>
           api.inviteToClassroom({ classroomId: classroom.id, email: invitee.email, role: "ta" }),
         ),
       )
@@ -315,8 +326,8 @@ describe("teaching assistants", () => {
       const other = yield* createClassroom(otherProfessor, { name: "Other" })
       const otherMember = yield* seedMembership(app, other.id, invitee.id, "pending")
       for (const result of [
-        yield* call(ta, (api) => api.approveMembership({ id: otherMember })),
-        yield* call(ta, (api) => api.removeFromClassroom({ id: otherMember })),
+        yield* ta.browser.rpc((api) => api.approveMembership({ id: otherMember })),
+        yield* ta.browser.rpc((api) => api.removeFromClassroom({ id: otherMember })),
       ]) {
         assert.strictEqual((yield* failure(result))[0]!.type, "not_found")
       }
@@ -331,27 +342,27 @@ describe("teaching assistants", () => {
       yield* seedMembership(app, classroom.id, ta.id, "active", "ta")
 
       const invited = yield* ok(
-        yield* call(ta, (api) =>
+        yield* ta.browser.rpc((api) =>
           api.inviteToClassroom({ classroomId: classroom.id, email: student.email }),
         ),
       )
       assert.strictEqual(invited.invitedById, ta.id)
       assert.include((yield* app.mailer.lastTo(student.email)).html, "Test Member has invited you")
       const approved = yield* ok(
-        yield* call(ta, (api) => api.approveMembership({ id: invited.id })),
+        yield* ta.browser.rpc((api) => api.approveMembership({ id: invited.id })),
       )
       assert.strictEqual(approved.status, "active")
 
       const demote = yield* failure(
-        yield* call(ta, (api) => api.demoteToStudent({ id: approved.id })),
+        yield* ta.browser.rpc((api) => api.demoteToStudent({ id: approved.id })),
       )
       assert.strictEqual(demote[0]!.type, "forbidden")
       const promoted = yield* ok(
-        yield* call(professor, (api) => api.promoteToTa({ id: approved.id })),
+        yield* professor.browser.rpc((api) => api.promoteToTa({ id: approved.id })),
       )
       assert.strictEqual(promoted.role, "ta")
       const demoted = yield* ok(
-        yield* call(professor, (api) => api.demoteToStudent({ id: approved.id })),
+        yield* professor.browser.rpc((api) => api.demoteToStudent({ id: approved.id })),
       )
       assert.strictEqual(demoted.role, "student")
     }),
@@ -361,7 +372,7 @@ describe("teaching assistants", () => {
     Effect.gen(function* () {
       const { professor, student, classroom } = yield* setup
       const invited = yield* ok(
-        yield* call(professor, (api) =>
+        yield* professor.browser.rpc((api) =>
           api.inviteToClassroom({ classroomId: classroom.id, email: student.email, role: "ta" }),
         ),
       )
@@ -377,7 +388,7 @@ describe("rosters and leaving", () => {
       const { app, professor, student, classroom } = yield* setup
       const id = yield* seedMembership(app, classroom.id, student.id, "active")
       const roster = yield* ok(
-        yield* call(professor, (api) =>
+        yield* professor.browser.rpc((api) =>
           api.getMembershipsForClassroom({ classroomId: classroom.id }),
         ),
       )
@@ -389,7 +400,7 @@ describe("rosters and leaving", () => {
       const classmate = yield* createStudent(app)
       yield* seedMembership(app, classroom.id, classmate.id, "active")
       const own = yield* ok(
-        yield* call(classmate, (api) =>
+        yield* classmate.browser.rpc((api) =>
           api.getMembershipsForClassroom({ classroomId: classroom.id }),
         ),
       )
@@ -398,7 +409,7 @@ describe("rosters and leaving", () => {
         [classmate.id],
       )
       const outsider = yield* createStudent(app)
-      const visible = yield* ok(yield* call(outsider, (api) => api.getClassroomMemberships()))
+      const visible = yield* ok(yield* outsider.browser.rpc((api) => api.getClassroomMemberships()))
       assert.isFalse(visible.some((membership) => membership.id === id))
     }),
   )
@@ -411,17 +422,19 @@ describe("rosters and leaving", () => {
       const other = yield* seedMembership(app, classroom.id, classmate.id, "active")
 
       const removeOther = yield* failure(
-        yield* call(student, (api) => api.removeFromClassroom({ id: other })),
+        yield* student.browser.rpc((api) => api.removeFromClassroom({ id: other })),
       )
       assert.strictEqual(removeOther[0]!.type, "not_found")
-      const left = yield* ok(yield* call(student, (api) => api.removeFromClassroom({ id: member })))
+      const left = yield* ok(
+        yield* student.browser.rpc((api) => api.removeFromClassroom({ id: member })),
+      )
       assert.strictEqual(left.status, "removed")
 
       const read = yield* failure(
-        yield* call(student, (api) => api.getClassroomById({ id: classroom.id })),
+        yield* student.browser.rpc((api) => api.getClassroomById({ id: classroom.id })),
       )
       assert.strictEqual(read[0]!.type, "not_found")
-      const mine = yield* ok(yield* call(student, (api) => api.getMyClassrooms({})))
+      const mine = yield* ok(yield* student.browser.rpc((api) => api.getMyClassrooms({})))
       assert.strictEqual(mine.count, 0)
       assert.deepStrictEqual(mine.results, [])
     }),
@@ -433,7 +446,9 @@ describe("rosters and leaving", () => {
       for (const status of ["pending", "removed"] as const) {
         const member = yield* createStudent(app)
         const id = yield* seedMembership(app, classroom.id, member.id, status)
-        const errors = yield* failure(yield* call(member, (api) => api.removeFromClassroom({ id })))
+        const errors = yield* failure(
+          yield* member.browser.rpc((api) => api.removeFromClassroom({ id })),
+        )
         assert.strictEqual(errors[0]!.type, "forbidden")
         assert.strictEqual(yield* membershipStatus(app, id), status)
       }
