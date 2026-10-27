@@ -10,7 +10,7 @@ import {
   insertSignature,
   updatePetitionRow,
 } from "./support/petitions.ts"
-import { createUser } from "./support/users.ts"
+import { createOrganization, createUser } from "./support/users.ts"
 
 const expectErrors = (
   result: { success: true; data: unknown } | { success: false; errors: ReadonlyArray<unknown> },
@@ -265,6 +265,167 @@ describe("petitions", () => {
       assert.deepStrictEqual(expectData(yield* guest.rpc((api) => api.getCategories())), [
         { id: library.id, name: "Library", description: null, color: "#123456" },
       ])
+    }),
+  )
+
+  it.live("counts and capabilities depend on the caller, and names show to signed-in users", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app)
+      const owner = yield* createUser(app, {
+        firstName: "Private",
+        lastName: "Owner",
+        organizationId: school.id,
+      })
+      const signer = yield* createUser(app, { organizationId: school.id })
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      yield* insertSignature(app, { petitionId: petition.id, userId: signer.id, reason: "Study" })
+      yield* app.sql`
+        INSERT INTO comment (petition_id, user_id, text) VALUES (${petition.id}, ${owner.id}, 'Thank you')`
+      yield* app.sql`
+        INSERT INTO comment (petition_id, user_id, text, hidden_at)
+        VALUES (${petition.id}, ${signer.id}, 'Removed', now())`
+      yield* app.sql`
+        INSERT INTO update (petition_id, title, body) VALUES (${petition.id}, 'News', 'Progress')`
+
+      for (const [user, canManage, hasSigned] of [
+        [owner, true, false],
+        [signer, false, true],
+      ] as const) {
+        const detail = expectData(
+          yield* user.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+        )
+        assert.include(detail, { signaturesCount: 1, canManage, hasSigned, author: "Private Owner" })
+        assert.ok("comments" in detail)
+        assert.deepStrictEqual(
+          detail.comments.map(({ text, author }) => ({ text, author })),
+          [{ text: "Thank you", author: "Private Owner" }],
+        )
+        assert.deepStrictEqual(
+          detail.signatures.map(({ reason }) => reason),
+          ["Study"],
+        )
+        assert.deepStrictEqual(
+          detail.updates.map(({ title, body }) => ({ title, body })),
+          [{ title: "News", body: "Progress" }],
+        )
+        assert.notInclude(JSON.stringify(detail.signatures), signer.id)
+      }
+
+      const [listed] = expectData(yield* signer.browser.rpc((api) => api.getPetitions({})))
+      assert.include(listed, { id: petition.id, author: "Private Owner", hasSigned: true })
+
+      yield* updatePetitionRow(app, petition.id, { is_anonymous: true })
+      for (const user of [owner, signer]) {
+        const detail = expectData(
+          yield* user.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+        )
+        assert.strictEqual(detail.author, "Anonymous student")
+      }
+    }),
+  )
+
+  it.live("petitions trend with more than 5 signatures and at least half the goal", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id, goal: 12 })
+      const signers = yield* Effect.forEach(Array.from({ length: 6 }), () =>
+        Effect.map(createUser(app, { stage: "unconfirmed" }), (user) => user.id),
+      )
+      const trending = () =>
+        Effect.map(
+          owner.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+          (result) => expectData(result).trending,
+        )
+      for (const userId of signers.slice(0, 5)) {
+        yield* insertSignature(app, { petitionId: petition.id, userId })
+      }
+      assert.strictEqual(yield* trending(), false)
+      yield* insertSignature(app, { petitionId: petition.id, userId: signers[5]! })
+      assert.strictEqual(yield* trending(), true)
+      yield* updatePetitionRow(app, petition.id, { goal: 13 })
+      assert.strictEqual(yield* trending(), false)
+    }),
+  )
+
+  it.live("only the author edits, closes and marks a victory; hidden petitions are gone", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app)
+      const owner = yield* createUser(app, { organizationId: school.id })
+      const other = yield* createUser(app, { organizationId: school.id })
+      const category = yield* insertCategory(app)
+      const petition = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.createPetition({ title: "New petition", description: "Better", categoryId: category.id }),
+        ),
+      )
+      const forbidden = [{ type: "forbidden", message: "You can't manage this petition." }]
+
+      assert.deepStrictEqual(
+        expectErrors(yield* other.browser.rpc((api) => api.closePetition({ id: petition.id }))),
+        forbidden,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* other.browser.rpc((api) => api.updatePetition({ id: petition.id, title: "Mine" })),
+        ),
+        forbidden,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.updatePetition({
+              id: petition.id,
+              deadline: new Date(Date.now() - 1000).toISOString(),
+            }),
+          ),
+        ),
+        [{ type: "invalid", field: "deadline", message: "Choose a deadline in the future." }],
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) => api.updatePetition({ id: petition.id, title: " " })),
+        ),
+        [{ type: "invalid", field: "title", message: "must be present" }],
+      )
+
+      const edited = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, title: "Edited", goal: 50, isAnonymous: true }),
+        ),
+      )
+      assert.include(edited, {
+        title: "Edited",
+        description: "Better",
+        goal: 50,
+        isAnonymous: true,
+        status: "open",
+      })
+      const closed = expectData(
+        yield* owner.browser.rpc((api) => api.closePetition({ id: petition.id })),
+      )
+      assert.strictEqual(closed.status, "closed")
+      const victory = expectData(
+        yield* owner.browser.rpc((api) => api.markPetitionVictory({ id: petition.id })),
+      )
+      assert.strictEqual(victory.status, "victory")
+
+      yield* updatePetitionRow(app, petition.id, { hidden_at: new Date() })
+      const notFound = [{ type: "not_found", message: "Petition not found" }]
+      for (const call of [
+        (api: ApiClient) => api.updatePetition({ id: petition.id, title: "Back" }),
+        (api: ApiClient) => api.closePetition({ id: petition.id }),
+        (api: ApiClient) => api.markPetitionVictory({ id: petition.id }),
+      ]) {
+        assert.deepStrictEqual(expectErrors(yield* owner.browser.rpc(call)), notFound)
+      }
+      assert.deepStrictEqual(expectData(yield* owner.browser.rpc((api) => api.getPetitions({}))), [])
+      assert.deepStrictEqual(
+        expectData(yield* owner.browser.rpc((api) => api.getPublicPetitions())),
+        [],
+      )
     }),
   )
 })
