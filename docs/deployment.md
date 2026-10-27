@@ -18,8 +18,9 @@ Copy `.env.example` into your hosting provider's secret configuration, or to `.e
 | `POOL_SIZE` | Database connections per process. Defaults to 10. |
 | `PUBLIC_HOST` | Public hostname, without `https://` or a port. Email links use `https://PUBLIC_HOST`, and auth and RPC requests are only accepted from that origin. |
 | `PORT` | HTTP port. Defaults to 4000. |
-| `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required by the app (not by `migrate`): independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
-| `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address and monitored reply-to mailbox. Without `RESEND_API_KEY`, every email send fails outside development. |
+| `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required: the app refuses to start without them (`migrate` doesn't need them). Independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
+| `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address (sent as `PetitionU <MAIL_FROM>`) and monitored reply-to mailbox. Required: outside `NODE_ENV=development` the app refuses to start without them. In development without `RESEND_API_KEY`, emails are logged instead of sent. |
+| `CLIENT_IP_HEADER` | The request header holding the client's address, used for the per-client rate limits on sign-in, password reset and magic-link requests. Defaults to `x-forwarded-for`, which counts only when it holds a single address. Behind Cloudflare (including the Compose tunnel), set `cf-connecting-ip`. Only name a header your proxy always sets and overwrites, or clients can choose their own rate-limit bucket. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional OpenTelemetry collector base URL. Export is off when unset. |
 | `JOB_WORKERS` | `false` stops this process from running background jobs (school verification); jobs stay queued in the `job_queue` table. Defaults to `true`. Run one process with workers, or several: the queue locks each job. |
 
@@ -35,7 +36,7 @@ Verify your sender domain in Resend before launch. Production logs are JSON, one
 - `cloudflared`: a Cloudflare Tunnel, started once `app` is healthy. It is the only way in from outside.
 
 1. In the Cloudflare Zero Trust dashboard, create a tunnel and copy its token. Add a public hostname for `PUBLIC_HOST` with service `http://app:4000`.
-2. Copy `.env.example` to `.env`. Set `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `PUBLIC_HOST`, the two secrets and the mail variables. Compose builds `DATABASE_URL` from `POSTGRES_PASSWORD` and sets `DATABASE_SSL=false` and `PORT=4000` itself.
+2. Copy `.env.example` to `.env`. Set `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `PUBLIC_HOST`, the two secrets, the mail variables and `CLIENT_IP_HEADER=cf-connecting-ip`. Compose builds `DATABASE_URL` from `POSTGRES_PASSWORD` and sets `DATABASE_SSL=false` and `PORT=4000` itself.
 3. Back up the database with `scripts/backup.sh` before upgrading a running stack.
 4. Run `docker compose up -d --build`. Compose builds the image, waits for Postgres, migrates, starts the app and then the tunnel.
 5. Check `docker compose ps`: `migrate` should show `Exited (0)` and `app` should be `healthy`. Read logs with `docker compose logs migrate app`.
@@ -65,7 +66,7 @@ Connect the repository and select the branch containing `railway.json` and `Dock
 
 Add a PostgreSQL service in the same project. In the app's Variables tab, set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}`, replacing `Postgres` with the actual database service name. Set `POOL_SIZE=5` for the initial deployment.
 
-Generate a public domain under Networking and set `PUBLIC_HOST` to that hostname. Railway supplies `PORT`. Set the secrets and mail variables from the table above. The migration needs `DATABASE_URL` too, so set variables on the service rather than only for the start command.
+Generate a public domain under Networking and set `PUBLIC_HOST` to that hostname. Railway supplies `PORT`. Railway's proxy sets `X-Forwarded-For`, so leave `CLIENT_IP_HEADER` unset unless Cloudflare proxies the domain (then set `cf-connecting-ip`). Set the secrets and mail variables from the table above. The migration needs `DATABASE_URL` too, so set variables on the service rather than only for the start command.
 
 Deploy and check that the pre-deploy migration succeeds and `/healthz` returns HTTP 200. Railway's free allowance is limited; inspect resource usage after the first deployment.
 
@@ -81,6 +82,22 @@ Keep the previous image available. Roll the app back only when its code supports
 ## Test the build locally
 
 Run `bun install --frozen-lockfile` and `bun run build`. Then set `PGHOST`, `PGUSER` and, when needed, `PGPORT` and `PGPASSWORD` to a disposable PostgreSQL server, put the PostgreSQL client tools on `PATH`, and run `python3 scripts/release-smoke.py`. It creates a temporary database, runs the migrate entry point twice, starts the server and checks HTTP 200, then restarts it against an unreachable database and checks HTTP 503. It stops its own server processes and removes only its temporary database. It uses dummy mail credentials and sends no email.
+
+## Rehearse the cutover from the Elixir app
+
+The first deploy of the Effect server runs against the database the Elixir app left behind. Its migrations keep the existing schema, add the Better Auth tables, and give every existing user a password account with their original bcrypt hash, so users sign in with their old passwords. Existing sessions and tokens don't carry over: everyone signs in once more.
+
+Rehearse against a copy of a recent production backup before the real cutover:
+
+```sh
+bun run build
+CUTOVER_PASSWORD='...' python3 scripts/cutover-rehearsal.py /secure/backups/petitionu-TIMESTAMP.dump \
+  --email someone@campus.edu
+```
+
+Set `PGHOST`, `PGUSER` and, when needed, `PGPORT` and `PGPASSWORD` to a disposable PostgreSQL server, with the PostgreSQL client tools on `PATH`. The script restores the archive into a new database, runs the migrate entry point, checks that the migration kept the row counts, starts the server, and checks `/healthz`, a password sign-in as `--email` with `CUTOVER_PASSWORD`, and `getMe` with the new session. Use an account you control and its real password. The server runs with dummy mail credentials and `JOB_WORKERS=false`, so it sends no email and contacts no school registry. The database is dropped at the end; pass `--keep` to inspect it.
+
+For the real cutover: stop the Elixir app, take a final backup with `scripts/backup.sh`, then deploy the new image. Its migrate step runs before the new app starts. The legacy `tokens`, `users.hashed_password`, `oban_jobs` and Ecto `schema_migrations` objects stay in place; dropping them is a later change.
 
 ## Back up and restore
 
@@ -102,4 +119,4 @@ Configure an external monitor for `/healthz` and alert the responsible operator 
 
 The repository provides the release and recovery commands. Hosting, TLS, mail-domain verification, backup scheduling, external alerting, and a successful deployed email check remain operator setup steps.
 
-Email sends are synchronous. A provider failure can roll back registration or a classroom membership change. If the provider accepts a message but its response is lost, a retry can send a duplicate notice. There is no delivery outbox or automatic retry queue in this MVP. Monitor provider failures and test these workflows with the configured sender before launch.
+Auth emails (confirmation, magic link, password reset) are sent after the response, so a provider failure doesn't fail the request: it is logged as `Auth email not sent`, and the user can ask for the email again. Classroom invite and approval emails are sent inside the membership change's transaction, so a provider failure rolls the change back and the professor or TA sees an error. Mail sends aren't retried and there is no delivery outbox; if the provider accepts a message but its response is lost, a retried classroom action can send a duplicate notice. School verification is the only background job: it runs from the `job_queue` table with retries and backoff, and survives restarts. Monitor provider failures and test these workflows with the configured sender before launch.

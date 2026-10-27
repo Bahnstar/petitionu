@@ -13,6 +13,7 @@
     "build": "bun run --filter '@petitionu/web' build && bun run --filter '@petitionu/server' build",
     "format": "bun run --filter './packages/*' --filter './apps/*' format",
     "test-db": "scripts/test-db.sh",
-    "seed": "bun run --filter '@petitionu/server' seed"
+    "seed": "bun run --filter '@petitionu/server' seed",
+    "migrate": "node apps/server/src/migrate.ts"
   }
 }

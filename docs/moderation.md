@@ -28,9 +28,9 @@ Production requires `SUPPORT_EMAIL` through the existing runtime mail configurat
 
 ## Integration
 
-Post registers `Petitionu.Post.ContentReport` and exposes `get_content_reports`, `create_content_report`, and `resolve_content_report`. Accounts registers `Petitionu.Accounts.SupportRequest` and exposes `get_support_requests`, `get_my_support_requests`, `create_support_request`, `resolve_support_request`, and `support_contact`.
+`ModerationRpcs` (`packages/domain/src/Moderation.ts`, served by `apps/server/src/Moderation.ts`) has `getContentReports`, `createContentReport` and `resolveContentReport`. `SupportRpcs` (`Support.ts`) has `getSupportRequests`, `getMySupportRequests`, `createSupportRequest`, `resolveSupportRequest` and `supportContact`.
 
-The petition and comment `moderator_hide` actions are guarded server actions and are not exposed through RPC. Public target IDs and snapshots belong to the report. Reporter and resolver relationships are private.
+Hiding a petition or comment happens only through `resolveContentReport` with `hideContent`; there is no separate hide procedure. Public target IDs and snapshots belong to the report. Reporter and resolver relationships are private.
 
 React pages default-export from `moderation-page.tsx`, `support-page.tsx`, `privacy-page.tsx`, and `community-rules-page.tsx`. They are mounted at `/ash-typescript/moderation`, `/ash-typescript/support`, `/ash-typescript/privacy`, and `/ash-typescript/community-rules`.
 
@@ -41,4 +41,4 @@ import { ReportContent } from "../moderation/report-content"
 <ReportContent petitionId={petition.id} commentId={comment.id} />
 ```
 
-Run `MIX_TEST_PARTITION=_moderation mix test test/petitionu/post/moderation_test.exs` for the focused authorization and persistence checks.
+Run `npx vitest run test/moderation.test.ts test/policy-matrix.test.ts` in `apps/server` for the focused authorization and persistence checks.

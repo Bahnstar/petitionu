@@ -1,170 +1,78 @@
-# Petitionu - Getting Started Guide
+# Getting started
 
-Petitionu is a React and Phoenix application built with the Ash framework for creating and managing petitions. This guide will help you get up and running quickly.
+This sets up PetitionU for local development: a Postgres database, the Effect server with live reload, and the Vite dev server for the web app.
 
 ## Prerequisites
 
-- Elixir 1.16+
-- PostgreSQL
-- Node.js
+- [Bun](https://bun.sh) 1.4 or later (package manager and script runner).
+- Node.js 24 or later (the server runs on Node and loads TypeScript directly).
+- Docker, for Postgres and for the server tests.
 
-## Quick Start
+## 1. Install dependencies
 
-### 0. Set up PostgreSQL with Docker
-
-Start PostgreSQL using Docker:
-
-```bash
-docker run --name petitionu-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -p 5432:5432 -d postgres
+```sh
+bun install
 ```
 
-This will:
-- Start a PostgreSQL 15 container named `petitionu-postgres`
-- Set username/password to `postgres/postgres` (matching config)
-- Expose port 5432 for local connections
+## 2. Start Postgres
 
-### 1. Install Dependencies
+Any PostgreSQL 16+ server works. With Docker:
 
-```bash
-cd assets && bun install   # installs the React SPA's npm packages
-cd ..
-mix setup
+```sh
+docker run -d --name petitionu-dev-pg -e POSTGRES_PASSWORD=postgres \
+  -p 127.0.0.1:5432:5432 postgres:17
+docker exec petitionu-dev-pg createdb -U postgres petitionu_dev
+export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/petitionu_dev
 ```
 
-This command will:
-- Install Elixir dependencies
-- Set up Ash resources
-- Install and build frontend assets
-- Run database seeds
+The server tests don't use this database. `bun run test-db` starts their own container (`petitionu-effect-pg` on port 55432), and Vitest starts it automatically.
 
-### 2. Start the Database
+## 3. Migrate and seed
 
-Ensure PostgreSQL is running and create the database:
-
-```bash
-mix ecto.create
-mix ecto.migrate
+```sh
+bun run migrate
+bun run seed
 ```
 
-*Optional*: Seed the database with sample data:
+`bun run seed` creates these accounts, all with the password `petitionu-dev-password`:
 
-```bash
-mix run priv/repo/seeds.exs
+| Email | Role |
+| --- | --- |
+| `student@example.edu` | Student |
+| `classmate@example.edu` | Student |
+| `professor@example.edu` | Professor (teaches the seeded classroom) |
+| `admin@example.edu` | Campus admin |
+
+It also adds petitions, signatures, comments, a classroom, content reports and a support request. It refuses to run when `NODE_ENV=production` and does nothing if the accounts already exist.
+
+## 4. Run the app
+
+```sh
+export BETTER_AUTH_SECRET=$(openssl rand -base64 48)
+export CSRF_SECRET=$(openssl rand -base64 48)
+export PUBLIC_HOST=localhost:5173
+bun run dev
 ```
 
-### 3. Start the Phoenix Server
+This starts the server on port 4100 (`NODE_ENV=development`, restarted on change) and Vite on [localhost:5173](http://localhost:5173), which proxies `/rpc`, `/api/auth` and `/healthz` to the server. Open the app on port 5173. Set `PORT` to move the server, and `PETITIONU_SERVER_URL` so Vite follows it.
 
-```bash
-mix phx.server
+In development without `RESEND_API_KEY`, emails are written to the server log instead of being sent. Email links start with `https://PUBLIC_HOST`; open the same path on `http://localhost:5173` to follow one.
+
+| Route | Purpose |
+| --- | --- |
+| `/ash-typescript` | Application home |
+| `/ash-typescript/petitions` | Browse petitions |
+| `/ash-typescript/dashboard` | Personal dashboard |
+| `/ash-typescript/classrooms` | Classrooms |
+| `/sign-in`, `/register`, `/reset` | Auth pages |
+| `/healthz` | Health check |
+
+To try the production build locally, run `bun run build`, then `node apps/server/dist/serve.js` with the same variables and `NODE_ENV=development`; it serves `apps/web/dist` itself.
+
+## 5. Check your changes
+
+```sh
+bun run precommit
 ```
 
-Visit [`localhost:4000`](http://localhost:4000) in your browser.
-
-## Project Structure
-
-### Core Components
-
-- **`assets/`** - Frontend assets (JS, CSS, images)
-  - Includes React SPA
-- **`lib/petitionu/`** - Ash resources and business logic
-  - `accounts/` - User authentication and management
-  - `post/` - Petition posts and content
-- **`lib/petitionu_web/`** - Phoenix web layer
-  - `controllers/` - HTTP controllers
-  - `live/` - LiveView components
-  - `components/` - Reusable UI components
-
-### Key Technologies
-
-- **Ash Framework** - Declarative domain modeling
-- **Ash TypeScript** - TypeScript support for Ash resources
-- **Phoenix LiveView** - Real-time web UI
-- **Ash Authentication** - User auth with multiple strategies
-- **Ash JSON:API** - REST API endpoints
-- **Tailwind CSS** - Styling framework
-
-## Frontend Development
-
-The app includes TypeScript support via `ash_typescript`. Client code is in `assets/js/`.
-
-**Main Libraries**:
-- React
-- React Router
-- Tanstack Query
-- Tailwind v4
-
-
-## Authentication
-
-The app includes comprehensive authentication with Ash Authentication:
-
-### UI Endpoints (LiveView pages):
-- **Sign in**: `/sign-in`
-- **Registration**: `/register`
-- **Sign out**: `/sign-out`
-- **Password reset**: `/reset`
-
-### Token-based Endpoints (from emails):
-- **Email confirmation**: `/confirm_new_user/:token` (GET)
-- **Password reset with token**: `/password-reset/:token` (GET)
-- **Magic link sign in**: `/magic_link/:token` (GET)
-
-### API Endpoints (internal/auth framework):
-- **Magic link request**: `/auth/user/magic_link/request` (POST)
-- **Password reset request**: `/auth/user/password/reset_request` (POST)
-
-## Admin Interface
-
-Development admin dashboard available at:
-- **Admin UI**: `/admin` (Ash Admin)
-- **Live Dashboard**: `/dev/dashboard` (Phoenix LiveDashboard)
-- **Mailbox Preview**: `/dev/mailbox` (Swoosh)
-
-## API Endpoints
-
-- **TypeScript RPC**: `/rpc/run`, `/rpc/validate`
-- **JSON:API**: `/api/json/*`
-- **OpenAPI/Swagger**: `/api/json/open_api`
-
-## Ash Resources
-
-The application uses Ash for domain modeling. Key resources include:
-
-- **User** - Authentication and user management
-- **Post** - Petition content
-- **Comment** - Discussion on petitions
-- **Signature** - Petition signatures
-
-## Ash Admin
-
-Access the admin interface at `/admin` to:
-- View and manage resources
-- Inspect data relationships
-- Test actions and queries
-
-
-## Database Configuration
-
-Edit `config/dev.exs` to adjust database settings:
-
-```elixir
-config :petitionu, Petitionu.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "petitionu_dev"
-```
-
-## Documentation
-
-- **Phoenix**: https://hexdocs.pm/phoenix
-- **Ash Framework**: https://hexdocs.pm/ash
-- **Ash TypeScript**: https://hexdocs.pm/ash_typescript
-- **Ash Authentication**: https://hexdocs.pm/ash_authentication
-- **Project Usage Rules**: See `AGENTS.md` for detailed coding guidelines
-
-## Support
-
-- **Phoenix Forum**: https://elixirforum.com/c/phoenix-forum
-- **Ash Documentation**: https://hexdocs.pm/ash
-- **Issues**: Check project repository for issue tracking
+This formats the workspace, then runs lint, typecheck and all tests, then builds. See [AGENTS.md](AGENTS.md) for conventions and [docs/deployment.md](docs/deployment.md) for production.
