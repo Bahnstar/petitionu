@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Deferred, Effect, Fiber } from "effect"
 import type { Browser } from "./support/browser.ts"
 import { makeBrowser } from "./support/browser.ts"
 import {
@@ -207,6 +207,43 @@ describe("invitations and requests", () => {
       assert.deepStrictEqual(errors, [
         { type: "invalid", field: "email", message: "User not found" },
       ])
+    }),
+  )
+
+  it.live("an invitation checks the inviter's role after waiting for a concurrent change", () =>
+    Effect.gen(function* () {
+      const { app, classroom } = yield* setup
+      const ta = yield* createStudent(app)
+      const taMembership = yield* seedMembership(app, classroom.id, ta.id, "active", "ta")
+      const invitee = yield* createStudent(app)
+      const locked = yield* Deferred.make<void>()
+      const demote = yield* Deferred.make<void>()
+
+      // Another transaction holds the classroom row and demotes the TA before committing.
+      const change = yield* app.sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* app.sql`SELECT id FROM classrooms WHERE id = ${classroom.id} FOR UPDATE`
+            yield* Deferred.succeed(locked, undefined)
+            yield* Deferred.await(demote)
+            yield* app.sql`
+              UPDATE classroom_memberships SET role = 'student' WHERE id = ${taMembership}`
+          }),
+        )
+        .pipe(Effect.orDie, Effect.forkChild)
+      yield* Deferred.await(locked)
+      const invite = yield* ta.browser
+        .rpc((api) => api.inviteToClassroom({ classroomId: classroom.id, email: invitee.email }))
+        .pipe(Effect.forkChild)
+      yield* Effect.sleep("300 millis")
+      yield* Deferred.succeed(demote, undefined)
+      yield* Fiber.join(change)
+
+      const errors = yield* failure(yield* Fiber.join(invite))
+      assert.strictEqual(errors[0]!.type, "forbidden")
+      assert.isUndefined(
+        (yield* app.mailer.messages).find((email) => email.subject.includes("invited")),
+      )
     }),
   )
 

@@ -491,18 +491,25 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           yield* requireConfirmed(user)
-          const [staff] = isUuid(classroomId)
-            ? yield* sql<{ isProfessor: boolean; isTa: boolean }>`
-                SELECT c.professor_id = ${user.id} AS is_professor,
-                  ${activeTa(sql, user.id, sql`c.id`)} AS is_ta
-                FROM classrooms c WHERE c.id = ${classroomId}
-              `.pipe(Effect.orDie)
-            : []
-          if (staff === undefined || !canInvite(staff, role)) return yield* forbidden
-          const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
-          if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
           return yield* transaction(
             Effect.gen(function* () {
+              // Lock the classroom first, then check the inviter's role in a later statement:
+              // one that waited for the lock would see the role as of before the wait.
+              const [staff] = isUuid(classroomId)
+                ? yield* sql`SELECT id FROM classrooms WHERE id = ${classroomId} FOR UPDATE`.pipe(
+                    Effect.andThen(
+                      sql<{ isProfessor: boolean; isTa: boolean }>`
+                        SELECT c.professor_id = ${user.id} AS is_professor,
+                          ${activeTa(sql, user.id, sql`c.id`)} AS is_ta
+                        FROM classrooms c WHERE c.id = ${classroomId}
+                      `,
+                    ),
+                    Effect.orDie,
+                  )
+                : []
+              if (staff === undefined || !canInvite(staff, role)) return yield* forbidden
+              const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
+              if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
               const membership = yield* insertMembership({
                 classroomId,
                 userId: invitee.value.id,
