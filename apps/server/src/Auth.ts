@@ -261,13 +261,20 @@ export class Auth extends Context.Service<
         },
         hooks: {
           before: createAuthMiddleware(async (ctx) => {
-            if (ctx.path === "/sign-up/email") {
-              const body = ctx.body as { password?: unknown; passwordConfirmation?: unknown }
-              if (body.password !== body.passwordConfirmation) {
-                throw new APIError("BAD_REQUEST", {
-                  message: "Password confirmation does not match",
-                })
-              }
+            // Sign-up and reset must send a matching confirmation; a password change checks
+            // one when the client sends it.
+            const body = (ctx.body ?? {}) as Record<string, unknown>
+            const confirmation =
+              ctx.path === "/sign-up/email"
+                ? { password: body.password, confirmation: body.passwordConfirmation }
+                : ctx.path === "/reset-password" ||
+                    (ctx.path === "/change-password" && "newPasswordConfirmation" in body)
+                  ? { password: body.newPassword, confirmation: body.newPasswordConfirmation }
+                  : undefined
+            if (confirmation && confirmation.password !== confirmation.confirmation) {
+              throw new APIError("BAD_REQUEST", {
+                message: "Password confirmation does not match",
+              })
             }
             // Changing a password always signs out every other session.
             if (ctx.path === "/change-password") {

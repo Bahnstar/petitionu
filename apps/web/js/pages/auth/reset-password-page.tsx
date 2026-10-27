@@ -92,7 +92,11 @@ function SetPasswordForm({ token }: { token: string }) {
     mutationFn: async () => {
       if (password !== passwordConfirmation)
         throw new AuthFailure("Password confirmation does not match")
-      const { error } = await authClient.resetPassword({ newPassword: password, token })
+      const { error } = await authClient.resetPassword({
+        newPassword: password,
+        token,
+        fetchOptions: { body: { newPasswordConfirmation: passwordConfirmation } },
+      })
       if (error?.code === "PASSWORD_TOO_SHORT" || error?.code === "PASSWORD_TOO_LONG")
         throw new AuthFailure("Choose a password between 8 and 128 characters.")
       throwLinkError(error, invalidLink)

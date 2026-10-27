@@ -46,7 +46,11 @@ describe("password reset", () => {
       assert.strictEqual(link.pathname, "/reset")
       assert.strictEqual((yield* browser.request(`${link.pathname}${link.search}`)).status, 200)
 
-      const reset = yield* browser.auth("/reset-password", { token, newPassword })
+      const reset = yield* browser.auth("/reset-password", {
+        token,
+        newPassword,
+        newPasswordConfirmation: newPassword,
+      })
       assert.strictEqual(reset.status, 200)
       yield* browser.reloadCsrf
       const me = yield* browser.rpc((api) => api.getMe())
@@ -67,8 +71,36 @@ describe("password reset", () => {
       const reused = yield* (yield* makeBrowser(app)).auth("/reset-password", {
         token,
         newPassword: "yet another passphrase",
+        newPasswordConfirmation: "yet another passphrase",
       })
       assert.strictEqual(reused.status, 400)
+    }),
+  )
+
+  it.live("rejects a confirmation that doesn't match and keeps the link usable", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { stage: "confirmed" })
+      const { browser, token } = yield* requestReset(app, user.email)
+      for (const newPasswordConfirmation of ["something else", undefined]) {
+        const mismatch = yield* browser.auth("/reset-password", {
+          token,
+          newPassword,
+          newPasswordConfirmation,
+        })
+        assert.strictEqual(mismatch.status, 400)
+        assert.strictEqual(mismatch.body.message, "Password confirmation does not match")
+      }
+      assert.isFalse(yield* signedIn(browser))
+      yield* signIn(app, user.email, defaultPassword)
+
+      const reset = yield* browser.auth("/reset-password", {
+        token,
+        newPassword,
+        newPasswordConfirmation: newPassword,
+      })
+      assert.strictEqual(reset.status, 200)
+      yield* signIn(app, user.email, newPassword)
     }),
   )
 
@@ -80,7 +112,11 @@ describe("password reset", () => {
       yield* app.sql`UPDATE verification SET expires_at = now() - interval '1 second'`.pipe(
         Effect.orDie,
       )
-      const reset = yield* browser.auth("/reset-password", { token, newPassword })
+      const reset = yield* browser.auth("/reset-password", {
+        token,
+        newPassword,
+        newPasswordConfirmation: newPassword,
+      })
       assert.strictEqual(reset.status, 400)
       assert.isFalse(yield* signedIn(browser))
       yield* signIn(app, user.email, defaultPassword)
@@ -126,6 +162,28 @@ describe("change password", () => {
       assert.strictEqual(changed.status, 200)
       assert.isTrue(yield* signedIn(user.browser))
       assert.isFalse(yield* signedIn(otherDevice))
+      yield* signIn(app, user.email, newPassword)
+    }),
+  )
+  it.live("rejects a new-password confirmation that doesn't match, when one is sent", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { stage: "confirmed" })
+      const mismatch = yield* user.browser.auth("/change-password", {
+        currentPassword: defaultPassword,
+        newPassword,
+        newPasswordConfirmation: "something else",
+      })
+      assert.strictEqual(mismatch.status, 400)
+      assert.strictEqual(mismatch.body.message, "Password confirmation does not match")
+      yield* signIn(app, user.email, defaultPassword)
+
+      const changed = yield* user.browser.auth("/change-password", {
+        currentPassword: defaultPassword,
+        newPassword,
+        newPasswordConfirmation: newPassword,
+      })
+      assert.strictEqual(changed.status, 200)
       yield* signIn(app, user.email, newPassword)
     }),
   )

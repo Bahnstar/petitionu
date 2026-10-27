@@ -66,7 +66,11 @@ export const resetPassword = (app: TestApp, email: string, newPassword = "new-pa
       ),
     )
     const browser = yield* makeBrowser(app)
-    const response = yield* browser.auth("/reset-password", { token, newPassword })
+    const response = yield* browser.auth("/reset-password", {
+      token,
+      newPassword,
+      newPasswordConfirmation: newPassword,
+    })
     if (response.status !== 200) {
       return yield* Effect.die(new Error(`reset failed: ${JSON.stringify(response)}`))
     }
