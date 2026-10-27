@@ -1,9 +1,10 @@
 import { RpcGroup } from "effect/rpc"
 import { AccountsRpcs } from "./Accounts.ts"
+import { PetitionRpcs } from "./Petitions.ts"
 
 /**
  * Composition point for the RPC API: every procedure the browser can call over `POST /rpc`.
  * Each feature area defines its own group in its own module and merges it here with one line,
  * e.g. `.merge(PetitionRpcs)`.
  */
-export class AppRpcs extends RpcGroup.make().merge(AccountsRpcs) {}
+export class AppRpcs extends RpcGroup.make().merge(AccountsRpcs, PetitionRpcs) {}
