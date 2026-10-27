@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Verify a built release against a disposable PostgreSQL database."""
+"""Verify the built Node server against a disposable PostgreSQL database.
+
+Build first with `bun run build`. Set PGHOST, PGUSER and, when needed, PGPORT and
+PGPASSWORD to a disposable PostgreSQL server; the PostgreSQL client tools must be on PATH.
+"""
 import json
 import os
 from pathlib import Path
@@ -11,10 +15,13 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
-release = Path(sys.argv[1] if len(sys.argv) > 1 else "_build/prod/rel/petitionu").resolve()
-executable = release / "bin/petitionu"
+server = Path(sys.argv[1] if len(sys.argv) > 1 else "apps/server/dist").resolve()
+for entry in ("serve.js", "migrate.js"):
+    if not (server / entry).is_file():
+        raise SystemExit(f"{server / entry} is missing; run `bun run build` first")
 database = f"petitionu_release_{secrets.token_hex(6)}"
 environment = os.environ.copy()
 for key in ("PGHOST", "PGUSER"):
@@ -23,30 +30,33 @@ for key in ("PGHOST", "PGUSER"):
 with socket.socket() as listener:
     listener.bind(("127.0.0.1", 0))
     port = listener.getsockname()[1]
+credentials = urllib.parse.quote(environment["PGUSER"], safe="")
+if environment.get("PGPASSWORD"):
+    credentials += ":" + urllib.parse.quote(environment["PGPASSWORD"], safe="")
+address = f"{environment['PGHOST']}:{environment.get('PGPORT', '5432')}"
 environment.update(
-    DATABASE_URL=f"postgresql:///{database}",
+    NODE_ENV="production",
+    DATABASE_URL=f"postgresql://{credentials}@{address}/{database}",
     DATABASE_SSL="false",
-    SECRET_KEY_BASE=secrets.token_urlsafe(64),
-    TOKEN_SIGNING_SECRET=secrets.token_urlsafe(64),
-    PHX_HOST="localhost",
-    PHX_SERVER="true",
+    PUBLIC_HOST="localhost",
     PORT=str(port),
+    BETTER_AUTH_SECRET=secrets.token_urlsafe(48),
+    CSRF_SECRET=secrets.token_urlsafe(48),
     RESEND_API_KEY="release-smoke-no-delivery",
     MAIL_FROM="smoke@example.test",
     SUPPORT_EMAIL="support@example.test",
-    RELEASE_DISTRIBUTION="none",
 )
 
 def check_health(expected, log):
     process = subprocess.Popen(
-        [str(executable), "start"], env=environment, stdout=log, stderr=log,
+        ["node", str(server / "serve.js")], env=environment, stdout=log, stderr=log,
         start_new_session=True,
     )
     try:
         deadline = time.monotonic() + 45
         while time.monotonic() < deadline:
             if process.poll() is not None:
-                raise RuntimeError(f"Release exited with {process.returncode}")
+                raise RuntimeError(f"Server exited with {process.returncode}")
             try:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=4) as response:
                     status, body = response.status, response.read()
@@ -61,9 +71,9 @@ def check_health(expected, log):
                 continue
             assert status == expected, (status, body)
             assert json.loads(body) == {"status": "ok" if expected == 200 else "unavailable"}, body
-            print(f"Release /healthz returned {expected}", flush=True)
+            print(f"Server /healthz returned {expected}", flush=True)
             return
-        raise RuntimeError("Release did not serve health checks within 45 seconds")
+        raise RuntimeError("Server did not serve health checks within 45 seconds")
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGTERM)
@@ -76,17 +86,17 @@ def check_health(expected, log):
 subprocess.run(["createdb", database], env=environment, check=True)
 try:
     with tempfile.TemporaryDirectory(prefix="petitionu-release-smoke-") as temporary:
-        log_path = Path(temporary) / "release.log"
+        log_path = Path(temporary) / "server.log"
         with log_path.open("w+") as log:
             try:
                 for _ in range(2):
                     subprocess.run(
-                        [str(executable), "eval", "Petitionu.Release.migrate()"],
+                        ["node", str(server / "migrate.js")],
                         env=environment, stdout=log, stderr=log, check=True,
                     )
-                print("Release migrations succeeded twice", flush=True)
+                print("Migrations succeeded twice", flush=True)
                 check_health(200, log)
-                environment["DATABASE_URL"] = f"postgresql://localhost:1/{database}"
+                environment["DATABASE_URL"] = f"postgresql://{credentials}@127.0.0.1:1/{database}"
                 check_health(503, log)
             except Exception:
                 log.flush()
