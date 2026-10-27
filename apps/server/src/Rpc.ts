@@ -3,6 +3,7 @@ import { Layer } from "effect"
 import { type Rpc, RpcGroup, RpcSerialization, RpcServer } from "effect/rpc"
 import { AccountsHandlers } from "./Accounts.ts"
 import { ClassroomHandlers } from "./Classrooms.ts"
+import { ModerationHandlers } from "./Moderation.ts"
 import { SupportHandlers } from "./Support.ts"
 import { UsersHandlers } from "./Users.ts"
 import { ActorMiddlewareLive, RequireUserLive, RpcRequestGuard } from "./Actor.ts"
@@ -20,6 +21,7 @@ export const RpcHandlers = Layer.mergeAll(
   PetitionsHandlers,
   ParticipationHandlers,
   ClassroomHandlers,
+  ModerationHandlers,
 )
 
 /**
