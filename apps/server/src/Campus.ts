@@ -12,6 +12,13 @@ import { findMeQuery } from "./Accounts.ts"
 import { UserConfirmed } from "./Confirmation.ts"
 import { SchoolVerificationQueue } from "./SchoolVerification.ts"
 
+/*
+ * Campus has no policy module because it makes no authorization decisions: `updateMyProfile`
+ * only writes the signed-in caller's own row (its `RequireUser` middleware is the whole rule),
+ * and `getOrganizations` lists every campus to anyone, as the sign-up and profile forms need.
+ * Add a `CampusPolicy.ts` when a procedure reads or changes someone else's data.
+ */
+
 const OrganizationMatch = Schema.Struct({
   id: Schema.String,
   verificationStatus: Schema.String,
