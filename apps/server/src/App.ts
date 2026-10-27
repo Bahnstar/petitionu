@@ -2,7 +2,9 @@ import { Layer } from "effect"
 import { AppConfig } from "./Config.ts"
 import { DatabaseLive } from "./Database.ts"
 import { HealthRoutes } from "./Health.ts"
+import { MailerLive } from "./Mailer.ts"
 import { RpcRoutes } from "./Rpc.ts"
+import { SchoolRegistry } from "./SchoolRegistry.ts"
 import { ShellRoutes, StaticRoutes } from "./Web.ts"
 
 /**
@@ -26,7 +28,7 @@ export const AppServices = Layer.mergeAll(DatabaseLive)
  * Services that reach outside the process and that tests replace with fakes
  * (Mailer, SchoolRegistry).
  */
-export const ExternalServicesLive = Layer.empty
+export const ExternalServicesLive = Layer.mergeAll(MailerLive, SchoolRegistry.layer)
 
 /**
  * The whole application as a router layer. `serve` runs it on Node; tests turn it into an
