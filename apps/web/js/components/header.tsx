@@ -1,14 +1,15 @@
 import { AuthLink } from "./auth-link"
 import { useEffect, useRef, useState } from "react"
 import { LogOut, Menu, X } from "lucide-react"
-import { Link, NavLink, useLocation } from "react-router-dom"
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 import { Button } from "@/components/ui/button"
 
 export function Header({ landing = false }: { landing?: boolean }) {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isLoading, signOut } = useAuth()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const [menuPath, setMenuPath] = useState<string | null>(null)
   const mobileOpen = menuPath === pathname
   if (menuPath !== null && menuPath !== pathname) setMenuPath(null)
@@ -62,6 +63,12 @@ export function Header({ landing = false }: { landing?: boolean }) {
     ),
   )
 
+  const handleSignOut = async () => {
+    setMenuPath(null)
+    await signOut()
+    navigate(ROUTES.home)
+  }
+
   function renderAccountLinks() {
     if (isAuthenticated && user) {
       return (
@@ -73,10 +80,10 @@ export function Header({ landing = false }: { landing?: boolean }) {
           >
             My dashboard
           </Link>
-          <a href="/sign-out" className="site-sign-out">
+          <button type="button" className="site-sign-out cursor-pointer" onClick={handleSignOut}>
             <LogOut aria-hidden="true" />
             Sign out
-          </a>
+          </button>
         </>
       )
     }
@@ -151,9 +158,13 @@ export function Header({ landing = false }: { landing?: boolean }) {
                     Your profile
                   </Link>
                 )}
-                <a href="/sign-out" className="site-nav-link">
+                <button
+                  type="button"
+                  className="site-nav-link cursor-pointer"
+                  onClick={handleSignOut}
+                >
                   Sign out
-                </a>
+                </button>
               </>
             ) : (
               <>
