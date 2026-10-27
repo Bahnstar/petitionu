@@ -3,13 +3,20 @@ import { Layer } from "effect"
 import { type Rpc, RpcGroup, RpcSerialization, RpcServer } from "effect/rpc"
 import { AccountsHandlers } from "./Accounts.ts"
 import { ClassroomHandlers } from "./Classrooms.ts"
+import { SupportHandlers } from "./Support.ts"
+import { UsersHandlers } from "./Users.ts"
 import { ActorMiddlewareLive, RequireUserLive, RpcRequestGuard } from "./Actor.ts"
 
 /**
  * Composition point for RPC handlers. Each feature area adds one line for the handler layer
  * of the group it merged into `AppRpcs`.
  */
-export const RpcHandlers = Layer.mergeAll(AccountsHandlers, ClassroomHandlers)
+export const RpcHandlers = Layer.mergeAll(
+  AccountsHandlers,
+  UsersHandlers,
+  SupportHandlers,
+  ClassroomHandlers,
+)
 
 /**
  * Serves `group` at `POST path` with the app's guard (CSRF, current actor) and RPC middleware.
