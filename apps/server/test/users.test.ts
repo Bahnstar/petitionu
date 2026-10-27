@@ -164,3 +164,83 @@ describe("getUsers", () => {
     }),
   )
 })
+
+describe("setUserRole", () => {
+  it.live("campus admins change roles only for non-superadmins on their own campus", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const campus = yield* createOrganization(app)
+      const elsewhere = yield* createOrganization(app, { domain: "elsewhere.edu" })
+      const admin = yield* createUser(app, { organizationId: campus.id, role: "admin" })
+      const target = yield* createUser(app, { organizationId: campus.id })
+      const campusSuperadmin = yield* createUser(app, {
+        organizationId: campus.id,
+        role: "superadmin",
+      })
+      const otherCampus = yield* createUser(app, { organizationId: elsewhere.id })
+      const unassigned = yield* createUser(app, { stage: "confirmed" })
+
+      const promoted = yield* admin.browser.rpc((api) =>
+        api.setUserRole({ id: target.id, role: "professor" }),
+      )
+      if (!promoted.success) return assert.fail(JSON.stringify(promoted))
+      assert.deepInclude(promoted.data, { id: target.id, role: "professor" })
+      const reread = yield* target.browser.rpc((api) => api.getUserById({ id: target.id }))
+      assert.deepInclude(reread, { success: true })
+      if (reread.success) assert.deepInclude(reread.data, { role: "professor" })
+
+      const forbidden = yield* admin.browser.rpc((api) =>
+        api.setUserRole({ id: campusSuperadmin.id, role: "student" }),
+      )
+      assert.deepInclude(forbidden, { success: false })
+      if (!forbidden.success) assert.strictEqual(forbidden.errors[0]!.type, "forbidden")
+      for (const hidden of [otherCampus, unassigned]) {
+        const result = yield* admin.browser.rpc((api) =>
+          api.setUserRole({ id: hidden.id, role: "student" }),
+        )
+        assert.deepInclude(result, { success: false })
+        if (!result.success) assert.strictEqual(result.errors[0]!.type, "not_found")
+      }
+
+      const grantSuperadmin = yield* admin.browser.rpc((api) =>
+        api.setUserRole({ id: target.id, role: "superadmin" }),
+      )
+      assert.deepStrictEqual(grantSuperadmin, {
+        success: false,
+        errors: [{ type: "invalid", message: "only a superadmin can assign the superadmin role" }],
+      })
+    }),
+  )
+
+  it.live("superadmins change anyone; students and guests change nobody", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const campus = yield* createOrganization(app)
+      const superadmin = yield* createUser(app, { stage: "confirmed", role: "superadmin" })
+      const student = yield* createUser(app, { organizationId: campus.id })
+      const target = yield* createUser(app, { organizationId: campus.id })
+      const guest = yield* makeBrowser(app)
+
+      const byStudent = yield* student.browser.rpc((api) =>
+        api.setUserRole({ id: target.id, role: "admin" }),
+      )
+      assert.deepInclude(byStudent, { success: false })
+      const selfPromotion = yield* student.browser.rpc((api) =>
+        api.setUserRole({ id: student.id, role: "admin" }),
+      )
+      assert.deepInclude(selfPromotion, { success: false })
+      if (!selfPromotion.success) assert.strictEqual(selfPromotion.errors[0]!.type, "forbidden")
+      const byGuest = yield* guest.rpc((api) => api.setUserRole({ id: target.id, role: "admin" }))
+      assert.deepInclude(byGuest, { success: false })
+      if (!byGuest.success) assert.strictEqual(byGuest.errors[0]!.type, "unauthenticated")
+
+      for (const role of ["admin", "superadmin"] as const) {
+        const result = yield* superadmin.browser.rpc((api) =>
+          api.setUserRole({ id: target.id, role }),
+        )
+        if (!result.success) return assert.fail(JSON.stringify(result))
+        assert.strictEqual(result.data.role, role)
+      }
+    }),
+  )
+})

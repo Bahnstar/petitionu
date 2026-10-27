@@ -3,6 +3,7 @@ import {
   ActivitySignature,
   type Actor,
   CurrentActor,
+  CurrentUser,
   NotFound,
   type SignedIn,
   UserDetails,
@@ -11,7 +12,14 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
-import { canSeeActivity, canSeeDetails, visiblePetitions, visibleUsers } from "./UsersPolicy.ts"
+import {
+  authorizeSetRole,
+  canSeeActivity,
+  canSeeDetails,
+  validateRequestedRole,
+  visiblePetitions,
+  visibleUsers,
+} from "./UsersPolicy.ts"
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -106,13 +114,14 @@ export const UsersHandlers = UsersRpcs.toLayer(
       }
     })
 
-    const findUser = (actor: Actor, id: string) =>
+    const findUser = (actor: Actor, id: string, options: { readonly lock?: boolean } = {}) =>
       SqlSchema.findOneOption({
         Request: Schema.String,
         Result: UserDetails,
         execute: (userId) => sql`
           SELECT ${userColumns(sql)} FROM users u
           WHERE u.id = ${userId} AND ${visibleUsers(sql, actor, "u")}
+          ${options.lock ? sql`FOR UPDATE OF u` : sql``}
         `,
       })(id)
 
@@ -152,7 +161,18 @@ export const UsersHandlers = UsersRpcs.toLayer(
           const users = yield* listUsers(actor).pipe(Effect.orDie)
           return users.map((user) => present(actor, user))
         }),
-      setUserRole: () => Effect.die("todo"),
+      setUserRole: ({ id, role }) =>
+        Effect.gen(function* () {
+          const actor = yield* CurrentUser
+          if (!uuidPattern.test(id)) return yield* userNotFound
+          const target = yield* findUser(actor, id, { lock: true }).pipe(Effect.orDie)
+          if (Option.isNone(target)) return yield* userNotFound
+          yield* validateRequestedRole(actor, role)
+          yield* authorizeSetRole(actor, target.value)
+          yield* sql`UPDATE users SET role = ${role}, updated_at = now() AT TIME ZONE 'utc'
+            WHERE id = ${id}`.pipe(Effect.orDie)
+          return { ...target.value, role }
+        }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die)),
       getPreferences: () => Effect.die("todo"),
       getNotifications: () => Effect.die("todo"),
     })
