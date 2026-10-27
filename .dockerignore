@@ -7,15 +7,5 @@ apps/*/dist
 !.env.example
 .agents
 docs
+scripts
 tmp
-cover
-# Elixir application, not part of the image.
-_build
-deps
-lib
-priv
-config
-test
-assets
-mix.exs
-mix.lock
