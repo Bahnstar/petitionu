@@ -36,6 +36,11 @@ jobs:
         with:
           bun-version: '1.4.2'
       - run: bun install --frozen-lockfile
+      # Report-only for now: the lockfile has critical advisories in a dev-only formatter
+      # dependency (oxfmt > tinypool). Make this step blocking once they're fixed.
+      - name: Audit dependencies (report only)
+        run: |
+          bun audit || echo "::warning title=bun audit::Dependency advisories found; see this step's log."
       - run: bun run check
       - run: bun run build
       - name: Install PostgreSQL 17 client tools

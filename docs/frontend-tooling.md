@@ -15,7 +15,7 @@ From `apps/web/`, run:
 | `bun run check` | Run all web checks, including the web tests and `size` |
 | `bun run build` | Build the app into `apps/web/dist` with Vite |
 
-The root `bun run check` runs every package's `check` (so the bundle-size budget runs in CI and precommit), and `bun run precommit` adds formatting and the build. CI runs both `bun run check` and `bun run build`.
+The root `bun run check` runs every package's `check` (so the bundle-size budget runs in CI and precommit), and `bun run precommit` adds formatting and the build. CI runs both `bun run check` and `bun run build`, and reports `bun audit` advisories without failing on them yet.
 
 ## Bundle size
 
