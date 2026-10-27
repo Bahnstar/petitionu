@@ -68,6 +68,8 @@ export const testEnv = {
   PUBLIC_HOST: "petitionu.test",
   BETTER_AUTH_SECRET: "test-better-auth-secret-0123456789abcdef",
   CSRF_SECRET: "test-csrf-secret-0123456789abcdef0123456789",
+  // Tests drain the school verification queue themselves (see `jobs.ts`).
+  JOB_WORKERS: "false",
 }
 
 export interface TestApp {
