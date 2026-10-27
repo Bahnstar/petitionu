@@ -24,7 +24,8 @@ interface MemberOptions {
  * A signed-in user on a campus of their own (a new verified organization for a unique
  * domain) unless `organizationId` is given. Complete profile unless `stage` says otherwise.
  */
-const createMember = (app: TestApp, role: "student" | "professor" | "admin", names: object) =>
+const createMember =
+  (app: TestApp, role: "student" | "professor" | "admin", names: object) =>
   (options: MemberOptions = {}) =>
     createUser(app, {
       role,

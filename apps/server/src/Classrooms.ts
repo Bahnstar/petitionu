@@ -542,7 +542,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       approveMembership: ({ id }) =>
         updateMembership(
           id,
-          (user, target) => isStaff(user, target) && target.status === "pending" && !target.archived,
+          (user, target) =>
+            isStaff(user, target) && target.status === "pending" && !target.archived,
           sql`status = 'active', joined_at = (now() AT TIME ZONE 'utc')`,
           (target) => sendApproval(target.id),
         ),
