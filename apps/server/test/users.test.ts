@@ -244,3 +244,60 @@ describe("setUserRole", () => {
     }),
   )
 })
+
+describe("preferences and notifications", () => {
+  it.live("callers read only their own", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const campus = yield* createOrganization(app)
+      const owner = yield* createUser(app, { organizationId: campus.id })
+      const other = yield* createUser(app, { organizationId: campus.id })
+      const guest = yield* makeBrowser(app)
+      yield* app.sql`
+        INSERT INTO preference (name, value, user_id)
+        VALUES ('digest', 'weekly', ${owner.id}), ('digest', 'never', ${other.id})
+      `.pipe(Effect.orDie)
+      yield* app.sql`
+        INSERT INTO notification (title, body, status, user_id, inserted_at)
+        VALUES ('Older', NULL, 'read', ${owner.id}, '2026-01-01 00:00:00'),
+          ('Newer', 'Your petition won', 'unread', ${owner.id}, '2026-02-01 00:00:00'),
+          ('Not yours', NULL, 'unread', ${other.id}, '2026-03-01 00:00:00')
+      `.pipe(Effect.orDie)
+
+      const preferences = yield* owner.browser.rpc((api) => api.getPreferences())
+      if (!preferences.success) return assert.fail(JSON.stringify(preferences))
+      assert.deepStrictEqual(
+        preferences.data.map(({ name, value }) => ({ name, value })),
+        [{ name: "digest", value: "weekly" }],
+      )
+      const notifications = yield* owner.browser.rpc((api) => api.getNotifications())
+      if (!notifications.success) return assert.fail(JSON.stringify(notifications))
+      assert.deepStrictEqual(
+        notifications.data.map(({ title, body, status, insertedAt }) => ({
+          title,
+          body,
+          status,
+          insertedAt,
+        })),
+        [
+          {
+            title: "Newer",
+            body: "Your petition won",
+            status: "unread",
+            insertedAt: "2026-02-01T00:00:00.000000Z",
+          },
+          { title: "Older", body: null, status: "read", insertedAt: "2026-01-01T00:00:00.000000Z" },
+        ],
+      )
+
+      for (const call of [
+        guest.rpc((api) => api.getPreferences()),
+        guest.rpc((api) => api.getNotifications()),
+      ]) {
+        const result = yield* call
+        assert.deepInclude(result, { success: false })
+        if (!result.success) assert.strictEqual(result.errors[0]!.type, "unauthenticated")
+      }
+    }),
+  )
+})

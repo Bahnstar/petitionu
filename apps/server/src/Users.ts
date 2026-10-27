@@ -5,6 +5,8 @@ import {
   CurrentActor,
   CurrentUser,
   NotFound,
+  Notification,
+  Preference,
   type SignedIn,
   UserDetails,
   type UserDto,
@@ -136,6 +138,23 @@ export const UsersHandlers = UsersRpcs.toLayer(
         `,
       })(undefined)
 
+    const findPreferences = SqlSchema.findAll({
+      Request: Schema.String,
+      Result: Preference,
+      execute: (userId) => sql`
+        SELECT id, name, value FROM preference WHERE user_id = ${userId} ORDER BY inserted_at, id
+      `,
+    })
+
+    const findNotifications = SqlSchema.findAll({
+      Request: Schema.String,
+      Result: Notification,
+      execute: (userId) => sql`
+        SELECT n.id, n.title, n.body, n.status, ${isoUtc(sql, "n.inserted_at")} AS inserted_at
+        FROM notification n WHERE n.user_id = ${userId} ORDER BY n.inserted_at DESC, n.id DESC
+      `,
+    })
+
     /** The user in the shape the field policies allow `actor` to see. */
     const present = (actor: Actor, user: UserDetails): UserDto =>
       canSeeDetails(actor, user)
@@ -173,8 +192,10 @@ export const UsersHandlers = UsersRpcs.toLayer(
             WHERE id = ${id}`.pipe(Effect.orDie)
           return { ...target.value, role }
         }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die)),
-      getPreferences: () => Effect.die("todo"),
-      getNotifications: () => Effect.die("todo"),
+      getPreferences: () =>
+        Effect.flatMap(CurrentUser, (user) => findPreferences(user.id)).pipe(Effect.orDie),
+      getNotifications: () =>
+        Effect.flatMap(CurrentUser, (user) => findNotifications(user.id)).pipe(Effect.orDie),
     })
   }),
 )
