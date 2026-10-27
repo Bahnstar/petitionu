@@ -82,11 +82,12 @@ export class Auth extends Context.Service<
             max: 3,
             types: pgTypes,
           })
-          // An idle connection that drops is replaced on next use; without a listener the
-          // error would crash the process.
-          pool.on("error", (error) =>
-            Effect.runFork(Effect.logWarning("Auth database connection lost", error.message)),
-          )
+          // A connection that drops is replaced on next use; without listeners the error
+          // would crash the process. The pool covers idle connections, `connect` the rest.
+          const lost = (error: Error) =>
+            Effect.runFork(Effect.logWarning("Auth database connection lost", error.message))
+          pool.on("error", lost)
+          pool.on("connect", (client) => client.on("error", lost))
           return pool
         }),
         (pool) => Effect.promise(() => pool.end()),
