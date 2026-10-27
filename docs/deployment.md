@@ -21,6 +21,7 @@ Copy `.env.example` into your hosting provider's secret configuration, or to `.e
 | `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required by the app (not by `migrate`): independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
 | `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address and monitored reply-to mailbox. Without `RESEND_API_KEY`, every email send fails outside development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional OpenTelemetry collector base URL. Export is off when unset. |
+| `JOB_WORKERS` | `false` stops this process from running background jobs (school verification); jobs stay queued in the `job_queue` table. Defaults to `true`. Run one process with workers, or several: the queue locks each job. |
 
 Verify your sender domain in Resend before launch. Production logs are JSON, one object per line on stdout.
 
