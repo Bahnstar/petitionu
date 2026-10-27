@@ -2,7 +2,8 @@ import {
   ContentReport,
   ContentReportState,
   CurrentUser,
-  Invalid,
+  invalidField,
+  invalidRequest,
   ModerationRpcs,
   NotFound,
   type SignedIn,
@@ -11,7 +12,7 @@ import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { authorizeHide, authorizeResolve, visibleReports } from "./ModerationPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
-import { invalidField, isUuid } from "./ParticipationPolicy.ts"
+import { isUuid } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 
 const reportNotFound = new NotFound({ message: "Content report not found" })
@@ -173,17 +174,11 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
           const text = yield* resolutionNote(note)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
-            return yield* new Invalid({
-              message: "This report has already been reviewed.",
-              fields: [],
-            })
+            return yield* invalidRequest("This report has already been reviewed.")
           }
           if (hideContent === true) {
             if (outcome === "dismissed") {
-              return yield* new Invalid({
-                message: "Dismissed reports cannot hide content.",
-                fields: [],
-              })
+              return yield* invalidRequest("Dismissed reports cannot hide content.")
             }
             yield* hide(actor, locked.value)
           }

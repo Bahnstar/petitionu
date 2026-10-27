@@ -1,6 +1,7 @@
 import {
   CurrentUser,
-  Invalid,
+  invalidField,
+  invalidRequest,
   NotFound,
   type SignedIn,
   SupportRequest,
@@ -22,8 +23,7 @@ const requestNotFound = new NotFound({ message: "Support request not found" })
 /** Trims `value` and checks it is 1 to 5000 characters, or fails `Invalid` for `field`. */
 const note = (field: string, value: string) => {
   const trimmed = value.trim()
-  const invalid = (message: string) =>
-    Effect.fail(new Invalid({ message, fields: [{ field, message }] }))
+  const invalid = (message: string) => Effect.fail(invalidField(field, message))
   if (trimmed.length < 1) return invalid("length must be greater than or equal to 1")
   if (trimmed.length > 5000) return invalid("length must be less than or equal to 5000")
   return Effect.succeed(trimmed)
@@ -103,10 +103,7 @@ export const SupportHandlers = SupportRpcs.toLayer(
           const text = yield* note("resolutionNote", resolutionNote)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
-            return yield* new Invalid({
-              message: "This request has already been resolved.",
-              fields: [],
-            })
+            return yield* invalidRequest("This request has already been resolved.")
           }
           yield* sql`
             UPDATE support_requests SET state = 'resolved', resolution_note = ${text},

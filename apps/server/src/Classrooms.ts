@@ -3,7 +3,7 @@ import {
   ClassroomRpcs,
   CurrentUser,
   Forbidden,
-  Invalid,
+  invalidField,
   MembershipDto,
   type MembershipRole,
   MembershipStatus,
@@ -24,9 +24,6 @@ const forbidden = new Forbidden({ message: "Forbidden" })
 const classroomNotFound = new NotFound({ message: "Classroom not found" })
 const membershipNotFound = new NotFound({ message: "Membership not found" })
 
-const fieldError = (field: string, message: string) =>
-  new Invalid({ message, fields: [{ field, message }] })
-
 /** Admission messages, word for word from `ValidateAdmission`. */
 const existingMembershipMessages: Record<MembershipStatus, string> = {
   active: "You are already a member of this classroom",
@@ -42,9 +39,9 @@ const trimmed = (value: string | null | undefined) => {
 
 const validName = (value: string | null | undefined) => {
   const name = trimmed(value)
-  if (name === null) return Effect.fail(fieldError("name", "is required"))
+  if (name === null) return Effect.fail(invalidField("name", "is required"))
   if (name.length > 255) {
-    return Effect.fail(fieldError("name", "length must be less than or equal to 255"))
+    return Effect.fail(invalidField("name", "length must be less than or equal to 255"))
   }
   return Effect.succeed(name)
 }
@@ -52,7 +49,7 @@ const validName = (value: string | null | undefined) => {
 const validDescription = (value: string | null | undefined) => {
   const description = trimmed(value)
   if (description !== null && description.length > 2000) {
-    return Effect.fail(fieldError("description", "length must be less than or equal to 2000"))
+    return Effect.fail(invalidField("description", "length must be less than or equal to 2000"))
   }
   return Effect.succeed(description)
 }
@@ -231,14 +228,17 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           ? yield* findAdmissionTarget(classroomId).pipe(Effect.orDie)
           : Option.none()
         if (Option.isNone(classroom) || classroom.value.archived) {
-          return yield* fieldError("classroomId", "Classroom is unavailable or archived")
+          return yield* invalidField("classroomId", "Classroom is unavailable or archived")
         }
         if (classroom.value.professorId === userId) {
-          return yield* fieldError("classroomId", "The professor already owns this classroom")
+          return yield* invalidField("classroomId", "The professor already owns this classroom")
         }
         const existing = yield* findExisting({ classroomId, userId }).pipe(Effect.orDie)
         if (Option.isSome(existing)) {
-          return yield* fieldError("classroomId", existingMembershipMessages[existing.value.status])
+          return yield* invalidField(
+            "classroomId",
+            existingMembershipMessages[existing.value.status],
+          )
         }
       })
 
@@ -481,7 +481,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
               `.pipe(Effect.orDie)
             : []
           if (classroom === undefined) {
-            return yield* fieldError("joinCode", "Invalid or archived join code")
+            return yield* invalidField("joinCode", "Invalid or archived join code")
           }
           return yield* insertMembership({
             classroomId: classroom.id,
@@ -523,7 +523,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             staff !== undefined && (staff.isProfessor || (staff.isTa && role === "student"))
           if (!allowed) return yield* forbidden
           const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
-          if (Option.isNone(invitee)) return yield* fieldError("email", "User not found")
+          if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
           return yield* transaction(
             Effect.gen(function* () {
               const membership = yield* insertMembership({

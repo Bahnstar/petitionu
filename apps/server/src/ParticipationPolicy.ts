@@ -1,4 +1,4 @@
-import { Invalid, type SignedIn } from "@petitionu/domain"
+import { invalidField, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
@@ -9,10 +9,6 @@ export type ParticipationKind = "signature" | "comment" | "update"
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const isUuid = (value: string) => uuidPattern.test(value)
-
-/** An `Invalid` naming one field, worded like Ash's changeset errors. */
-export const invalidField = (field: string, message: string) =>
-  new Invalid({ message, fields: [{ field, message }] })
 
 const rejected = (message: string) => invalidField("petitionId", message)
 

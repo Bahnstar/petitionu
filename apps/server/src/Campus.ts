@@ -1,4 +1,11 @@
-import { CampusRpcs, CurrentUser, EmailDomain, type FieldError, Invalid } from "@petitionu/domain"
+import {
+  CampusRpcs,
+  CurrentUser,
+  EmailDomain,
+  type FieldError,
+  invalidField,
+  invalidFields,
+} from "@petitionu/domain"
 import { Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { findMeQuery } from "./Accounts.ts"
@@ -83,18 +90,11 @@ const OrganizationRow = Schema.Struct({
   verificationStatus: Schema.Literals(["pending", "verified", "approved"]),
 })
 
-const invalid = (fields: ReadonlyArray<FieldError>) =>
-  new Invalid({ message: fields.map((field) => field.message).join(" "), fields })
-
-const unconfirmed = invalid([
-  { field: "email", message: "Confirm your email before completing your profile." },
-])
-const noCampus = invalid([
-  {
-    field: "email",
-    message: "We could not match your email to one supported campus. Contact support for help.",
-  },
-])
+const unconfirmed = invalidField("email", "Confirm your email before completing your profile.")
+const noCampus = invalidField(
+  "email",
+  "We could not match your email to one supported campus. Contact support for help.",
+)
 
 /** Ash trims string inputs and treats blank ones as missing. */
 const trimmed = (value: string | null | undefined) => {
@@ -145,7 +145,9 @@ export const CampusHandlers = CampusRpcs.toLayer(
             ...nameErrors("lastName", lastName),
             ...graduationYearErrors(input.graduationYear),
           ]
-          if (errors.length > 0) return yield* invalid(errors)
+          if (errors.length > 0) {
+            return yield* invalidFields(errors, errors.map((error) => error.message).join(" "))
+          }
 
           return yield* sql.withTransaction(
             Effect.gen(function* () {

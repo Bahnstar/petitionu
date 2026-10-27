@@ -3,7 +3,9 @@ import {
   CommentDto,
   CurrentUser,
   type FieldError,
-  Invalid,
+  type Invalid,
+  invalidField,
+  invalidFields,
   ParticipationRpcs,
   SignatureDto,
   type SignedIn,
@@ -12,12 +14,7 @@ import {
 import { Effect, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { requireParticipant } from "./Participant.ts"
-import {
-  checkPetition,
-  invalidField,
-  isUuid,
-  type ParticipationKind,
-} from "./ParticipationPolicy.ts"
+import { checkPetition, isUuid, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 
 const insertedAt = (sql: SqlClient.SqlClient, alias: string) =>
@@ -49,8 +46,7 @@ const checkInput = <K extends string>(
   Effect.gen(function* () {
     const entries = Object.values(values) as Array<{ error?: FieldError }>
     const errors = entries.flatMap((entry) => (entry.error ? [entry.error] : []))
-    if (errors.length > 0)
-      return yield* new Invalid({ message: errors[0]!.message, fields: errors })
+    if (errors.length > 0) return yield* invalidFields(errors)
     return Object.fromEntries(
       Object.entries(values).map(([key, entry]) => [key, (entry as { value: unknown }).value]),
     ) as Record<K, string | null>

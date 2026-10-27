@@ -3,7 +3,8 @@ import {
   CurrentActor,
   CurrentUser,
   Forbidden,
-  Invalid,
+  invalidField,
+  invalidFields,
   NotFound,
   PetitionCommentDto,
   PetitionDto,
@@ -13,7 +14,6 @@ import {
   PetitionUpdateDto,
   type SignedIn,
   CategoryDto,
-  type FieldError,
   validatePetitionInput,
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
@@ -26,9 +26,6 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 const isUuid = (value: string) => uuidPattern.test(value)
 
 const petitionNotFound = new NotFound({ message: "Petition not found" })
-
-const invalid = (fields: ReadonlyArray<FieldError>) =>
-  new Invalid({ message: fields[0]?.message ?? "is invalid", fields })
 
 export const PetitionsHandlers = PetitionRpcs.toLayer(
   Effect.gen(function* () {
@@ -99,9 +96,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const petitionCampus = (user: SignedIn, classroomId: string | null) =>
       Effect.gen(function* () {
         if (classroomId === null) return user.organizationId
-        const unavailable = invalid([
-          { field: "classroomId", message: "This classroom is unavailable." },
-        ])
+        const unavailable = invalidField("classroomId", "This classroom is unavailable.")
         if (!isUuid(classroomId)) return yield* unavailable
         const [classroom] = yield* sql<{
           professorId: string
@@ -117,12 +112,10 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         `.pipe(Effect.orDie)
         if (!classroom || classroom.archived) return yield* unavailable
         if (classroom.professorId !== user.id && !classroom.allowStudentPetitions) {
-          return yield* invalid([
-            {
-              field: "classroomId",
-              message: "Only the professor can create petitions in this classroom.",
-            },
-          ])
+          return yield* invalidField(
+            "classroomId",
+            "Only the professor can create petitions in this classroom.",
+          )
         }
         return classroom.organizationId ?? user.organizationId
       })
@@ -134,9 +127,9 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       Effect.gen(function* () {
         const user = yield* requireParticipant
         const checked = validatePetitionInput(input, { mode: "create", now: new Date() })
-        if (!checked.ok) return yield* invalid(checked.errors)
+        if (!checked.ok) return yield* invalidFields(checked.errors)
         if (!(yield* categoryExists(input.categoryId).pipe(Effect.orDie))) {
-          return yield* invalid([{ field: "categoryId", message: "is invalid" }])
+          return yield* invalidField("categoryId", "is invalid")
         }
         const organizationId = yield* petitionCampus(user, classroomId)
         const { value } = checked
@@ -234,7 +227,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         manage(id, () =>
           Effect.gen(function* () {
             const checked = validatePetitionInput(input, { mode: "update", now: new Date() })
-            if (!checked.ok) return yield* invalid(checked.errors)
+            if (!checked.ok) return yield* invalidFields(checked.errors)
             const columns: Record<string, unknown> = { ...checked.value }
             const set = Object.keys(columns).length > 0 ? sql`${sql.update(columns)},` : sql``
             yield* sql`

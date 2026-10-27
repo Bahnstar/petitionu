@@ -1,4 +1,4 @@
-import { type Actor, Forbidden, Invalid, type Role, type SignedIn } from "@petitionu/domain"
+import { type Actor, Forbidden, invalidRequest, type Role, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
 import { petitionVisible } from "./PetitionPolicy.ts"
@@ -44,9 +44,7 @@ export const canSeeActivity = (actor: Actor, user: PolicyUser) =>
 /** Only a superadmin may grant the superadmin role. */
 export const validateRequestedRole = (actor: SignedIn, role: Role) =>
   role === "superadmin" && actor.role !== "superadmin"
-    ? Effect.fail(
-        new Invalid({ message: "only a superadmin can assign the superadmin role", fields: [] }),
-      )
+    ? Effect.fail(invalidRequest("only a superadmin can assign the superadmin role"))
     : Effect.void
 
 /**

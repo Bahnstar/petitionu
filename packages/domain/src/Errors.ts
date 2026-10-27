@@ -24,3 +24,16 @@ export class Invalid extends Schema.TaggedError<Invalid>()("Invalid", {
   message: Schema.String,
   fields: Schema.Array(FieldError),
 }) {}
+
+/** An `Invalid` naming one field, worded like Ash's changeset errors. */
+export const invalidField = (field: string, message: string) =>
+  new Invalid({ message, fields: [{ field, message }] })
+
+/** An `Invalid` for several fields; the message defaults to the first field's. */
+export const invalidFields = (
+  fields: ReadonlyArray<FieldError>,
+  message = fields[0]?.message ?? "is invalid",
+) => new Invalid({ message, fields })
+
+/** An `Invalid` about the request as a whole, naming no field. */
+export const invalidRequest = (message: string) => new Invalid({ message, fields: [] })
