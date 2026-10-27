@@ -33,6 +33,7 @@
     "skipLibCheck": true,
     "allowJs": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "strict": false
   },
   "include": ["js/**/*", "components/**/*", "lib/**/*", "tests/rpc-fields.mts"]

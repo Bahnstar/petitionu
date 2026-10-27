@@ -19,6 +19,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ErrorBoundary } from "../components/ui/error-boundary"
 import { AuthProvider } from "./contexts/auth-context"
 import { DEFAULT_PATH } from "@/lib/routes"
+import { authRoutes } from "./pages/auth/auth-routes"
 
 function hasHttpStatus(error: Error): error is Error & { status: number } {
   return error instanceof Error && "status" in error && typeof error.status === "number"
@@ -64,24 +65,46 @@ export const App = () => {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>
-            <Layout>
-              <Routes>
-                <Route path={defaultPath} element={<HomePage />} />
-                <Route path={`${defaultPath}/petitions`} element={<BrowsePetitionsPage />} />
-                <Route path={`${defaultPath}/petitions/:id`} element={<PetitionIndexPage />} />
-                <Route path={`${defaultPath}/create`} element={<CreatePetitionPage />} />
-                <Route path={`${defaultPath}/profile`} element={<ProfilePage />} />
-                <Route path={`${defaultPath}/dashboard`} element={<DashboardPage />} />
-                <Route path={`${defaultPath}/classrooms`} element={<ClassroomsPage />} />
-                <Route path={`${defaultPath}/classrooms/new`} element={<CreateClassroomPage />} />
-                <Route path={`${defaultPath}/classrooms/:id`} element={<ClassroomDetailPage />} />
-                <Route path={`${defaultPath}/moderation`} element={<ModerationPage />} />
-                <Route path={`${defaultPath}/support`} element={<SupportPage />} />
-                <Route path={`${defaultPath}/privacy`} element={<PrivacyPage />} />
-                <Route path={`${defaultPath}/community-rules`} element={<CommunityRulesPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </Layout>
+            <Routes>
+              {authRoutes.map((route) => (
+                <Route key={route.path} path={route.path} element={route.element} />
+              ))}
+              <Route
+                path="*"
+                element={
+                  <Layout>
+                    <Routes>
+                      <Route path={defaultPath} element={<HomePage />} />
+                      <Route path={`${defaultPath}/petitions`} element={<BrowsePetitionsPage />} />
+                      <Route
+                        path={`${defaultPath}/petitions/:id`}
+                        element={<PetitionIndexPage />}
+                      />
+                      <Route path={`${defaultPath}/create`} element={<CreatePetitionPage />} />
+                      <Route path={`${defaultPath}/profile`} element={<ProfilePage />} />
+                      <Route path={`${defaultPath}/dashboard`} element={<DashboardPage />} />
+                      <Route path={`${defaultPath}/classrooms`} element={<ClassroomsPage />} />
+                      <Route
+                        path={`${defaultPath}/classrooms/new`}
+                        element={<CreateClassroomPage />}
+                      />
+                      <Route
+                        path={`${defaultPath}/classrooms/:id`}
+                        element={<ClassroomDetailPage />}
+                      />
+                      <Route path={`${defaultPath}/moderation`} element={<ModerationPage />} />
+                      <Route path={`${defaultPath}/support`} element={<SupportPage />} />
+                      <Route path={`${defaultPath}/privacy`} element={<PrivacyPage />} />
+                      <Route
+                        path={`${defaultPath}/community-rules`}
+                        element={<CommunityRulesPage />}
+                      />
+                      <Route path="*" element={<NotFoundPage />} />
+                    </Routes>
+                  </Layout>
+                }
+              />
+            </Routes>
           </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>

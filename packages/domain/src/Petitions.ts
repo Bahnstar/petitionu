@@ -141,7 +141,9 @@ const checkDeadline = (
   raw: string | null | undefined,
   now: Date,
 ): Checked<Date | null | undefined> => {
-  if (raw === undefined || raw === null) return { value: raw }
+  // Spelled out so the web app, which still compiles without strict null checks, agrees.
+  if (raw === null) return { value: null }
+  if (raw === undefined) return { value: undefined }
   const deadline = new Date(raw)
   if (Number.isNaN(deadline.getTime())) return { value: undefined, error: "is invalid" }
   // Deadlines are stored to the second, like Ash's `:utc_datetime`.

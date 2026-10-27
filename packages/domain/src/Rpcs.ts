@@ -1,5 +1,6 @@
 import { RpcGroup } from "effect/rpc"
 import { AccountsRpcs } from "./Accounts.ts"
+import { ClassroomRpcs } from "./Classrooms.ts"
 import { ParticipationRpcs } from "./Participation.ts"
 import { PetitionRpcs } from "./Petitions.ts"
 import { SupportRpcs } from "./Support.ts"
@@ -15,4 +16,5 @@ export class AppRpcs extends RpcGroup.make()
   .merge(UsersRpcs)
   .merge(SupportRpcs)
   .merge(PetitionRpcs)
-  .merge(ParticipationRpcs) {}
+  .merge(ParticipationRpcs)
+  .merge(ClassroomRpcs) {}
