@@ -1,6 +1,7 @@
 import { Layer } from "effect"
 import type { HttpRouter } from "effect/http"
 import { Auth, AuthRoutes } from "./Auth.ts"
+import { CampusAssignmentLive } from "./Campus.ts"
 import { AppConfig } from "./Config.ts"
 import { Csrf, CsrfRoutes, SessionShellHead } from "./Csrf.ts"
 import { DatabaseLive } from "./Database.ts"
@@ -8,6 +9,7 @@ import { HealthRoutes } from "./Health.ts"
 import { MailerLive } from "./Mailer.ts"
 import { RpcRoutes } from "./Rpc.ts"
 import { SchoolRegistry } from "./SchoolRegistry.ts"
+import { SchoolVerification, SchoolVerificationQueue } from "./SchoolVerification.ts"
 import { ShellRoutes, StaticRoutes } from "./Web.ts"
 
 /**
@@ -24,16 +26,17 @@ export const AppRoutes = Layer.mergeAll(
 
 /**
  * What runs when a user becomes confirmed: a layer providing `UserConfirmed` (see
- * `Confirmation.ts`). Campus assignment (T06) goes here.
+ * `Confirmation.ts`): campus assignment.
  */
-export const UserConfirmedLive = Layer.empty
+export const UserConfirmedLive = CampusAssignmentLive
 
 /**
  * Composition point for internal services shared by the routes (database, queue, auth, ...).
  * Each feature area adds one line for its service layer.
  */
 const makeAppServices = (userConfirmed: Layer.Layer<never, unknown, BaseServiceTypes>) =>
-  Layer.mergeAll(Auth.layer, Csrf.layer).pipe(
+  Layer.mergeAll(Auth.layer, Csrf.layer, SchoolVerification.worker).pipe(
+    Layer.provide(SchoolVerificationQueue.layer),
     Layer.provide(userConfirmed),
     Layer.provideMerge(DatabaseLive),
   )

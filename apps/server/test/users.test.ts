@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp, type TestApp } from "./support/harness.ts"
-import { createOrganization, createUser } from "./support/users.ts"
+import { createOrganization, createUser, uniqueEmail } from "./support/users.ts"
 
 /** Seeds a petition by `userId`, as the petition procedures would have created it. */
 const seedPetition = (
@@ -185,7 +185,11 @@ describe("setUserRole", () => {
         role: "superadmin",
       })
       const otherCampus = yield* createUser(app, { organizationId: elsewhere.id })
-      const unassigned = yield* createUser(app, { stage: "confirmed" })
+      // Confirming at a campus's domain joins it, so this user signs up at an unknown domain.
+      const unassigned = yield* createUser(app, {
+        stage: "confirmed",
+        email: uniqueEmail("unassigned.example"),
+      })
 
       const promoted = yield* admin.browser.rpc((api) =>
         api.setUserRole({ id: target.id, role: "professor" }),

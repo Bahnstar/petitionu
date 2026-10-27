@@ -57,7 +57,13 @@ export class MemoryMailer extends Context.Service<
   )
 }
 
-export type ScriptedLookup = (domain: string) => SchoolRegistration | SchoolRegistryFailure
+/** A scripted answer for a domain; an Effect answer runs during the lookup. */
+export type ScriptedLookup = (
+  domain: string,
+) =>
+  | SchoolRegistration
+  | SchoolRegistryFailure
+  | Effect.Effect<SchoolRegistration | SchoolRegistryFailure>
 
 /**
  * Scripted SchoolRegistry for tests. Answers "Registry University" from `test-registry`
@@ -85,10 +91,14 @@ export class ScriptedSchoolRegistry extends Context.Service<
         Effect.suspend(() => {
           lookups.push(domain)
           const result = answer(domain)
-          return typeof result === "string"
-            ? Effect.fail(new SchoolRegistryError({ reason: result }))
-            : Effect.succeed(result)
-        })
+          return Effect.isEffect(result) ? result : Effect.succeed(result)
+        }).pipe(
+          Effect.flatMap((result) =>
+            typeof result === "string"
+              ? Effect.fail(new SchoolRegistryError({ reason: result }))
+              : Effect.succeed(result),
+          ),
+        )
       return Context.make(SchoolRegistry, { lookup }).pipe(
         Context.add(ScriptedSchoolRegistry, {
           script: (next) =>

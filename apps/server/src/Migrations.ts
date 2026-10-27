@@ -1,6 +1,7 @@
 import { Migrator } from "effect/sql"
 import baseline from "./migrations/0001_baseline.ts"
 import betterAuth from "./migrations/0002_better_auth.ts"
+import jobQueue from "./migrations/0003_job_queue.ts"
 
 /** The Effect migrator's own table. Ecto's `schema_migrations` stays frozen. */
 export const migrationsTable = "petitionu_migrations"
@@ -9,6 +10,7 @@ export const migrationsTable = "petitionu_migrations"
 export const migrations = {
   "0001_baseline": baseline,
   "0002_better_auth": betterAuth,
+  "0003_job_queue": jobQueue,
 }
 
 /** Applies pending migrations from `records` in one locked transaction; returns the ones it ran. */

@@ -1,6 +1,7 @@
 export * from "./Accounts.ts"
 export * from "./Classrooms.ts"
 export * from "./Actor.ts"
+export * from "./Campus.ts"
 export * from "./Client.ts"
 export * from "./Errors.ts"
 export * from "./Moderation.ts"

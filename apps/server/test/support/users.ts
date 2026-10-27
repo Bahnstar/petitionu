@@ -95,7 +95,10 @@ export const signIn = (app: TestApp, email: string, password = defaultPassword) 
     return browser
   })
 
-/** Creates a verified organization for `domain`. */
+/**
+ * Creates a verified organization for `domain`. An organization already at `domain` (e.g. the
+ * pending school a confirmation created) is renamed and marked verified instead.
+ */
 export const createOrganization = (
   app: TestApp,
   options: { readonly name?: string; readonly domain?: string } = {},
@@ -104,6 +107,8 @@ export const createOrganization = (
     const [row] = yield* app.sql<{ id: string }>`
       INSERT INTO organization (name, domain, verification_status)
       VALUES (${options.name ?? "Test University"}, ${options.domain ?? "example.edu"}, 'verified')
+      ON CONFLICT (domain) DO UPDATE
+        SET name = EXCLUDED.name, verification_status = 'verified'
       RETURNING id
     `
     return { id: row!.id, name: options.name ?? "Test University" }
@@ -140,7 +145,8 @@ export const createUser = (
         (yield* createOrganization(app, { domain: user.email.split("@")[1]! })).id
       yield* app.sql`
         UPDATE users SET first_name = ${options.firstName ?? "Test"},
-          last_name = ${options.lastName ?? "Student"}, organization_id = ${organizationId}
+          last_name = ${options.lastName ?? "Student"}, organization_id = ${organizationId},
+          pending_organization_id = NULL
         WHERE id = ${user.id}
       `.pipe(Effect.orDie)
     }
