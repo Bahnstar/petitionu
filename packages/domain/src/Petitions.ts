@@ -111,15 +111,51 @@ export interface NormalizedPetitionInput {
   readonly isAnonymous?: boolean | null
 }
 
-const trimmed = (value: string | null | undefined) => {
-  if (value === undefined || value === null) return value
-  const result = value.trim()
-  return result === "" ? null : result
+type Checked<A> = { readonly value: A; readonly error?: string }
+
+const checkText = (
+  raw: string | null | undefined,
+  required: boolean,
+  maxLength: number,
+): Checked<string | null | undefined> => {
+  const value = raw?.trim() === "" ? null : raw?.trim()
+  if (required && (value === undefined || value === null)) {
+    return { value, error: "must be present" }
+  }
+  if (value && value.length > maxLength) {
+    return { value, error: `length must be less than or equal to ${maxLength}` }
+  }
+  return { value }
+}
+
+const checkGoal = (goal: number | null | undefined, required: boolean): Checked<typeof goal> => {
+  if (goal === undefined || goal === null) {
+    return required ? { value: goal, error: "must be present" } : { value: goal }
+  }
+  if (!Number.isSafeInteger(goal)) return { value: goal, error: "is invalid" }
+  if (goal < 1) return { value: goal, error: "must be more than or equal to 1" }
+  return { value: goal }
+}
+
+const checkDeadline = (
+  raw: string | null | undefined,
+  now: Date,
+): Checked<Date | null | undefined> => {
+  if (raw === undefined || raw === null) return { value: raw }
+  const deadline = new Date(raw)
+  if (Number.isNaN(deadline.getTime())) return { value: undefined, error: "is invalid" }
+  // Deadlines are stored to the second, like Ash's `:utc_datetime`.
+  deadline.setUTCMilliseconds(0)
+  if (deadline.getTime() <= now.getTime()) {
+    return { value: deadline, error: "Choose a deadline in the future." }
+  }
+  return { value: deadline }
 }
 
 /**
  * Checks a petition's input the way the server does, so forms can show the same messages.
- * On create every required field is checked; on update only the fields given.
+ * On create every required field is checked and `goal` defaults to 1000; on update only the
+ * fields given are checked. Omitted fields stay omitted in `value`.
  */
 export const validatePetitionInput = (
   input: PetitionInput,
@@ -127,50 +163,27 @@ export const validatePetitionInput = (
 ):
   | { readonly ok: true; readonly value: NormalizedPetitionInput }
   | { readonly ok: false; readonly errors: ReadonlyArray<FieldError> } => {
-  const errors: Array<FieldError> = []
-  const checked = (key: "title" | "description" | "goal") =>
-    options.mode === "create" || input[key] !== undefined
-  const value: { -readonly [K in keyof NormalizedPetitionInput]: NormalizedPetitionInput[K] } = {}
-
-  for (const key of ["title", "description"] as const) {
-    const text = trimmed(input[key])
-    if (checked(key) && (text === undefined || text === null)) {
-      errors.push({ field: key, message: "must be present" })
-    } else if (text && text.length > maxLengths[key]) {
-      errors.push({ field: key, message: `length must be less than or equal to ${maxLengths[key]}` })
-    }
-    if (text !== undefined) value[key] = text
-  }
-
-  const goal = options.mode === "create" && input.goal === undefined ? 1000 : input.goal
-  if (checked("goal") && (goal === undefined || goal === null)) {
-    errors.push({ field: "goal", message: "must be present" })
-  } else if (typeof goal === "number" && !Number.isSafeInteger(goal)) {
-    errors.push({ field: "goal", message: "is invalid" })
-  } else if (typeof goal === "number" && goal < 1) {
-    errors.push({ field: "goal", message: "must be more than or equal to 1" })
-  }
-  if (goal !== undefined) value.goal = goal
-
-  if (input.deadline !== undefined && input.deadline !== null) {
-    const deadline = new Date(input.deadline)
-    if (Number.isNaN(deadline.getTime())) {
-      errors.push({ field: "deadline", message: "is invalid" })
-    } else {
-      // Deadlines are stored to the second, like Ash's `:utc_datetime`.
-      deadline.setUTCMilliseconds(0)
-      if (deadline.getTime() <= options.now.getTime()) {
-        errors.push({ field: "deadline", message: "Choose a deadline in the future." })
-      }
-      value.deadline = deadline
-    }
-  } else if (input.deadline === null) {
-    value.deadline = null
-  }
-
-  if (input.allowComments !== undefined) value.allowComments = input.allowComments
-  if (input.isAnonymous !== undefined) value.isAnonymous = input.isAnonymous
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, value }
+  const creating = options.mode === "create"
+  const required = (key: "title" | "description" | "goal") => creating || input[key] !== undefined
+  const checks = {
+    title: checkText(input.title, required("title"), maxLengths.title),
+    description: checkText(input.description, required("description"), maxLengths.description),
+    goal: checkGoal(creating && input.goal === undefined ? 1000 : input.goal, required("goal")),
+    deadline: checkDeadline(input.deadline, options.now),
+    allowComments: { value: input.allowComments },
+    isAnonymous: { value: input.isAnonymous },
+  } satisfies Record<keyof NormalizedPetitionInput, Checked<unknown>>
+  const entries = Object.entries(checks) as Array<[string, Checked<unknown>]>
+  const errors = entries.flatMap(([field, check]) =>
+    check.error === undefined ? [] : [{ field, message: check.error }],
+  )
+  if (errors.length > 0) return { ok: false, errors }
+  const value = Object.fromEntries(
+    entries
+      .filter(([, check]) => check.value !== undefined)
+      .map(([key, check]) => [key, check.value]),
+  ) as NormalizedPetitionInput
+  return { ok: true, value }
 }
 
 /** Public. */

@@ -3,7 +3,7 @@ import type { ApiClient } from "@petitionu/domain"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp } from "./support/harness.ts"
-import { insertClassroom } from "./support/classrooms.ts"
+import { insertClassroom, setClassroomArchived, upsertMembership } from "./support/classrooms.ts"
 import {
   insertCategory,
   insertPetition,
@@ -19,7 +19,9 @@ const expectErrors = (
   return result.errors
 }
 
-const expectData = <A>(result: { success: true; data: A } | { success: false; errors: unknown }) => {
+const expectData = <A>(
+  result: { success: true; data: A } | { success: false; errors: unknown },
+) => {
   if (!result.success) assert.fail(`expected success, got ${JSON.stringify(result.errors)}`)
   return result.data
 }
@@ -72,7 +74,11 @@ describe("petitions", () => {
     Effect.gen(function* () {
       const app = yield* makeTestApp()
       const category = yield* insertCategory(app)
-      const input = { title: "Valid title", description: "Valid description", categoryId: category.id }
+      const input = {
+        title: "Valid title",
+        description: "Valid description",
+        categoryId: category.id,
+      }
 
       const guest = yield* makeBrowser(app)
       assert.deepStrictEqual(expectErrors(yield* guest.rpc((api) => api.createPetition(input))), [
@@ -93,7 +99,9 @@ describe("petitions", () => {
         expectErrors(yield* blankName.browser.rpc((api) => api.createPetition(input))),
         [{ type: "invalid", message: "Complete your campus profile before participating." }],
       )
-      const [{ count }] = (yield* app.sql<{ count: number }>`SELECT count(*)::int AS count FROM petition`) as [{ count: number }]
+      const [{ count }] = (yield* app.sql<{
+        count: number
+      }>`SELECT count(*)::int AS count FROM petition`) as [{ count: number }]
       assert.strictEqual(count, 0)
     }),
   )
@@ -103,13 +111,20 @@ describe("petitions", () => {
       const app = yield* makeTestApp()
       const author = yield* createUser(app)
       const category = yield* insertCategory(app)
-      const input = { title: "Valid title", description: "Valid description", categoryId: category.id }
+      const input = {
+        title: "Valid title",
+        description: "Valid description",
+        categoryId: category.id,
+      }
       const past = new Date(Date.now() - 60_000).toISOString()
 
       for (const [change, expected] of [
         [{ title: "   " }, { field: "title", message: "must be present" }],
         [{ description: "" }, { field: "description", message: "must be present" }],
-        [{ title: "x".repeat(201) }, { field: "title", message: "length must be less than or equal to 200" }],
+        [
+          { title: "x".repeat(201) },
+          { field: "title", message: "length must be less than or equal to 200" },
+        ],
         [{ goal: 0 }, { field: "goal", message: "must be more than or equal to 1" }],
         [{ goal: null }, { field: "goal", message: "must be present" }],
         [{ deadline: past }, { field: "deadline", message: "Choose a deadline in the future." }],
@@ -203,58 +218,63 @@ describe("petitions", () => {
     }),
   )
 
-  it.live("guests cannot list petitions, and shared links skip hidden and classroom petitions", () =>
-    Effect.gen(function* () {
-      const app = yield* makeTestApp()
-      const owner = yield* createUser(app)
-      const petition = yield* insertPetition(app, { userId: owner.id })
-      const classroom = yield* insertClassroom(app, { professorId: owner.id })
-      const classPetition = yield* insertPetition(app, {
-        userId: owner.id,
-        classroomId: classroom.id,
-      })
-      const guest = yield* makeBrowser(app)
-      const signInFirst = [
-        { type: "unauthenticated", message: "Sign in to access petition activity." },
-      ]
+  it.live(
+    "guests cannot list petitions, and shared links skip hidden and classroom petitions",
+    () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        const owner = yield* createUser(app)
+        const petition = yield* insertPetition(app, { userId: owner.id })
+        const classroom = yield* insertClassroom(app, { professorId: owner.id })
+        const classPetition = yield* insertPetition(app, {
+          userId: owner.id,
+          classroomId: classroom.id,
+        })
+        const guest = yield* makeBrowser(app)
+        const signInFirst = [
+          { type: "unauthenticated", message: "Sign in to access petition activity." },
+        ]
 
-      assert.deepStrictEqual(expectErrors(yield* guest.rpc((api) => api.getPetitions({}))), signInFirst)
-      assert.deepStrictEqual(
-        expectErrors(yield* guest.rpc((api) => api.getPublicPetitions())),
-        signInFirst,
-      )
-      assert.deepStrictEqual(
-        expectErrors(
-          yield* guest.rpc((api) => api.getClassroomPetitions({ classroomId: classroom.id })),
-        ),
-        signInFirst,
-      )
-      for (const call of [
-        (api: ApiClient) => api.updatePetition({ id: petition.id, title: "Mine now" }),
-        (api: ApiClient) => api.closePetition({ id: petition.id }),
-        (api: ApiClient) => api.markPetitionVictory({ id: petition.id }),
-      ]) {
-        assert.deepStrictEqual(expectErrors(yield* guest.rpc(call)), signInFirst)
-      }
-
-      const notFound = [{ type: "not_found", message: "Petition not found" }]
-      for (const id of [classPetition.id, "not-a-uuid", crypto.randomUUID()]) {
         assert.deepStrictEqual(
-          expectErrors(yield* guest.rpc((api) => api.getPetitionById({ id }))),
+          expectErrors(yield* guest.rpc((api) => api.getPetitions({}))),
+          signInFirst,
+        )
+        assert.deepStrictEqual(
+          expectErrors(yield* guest.rpc((api) => api.getPublicPetitions())),
+          signInFirst,
+        )
+        assert.deepStrictEqual(
+          expectErrors(
+            yield* guest.rpc((api) => api.getClassroomPetitions({ classroomId: classroom.id })),
+          ),
+          signInFirst,
+        )
+        for (const call of [
+          (api: ApiClient) => api.updatePetition({ id: petition.id, title: "Mine now" }),
+          (api: ApiClient) => api.closePetition({ id: petition.id }),
+          (api: ApiClient) => api.markPetitionVictory({ id: petition.id }),
+        ]) {
+          assert.deepStrictEqual(expectErrors(yield* guest.rpc(call)), signInFirst)
+        }
+
+        const notFound = [{ type: "not_found", message: "Petition not found" }]
+        for (const id of [classPetition.id, "not-a-uuid", crypto.randomUUID()]) {
+          assert.deepStrictEqual(
+            expectErrors(yield* guest.rpc((api) => api.getPetitionById({ id }))),
+            notFound,
+          )
+        }
+        expectData(yield* guest.rpc((api) => api.getPetitionById({ id: petition.id })))
+        yield* updatePetitionRow(app, petition.id, { hidden_at: new Date() })
+        assert.deepStrictEqual(
+          expectErrors(yield* guest.rpc((api) => api.getPetitionById({ id: petition.id }))),
           notFound,
         )
-      }
-      expectData(yield* guest.rpc((api) => api.getPetitionById({ id: petition.id })))
-      yield* updatePetitionRow(app, petition.id, { hidden_at: new Date() })
-      assert.deepStrictEqual(
-        expectErrors(yield* guest.rpc((api) => api.getPetitionById({ id: petition.id }))),
-        notFound,
-      )
-      assert.deepStrictEqual(
-        expectErrors(yield* owner.browser.rpc((api) => api.getPetitionById({ id: petition.id }))),
-        notFound,
-      )
-    }),
+        assert.deepStrictEqual(
+          expectErrors(yield* owner.browser.rpc((api) => api.getPetitionById({ id: petition.id }))),
+          notFound,
+        )
+      }),
   )
 
   it.live("categories are public", () =>
@@ -295,7 +315,12 @@ describe("petitions", () => {
         const detail = expectData(
           yield* user.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
         )
-        assert.include(detail, { signaturesCount: 1, canManage, hasSigned, author: "Private Owner" })
+        assert.include(detail, {
+          signaturesCount: 1,
+          canManage,
+          hasSigned,
+          author: "Private Owner",
+        })
         assert.ok("comments" in detail)
         assert.deepStrictEqual(
           detail.comments.map(({ text, author }) => ({ text, author })),
@@ -358,7 +383,11 @@ describe("petitions", () => {
       const category = yield* insertCategory(app)
       const petition = expectData(
         yield* owner.browser.rpc((api) =>
-          api.createPetition({ title: "New petition", description: "Better", categoryId: category.id }),
+          api.createPetition({
+            title: "New petition",
+            description: "Better",
+            categoryId: category.id,
+          }),
         ),
       )
       const forbidden = [{ type: "forbidden", message: "You can't manage this petition." }]
@@ -421,10 +450,203 @@ describe("petitions", () => {
       ]) {
         assert.deepStrictEqual(expectErrors(yield* owner.browser.rpc(call)), notFound)
       }
-      assert.deepStrictEqual(expectData(yield* owner.browser.rpc((api) => api.getPetitions({}))), [])
+      assert.deepStrictEqual(
+        expectData(yield* owner.browser.rpc((api) => api.getPetitions({}))),
+        [],
+      )
       assert.deepStrictEqual(
         expectData(yield* owner.browser.rpc((api) => api.getPublicPetitions())),
         [],
+      )
+    }),
+  )
+
+  it.live("classroom petitions need active membership and take the classroom's campus", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app)
+      const classSchool = yield* createOrganization(app, { name: "Class U", domain: "class.edu" })
+      const professor = yield* createUser(app, { role: "professor", organizationId: school.id })
+      const student = yield* createUser(app, { organizationId: school.id })
+      const category = yield* insertCategory(app)
+      const classroom = yield* insertClassroom(app, {
+        professorId: professor.id,
+        organizationId: classSchool.id,
+      })
+      const input = {
+        title: "Class idea",
+        description: "Better classes",
+        categoryId: category.id,
+        classroomId: classroom.id,
+      }
+      const unavailable = [
+        { type: "invalid", field: "classroomId", message: "This classroom is unavailable." },
+      ]
+
+      assert.deepStrictEqual(
+        expectErrors(yield* student.browser.rpc((api) => api.createClassroomPetition(input))),
+        unavailable,
+      )
+      yield* upsertMembership(app, {
+        classroomId: classroom.id,
+        userId: student.id,
+        status: "pending",
+      })
+      assert.deepStrictEqual(
+        expectErrors(yield* student.browser.rpc((api) => api.createClassroomPetition(input))),
+        unavailable,
+      )
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: student.id })
+      const petition = expectData(
+        yield* student.browser.rpc((api) => api.createClassroomPetition(input)),
+      )
+      assert.include(petition, { classroomId: classroom.id, organizationId: classSchool.id })
+
+      // Visible to members and the professor only; never in the campus list for others.
+      const outsider = yield* createUser(app, { organizationId: school.id })
+      const ids = (
+        result:
+          | { success: true; data: ReadonlyArray<{ id: string }> }
+          | { success: false; errors: unknown },
+      ) => expectData(result).map((row) => row.id)
+      for (const user of [student, professor]) {
+        assert.deepStrictEqual(
+          ids(
+            yield* user.browser.rpc((api) =>
+              api.getClassroomPetitions({ classroomId: classroom.id }),
+            ),
+          ),
+          [petition.id],
+        )
+        assert.deepStrictEqual(ids(yield* user.browser.rpc((api) => api.getPetitions({}))), [
+          petition.id,
+        ])
+        assert.deepStrictEqual(ids(yield* user.browser.rpc((api) => api.getPublicPetitions())), [])
+      }
+      assert.deepStrictEqual(
+        ids(
+          yield* outsider.browser.rpc((api) =>
+            api.getClassroomPetitions({ classroomId: classroom.id }),
+          ),
+        ),
+        [],
+      )
+      assert.deepStrictEqual(ids(yield* outsider.browser.rpc((api) => api.getPetitions({}))), [])
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* outsider.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+        ),
+        [{ type: "not_found", message: "Petition not found" }],
+      )
+
+      // The professor manages students' classroom petitions.
+      const asProfessor = expectData(
+        yield* professor.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+      )
+      assert.strictEqual(asProfessor.canManage, true)
+
+      // A removed member loses access, even to their own petition.
+      yield* upsertMembership(app, {
+        classroomId: classroom.id,
+        userId: student.id,
+        status: "removed",
+      })
+      assert.deepStrictEqual(
+        expectErrors(yield* student.browser.rpc((api) => api.closePetition({ id: petition.id }))),
+        [{ type: "not_found", message: "Petition not found" }],
+      )
+      expectData(yield* professor.browser.rpc((api) => api.closePetition({ id: petition.id })))
+
+      yield* setClassroomArchived(app, classroom.id, true)
+      assert.deepStrictEqual(
+        expectErrors(yield* professor.browser.rpc((api) => api.createClassroomPetition(input))),
+        unavailable,
+      )
+    }),
+  )
+
+  it.live("a classroom can keep petitions to its professor", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app)
+      const professor = yield* createUser(app, { role: "professor", organizationId: school.id })
+      const student = yield* createUser(app, { organizationId: school.id })
+      const category = yield* insertCategory(app)
+      const classroom = yield* insertClassroom(app, {
+        professorId: professor.id,
+        allowStudentPetitions: false,
+      })
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: student.id, role: "ta" })
+      const input = {
+        title: "Class idea",
+        description: "Better classes",
+        categoryId: category.id,
+        classroomId: classroom.id,
+      }
+      assert.deepStrictEqual(
+        expectErrors(yield* student.browser.rpc((api) => api.createClassroomPetition(input))),
+        [
+          {
+            type: "invalid",
+            field: "classroomId",
+            message: "Only the professor can create petitions in this classroom.",
+          },
+        ],
+      )
+      const petition = expectData(
+        yield* professor.browser.rpc((api) => api.createClassroomPetition(input)),
+      )
+      // Without a campus on the classroom, the petition takes the professor's.
+      assert.strictEqual(petition.organizationId, school.id)
+    }),
+  )
+
+  it.live("lists are newest first, by campus, and classroom lists can sort by goal", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app)
+      const other = yield* createOrganization(app, { name: "Other", domain: "other.edu" })
+      const user = yield* createUser(app, { role: "professor", organizationId: school.id })
+      const classroom = yield* insertClassroom(app, { professorId: user.id })
+      const first = yield* insertPetition(app, { userId: user.id, organizationId: school.id })
+      const second = yield* insertPetition(app, { userId: user.id, organizationId: other.id })
+      const small = yield* insertPetition(app, {
+        userId: user.id,
+        classroomId: classroom.id,
+        goal: 5,
+      })
+      const large = yield* insertPetition(app, {
+        userId: user.id,
+        classroomId: classroom.id,
+        goal: 50,
+      })
+      const ids = (
+        result:
+          | { success: true; data: ReadonlyArray<{ id: string }> }
+          | { success: false; errors: unknown },
+      ) => expectData(result).map((row) => row.id)
+
+      assert.deepStrictEqual(ids(yield* user.browser.rpc((api) => api.getPetitions({}))), [
+        large.id,
+        small.id,
+        second.id,
+        first.id,
+      ])
+      assert.deepStrictEqual(
+        ids(yield* user.browser.rpc((api) => api.getPetitions({ organizationId: school.id }))),
+        [first.id],
+      )
+      assert.deepStrictEqual(ids(yield* user.browser.rpc((api) => api.getPublicPetitions())), [
+        second.id,
+        first.id,
+      ])
+      assert.deepStrictEqual(
+        ids(
+          yield* user.browser.rpc((api) =>
+            api.getClassroomPetitions({ classroomId: classroom.id, sort: "goal" }),
+          ),
+        ),
+        [large.id, small.id],
       )
     }),
   )

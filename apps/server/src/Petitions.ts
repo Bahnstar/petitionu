@@ -39,7 +39,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const selectPetitions = (
       actor: Actor,
       where: Statement.Fragment,
-      orderBy: Statement.Fragment = sql`p.inserted_at DESC, p.id`,
+      orderBy: Statement.Fragment = sql`p.inserted_at DESC, p.id DESC`,
     ) => {
       const id = actorId(actor)
       return SqlSchema.findAll({
@@ -84,7 +84,9 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
 
     const findPetition = (actor: Actor, id: string) =>
       isUuid(id)
-        ? Effect.map(selectPetitions(actor, sql`p.id = ${id}`), (rows) => Option.fromNullishOr(rows[0]))
+        ? Effect.map(selectPetitions(actor, sql`p.id = ${id}`), (rows) =>
+            Option.fromNullishOr(rows[0]),
+          )
         : Effect.succeed(Option.none<PetitionDto>())
 
     const getPetition = (actor: Actor, id: string) =>
@@ -207,10 +209,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
      * Loads a petition the user may manage, locking it: `NotFound` unless the user can see it,
      * `Forbidden` unless they wrote it or teach its classroom.
      */
-    const manage = <A, E, R>(
-      id: string,
-      change: (user: SignedIn) => Effect.Effect<A, E, R>,
-    ) =>
+    const manage = <A, E, R>(id: string, change: (user: SignedIn) => Effect.Effect<A, E, R>) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
         if (!isUuid(id)) return yield* petitionNotFound
@@ -252,7 +251,9 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
           selectPetitions(
             user,
             sql`p.classroom_id::text = ${classroomId}`,
-            sort === "goal" ? sql`p.goal DESC NULLS LAST, p.id` : sql`p.inserted_at DESC, p.id`,
+            sort === "goal"
+              ? sql`p.goal DESC NULLS LAST, p.id`
+              : sql`p.inserted_at DESC, p.id DESC`,
           ),
         ),
       getPetitionById: ({ id }) =>
@@ -281,11 +282,8 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
           Effect.gen(function* () {
             const checked = validatePetitionInput(input, { mode: "update", now: new Date() })
             if (!checked.ok) return yield* invalid(checked.errors)
-            const columns = Object.fromEntries(
-              Object.entries(checked.value).filter(([, value]) => value !== undefined),
-            )
-            const set =
-              Object.keys(columns).length > 0 ? sql`${sql.update(columns)},` : sql``
+            const columns: Record<string, unknown> = { ...checked.value }
+            const set = Object.keys(columns).length > 0 ? sql`${sql.update(columns)},` : sql``
             yield* sql`
               UPDATE petition SET ${set} updated_at = now() AT TIME ZONE 'utc'
               WHERE id = ${id}
