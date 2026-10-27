@@ -11,6 +11,9 @@ x-app: &app
     DATABASE_URL: postgresql://petitionu:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/petitionu
     DATABASE_SSL: "false"
     PORT: "4000"
+    # Every request arrives through the Cloudflare tunnel, so rate limits key on Cloudflare's
+    # client address header. Override it in the shell or the project's `.env`.
+    CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-cf-connecting-ip}
   restart: unless-stopped
 
 services:

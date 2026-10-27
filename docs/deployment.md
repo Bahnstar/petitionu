@@ -20,7 +20,7 @@ Copy `.env.example` into your hosting provider's secret configuration, or to `.e
 | `PORT` | HTTP port. Defaults to 4000. |
 | `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required: the app refuses to start without them (`migrate` doesn't need them). Independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
 | `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address (sent as `PetitionU <MAIL_FROM>`) and monitored reply-to mailbox. Required: outside `NODE_ENV=development` the app refuses to start without them. In development without `RESEND_API_KEY`, emails are logged instead of sent. |
-| `CLIENT_IP_HEADER` | The request header holding the client's address, used for the per-client rate limits on sign-in, password reset and magic-link requests. Defaults to `x-forwarded-for`, which counts only when it holds a single address. Behind Cloudflare (including the Compose tunnel), set `cf-connecting-ip`. Only name a header your proxy always sets and overwrites, or clients can choose their own rate-limit bucket. |
+| `CLIENT_IP_HEADER` | The request header holding the client's address, used for the per-client rate limits on sign-in, password reset and magic-link requests. Defaults to `x-forwarded-for`, which counts only when it holds a single address. Behind Cloudflare, set `cf-connecting-ip`; the Compose stack sets it for you. Only name a header your proxy always sets and overwrites, or clients can choose their own rate-limit bucket. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional OpenTelemetry collector base URL. Export is off when unset. |
 | `JOB_WORKERS` | `false` stops this process from running background jobs (school verification); jobs stay queued in the `job_queue` table. Defaults to `true`. Run one process with workers, or several: the queue locks each job. |
 
@@ -36,7 +36,7 @@ Verify your sender domain in Resend before launch. Production logs are JSON, one
 - `cloudflared`: a Cloudflare Tunnel, started once `app` is healthy. It is the only way in from outside.
 
 1. In the Cloudflare Zero Trust dashboard, create a tunnel and copy its token. Add a public hostname for `PUBLIC_HOST` with service `http://app:4000`.
-2. Copy `.env.example` to `.env`. Set `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `PUBLIC_HOST`, the two secrets, the mail variables and `CLIENT_IP_HEADER=cf-connecting-ip`. Compose builds `DATABASE_URL` from `POSTGRES_PASSWORD` and sets `DATABASE_SSL=false` and `PORT=4000` itself.
+2. Copy `.env.example` to `.env`. Set `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `PUBLIC_HOST`, the two secrets and the mail variables. Compose builds `DATABASE_URL` from `POSTGRES_PASSWORD` and sets `DATABASE_SSL=false`, `PORT=4000` and `CLIENT_IP_HEADER=cf-connecting-ip` (every request comes through the tunnel) itself. To use another header, set `CLIENT_IP_HEADER` in the shell or in the project's `.env`; with `ENV_FILE` pointing elsewhere, only the shell overrides it.
 3. Back up the database with `scripts/backup.sh` before upgrading a running stack.
 4. Run `docker compose up -d --build`. Compose builds the image, waits for Postgres, migrates, starts the app and then the tunnel.
 5. Check `docker compose ps`: `migrate` should show `Exited (0)` and `app` should be `healthy`. Read logs with `docker compose logs migrate app`.
