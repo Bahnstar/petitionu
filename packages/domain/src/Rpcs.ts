@@ -8,4 +8,7 @@ import { UsersRpcs } from "./Users.ts"
  * Each feature area defines its own group in its own module and merges it here with one line,
  * e.g. `.merge(PetitionRpcs)`.
  */
-export class AppRpcs extends RpcGroup.make().merge(AccountsRpcs).merge(UsersRpcs).merge(SupportRpcs) {}
+export class AppRpcs extends RpcGroup.make()
+  .merge(AccountsRpcs)
+  .merge(UsersRpcs)
+  .merge(SupportRpcs) {}

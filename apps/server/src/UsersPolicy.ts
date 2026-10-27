@@ -32,7 +32,9 @@ export const visibleUsers = (sql: SqlClient.SqlClient, actor: Actor, alias: stri
  */
 export const canSeeDetails = (actor: Actor, user: PolicyUser) =>
   actor._tag === "SignedIn" &&
-  (user.id === actor.id || actor.role === "superadmin" || isCampusAdminOf(actor, user.organizationId))
+  (user.id === actor.id ||
+    actor.role === "superadmin" ||
+    isCampusAdminOf(actor, user.organizationId))
 
 /** Field policy for petition and signature activity: only the user themself. */
 export const canSeeActivity = (actor: Actor, user: PolicyUser) =>

@@ -72,7 +72,11 @@ describe("getUserById", () => {
             id: petition,
             author: "Anonymous student",
             signaturesCount: 2,
-            category: { id: data.petitions[0]!.category!.id, name: "Campus life", color: "#123456" },
+            category: {
+              id: data.petitions[0]!.category!.id,
+              name: "Campus life",
+              color: "#123456",
+            },
           },
         ],
       )
@@ -140,7 +144,10 @@ describe("getUsers", () => {
       const student = yield* createUser(app, { organizationId: campus.id })
       const admin = yield* createUser(app, { organizationId: campus.id, role: "admin" })
       const outsider = yield* createUser(app, { organizationId: elsewhere.id })
-      const superadmin = yield* createUser(app, { organizationId: elsewhere.id, role: "superadmin" })
+      const superadmin = yield* createUser(app, {
+        organizationId: elsewhere.id,
+        role: "superadmin",
+      })
       const guest = yield* makeBrowser(app)
 
       const idsSeenBy = (browser: typeof guest) =>

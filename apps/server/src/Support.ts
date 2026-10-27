@@ -92,9 +92,7 @@ export const SupportHandlers = SupportRpcs.toLayer(
         ),
       getSupportRequests: ({ state }) =>
         Effect.flatMap(CurrentUser, (actor) =>
-          list(actor, state === undefined ? sql`TRUE` : sql`r.state = ${state}`).pipe(
-            Effect.orDie,
-          ),
+          list(actor, state === undefined ? sql`TRUE` : sql`r.state = ${state}`).pipe(Effect.orDie),
         ),
       resolveSupportRequest: ({ id, resolutionNote }) =>
         Effect.gen(function* () {
@@ -105,7 +103,10 @@ export const SupportHandlers = SupportRpcs.toLayer(
           const text = yield* note("resolutionNote", resolutionNote)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
-            return yield* new Invalid({ message: "This request has already been resolved.", fields: [] })
+            return yield* new Invalid({
+              message: "This request has already been resolved.",
+              fields: [],
+            })
           }
           yield* sql`
             UPDATE support_requests SET state = 'resolved', resolution_note = ${text},

@@ -102,7 +102,9 @@ describe("support requests", () => {
       )
       assert.deepStrictEqual(errorTypes(byAdmin), ["not_found"])
 
-      const queue = yield* superadmin.browser.rpc((api) => api.getSupportRequests({ state: "open" }))
+      const queue = yield* superadmin.browser.rpc((api) =>
+        api.getSupportRequests({ state: "open" }),
+      )
       if (!queue.success) return assert.fail(JSON.stringify(queue))
       assert.deepStrictEqual(
         queue.data.map((request) => request.id),
@@ -142,7 +144,8 @@ describe("support requests", () => {
           api.createSupportRequest({ kind: "support", message }),
         )
         assert.deepInclude(result, { success: false })
-        if (!result.success) assert.deepInclude(result.errors[0], { type: "invalid", field: "message" })
+        if (!result.success)
+          assert.deepInclude(result.errors[0], { type: "invalid", field: "message" })
       }
 
       const forged = yield* reporter.browser.rpc((api) =>
@@ -163,7 +166,8 @@ describe("support requests", () => {
         api.resolveSupportRequest({ id: forged.data.id, resolutionNote: "  " }),
       )
       assert.deepInclude(blank, { success: false })
-      if (!blank.success) assert.deepInclude(blank.errors[0], { type: "invalid", field: "resolutionNote" })
+      if (!blank.success)
+        assert.deepInclude(blank.errors[0], { type: "invalid", field: "resolutionNote" })
     }),
   )
 
@@ -178,4 +182,3 @@ describe("support requests", () => {
     }),
   )
 })
-
