@@ -10,7 +10,6 @@ import {
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { AppConfig } from "./Config.ts"
-import { isUuid, requiredNote } from "./Input.ts"
 import { authorizeResolve, visibleSupportRequests } from "./SupportPolicy.ts"
 import { isoTimestamp } from "./Timestamps.ts"
 
@@ -68,10 +67,9 @@ export const SupportHandlers = SupportRpcs.toLayer(
       createSupportRequest: ({ kind, message }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          const text = yield* requiredNote("message", message)
           const [row] = yield* sql<{ id: string }>`
             INSERT INTO support_requests (kind, message, requester_email, user_id, organization_id)
-            VALUES (${kind}, ${text}, ${actor.email}, ${actor.id}, ${actor.organizationId})
+            VALUES (${kind}, ${message}, ${actor.email}, ${actor.id}, ${actor.organizationId})
             RETURNING id
           `.pipe(Effect.orDie)
           return yield* findById(row!.id).pipe(Effect.orDie)
@@ -87,16 +85,14 @@ export const SupportHandlers = SupportRpcs.toLayer(
       resolveSupportRequest: ({ id, resolutionNote }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          if (!isUuid(id)) return yield* requestNotFound
           const locked = yield* lockVisible(actor, id).pipe(Effect.orDie)
           if (Option.isNone(locked)) return yield* requestNotFound
-          const text = yield* requiredNote("resolutionNote", resolutionNote)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
             return yield* invalidRequest("This request has already been resolved.")
           }
           yield* sql`
-            UPDATE support_requests SET state = 'resolved', resolution_note = ${text},
+            UPDATE support_requests SET state = 'resolved', resolution_note = ${resolutionNote},
               resolver_id = ${actor.id}, resolved_at = now() AT TIME ZONE 'utc',
               updated_at = now() AT TIME ZONE 'utc'
             WHERE id = ${id}

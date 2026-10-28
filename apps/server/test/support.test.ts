@@ -171,6 +171,112 @@ describe("support requests", () => {
     }),
   )
 
+  it.live("the client reports every malformed field, worded as before", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app, { domain: "school.edu" })
+      const admin = yield* createUser(app, { organizationId: school.id, role: "admin" })
+      const malformed = yield* admin.browser.rpc((api) =>
+        api.resolveSupportRequest({ id: "nope", resolutionNote: "   " }),
+      )
+      assert.deepStrictEqual(malformed, {
+        success: false,
+        errors: [
+          { type: "invalid", field: "id", message: "is invalid" },
+          {
+            type: "invalid",
+            field: "resolutionNote",
+            message: "length must be greater than or equal to 1",
+          },
+        ],
+      })
+      const long = yield* admin.browser.rpc((api) =>
+        api.createSupportRequest({ kind: "support", message: "x".repeat(5001) }),
+      )
+      assert.deepStrictEqual(long, {
+        success: false,
+        errors: [
+          {
+            type: "invalid",
+            field: "message",
+            message: "length must be less than or equal to 5000",
+          },
+        ],
+      })
+      // A field of the wrong type doesn't hide the others.
+      const mistyped = yield* admin.browser.rpc((api) =>
+        api.createSupportRequest({ kind: "zzz", message: "" } as never),
+      )
+      assert.deepStrictEqual(mistyped, {
+        success: false,
+        errors: [
+          { type: "invalid", field: "kind", message: 'Expected "support" | "account_deletion"' },
+          {
+            type: "invalid",
+            field: "message",
+            message: "length must be greater than or equal to 1",
+          },
+        ],
+      })
+    }),
+  )
+
+  it.live("a malformed payload from outside the client never reaches the handler", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const school = yield* createOrganization(app, { domain: "school.edu" })
+      const reporter = yield* createUser(app, { organizationId: school.id })
+      const admin = yield* createUser(app, { organizationId: school.id, role: "admin" })
+      const created = yield* reporter.browser.rpc((api) =>
+        api.createSupportRequest({ kind: "support", message: "Help" }),
+      )
+      if (!created.success) return assert.fail(JSON.stringify(created))
+      const token = yield* admin.browser.reloadCsrf
+      const raw = (payload: unknown) =>
+        Effect.gen(function* () {
+          const response = yield* admin.browser.request("/rpc", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-csrf-token": token },
+            body: JSON.stringify({
+              _tag: "Request",
+              id: "1",
+              tag: "resolveSupportRequest",
+              payload,
+              headers: [],
+            }),
+          })
+          return { status: response.status, body: yield* Effect.promise(() => response.json()) }
+        })
+      const defect = (message: string) => ({
+        status: 200,
+        body: [
+          {
+            _tag: "Exit",
+            requestId: "1",
+            exit: { _tag: "Failure", cause: [{ _tag: "Die", defect: message }] },
+          },
+        ],
+      })
+
+      // The server decodes the payload before any handler or query runs and answers with a
+      // defect naming each field; only callers that skip the shared client see this.
+      assert.deepStrictEqual(
+        yield* raw({ id: created.data.id, resolutionNote: "  " }),
+        defect('length must be greater than or equal to 1\n  at ["resolutionNote"]'),
+      )
+      assert.deepStrictEqual(
+        yield* raw({ id: "nope'; --", resolutionNote: "x".repeat(5001) }),
+        defect(
+          'is invalid\n  at ["id"]\nlength must be less than or equal to 5000\n  at ["resolutionNote"]',
+        ),
+      )
+      const [row] = yield* app.sql<{ state: string; resolution_note: string | null }>`
+        SELECT state, resolution_note FROM support_requests WHERE id = ${created.data.id}
+      `.pipe(Effect.orDie)
+      assert.deepStrictEqual({ ...row }, { state: "open", resolution_note: null })
+    }),
+  )
+
   it.live("anyone can read the support mailbox", () =>
     Effect.gen(function* () {
       const configured = yield* makeTestApp({ env: { SUPPORT_EMAIL: "help@campus.test" } })

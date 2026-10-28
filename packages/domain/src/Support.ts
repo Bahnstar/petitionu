@@ -2,18 +2,13 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound } from "./Errors.ts"
+import { Note, Uuid } from "./Inputs.ts"
 
 export const SupportRequestKind = Schema.Literals(["support", "account_deletion"])
 export type SupportRequestKind = typeof SupportRequestKind.Type
 
 export const SupportRequestState = Schema.Literals(["open", "resolved"])
 export type SupportRequestState = typeof SupportRequestState.Type
-
-/**
- * A request message or resolution note: 1 to 5000 characters once trimmed. Forms check it on
- * the client; the server checks it again and answers `Invalid` for the field.
- */
-export const SupportNote = Schema.Trim.check(Schema.isMinLength(1), Schema.isMaxLength(5000))
 
 export const SupportRequest = Schema.Struct({
   id: Schema.String,
@@ -31,13 +26,13 @@ export type SupportRequest = typeof SupportRequest.Type
 
 export const CreateSupportRequestInput = Schema.Struct({
   kind: SupportRequestKind,
-  message: Schema.String,
+  message: Note,
 })
 export type CreateSupportRequestInput = typeof CreateSupportRequestInput.Type
 
 export const ResolveSupportRequestInput = Schema.Struct({
-  id: Schema.String,
-  resolutionNote: Schema.String,
+  id: Uuid,
+  resolutionNote: Note,
 })
 export type ResolveSupportRequestInput = typeof ResolveSupportRequestInput.Type
 
@@ -78,4 +73,6 @@ export class SupportRpcs extends RpcGroup.make(
   getSupportRequests,
   resolveSupportRequest,
   supportContact,
-).middleware(ActorMiddleware) {}
+)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}
