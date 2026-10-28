@@ -37,6 +37,15 @@ const cases = [
   { command: { kind: "comment", petition, text: "I agree" }, action: "createComment" },
   { command: { kind: "sign", petition, reason: "  " }, action: "createSignature" },
   { command: { kind: "withdraw", petition }, action: "deleteSignature", returns: "nothing" },
+  {
+    command: { kind: "editComment", petition, commentId: "comment-1", text: "Fixed" },
+    action: "updateComment",
+  },
+  {
+    command: { kind: "deleteComment", petition, commentId: "comment-1" },
+    action: "deleteComment",
+    returns: "nothing",
+  },
   { command: { kind: "edit", petition, input: { title: "New title" } }, action: "updatePetition" },
   {
     command: { kind: "update", petition, input: { title: "News", body: "We did it" } },
@@ -70,6 +79,16 @@ const petitionDto = {
 }
 const results = {
   deleteSignature: null,
+  deleteComment: null,
+  updateComment: {
+    id: "result-1",
+    petitionId: petition.id,
+    parentCommentId: null,
+    text: "Fixed",
+    author: "Ada Lovelace",
+    insertedAt,
+    canEdit: true,
+  },
   createComment: {
     id: "result-1",
     petitionId: petition.id,
@@ -154,6 +173,9 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
       assert.equal(payload.petitionId, petition.id)
     if (command.classroomId) assert.equal(payload.classroomId, command.classroomId)
     if (command.kind === "sign") assert.equal(payload.reason, null)
+    if (["editComment", "deleteComment"].includes(command.kind))
+      assert.equal(payload.id, "comment-1")
+    if (command.kind === "editComment") assert.equal(payload.text, "Fixed")
     allKeys.forEach((key, index) => {
       assert.equal(
         client.getQueryState(key).isInvalidated,
@@ -166,7 +188,16 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
 
   test(`${action}: rejected writes preserve the cache and show server errors`, async () => {
     const { client } = setup(refusal)
-    const message = ["comment", "sign", "withdraw", "close", "victory"].includes(command.kind)
+    const single = [
+      "comment",
+      "editComment",
+      "deleteComment",
+      "sign",
+      "withdraw",
+      "close",
+      "victory",
+    ]
+    const message = single.includes(command.kind)
       ? "Not allowed."
       : "Not allowed. Please try later."
     await assert.rejects(mutatePetition(client, command), { message })
@@ -211,7 +242,7 @@ test("public participation does not refresh classroom projections", async () => 
   client.clear()
 })
 
-for (const kind of ["close", "withdraw", "comment"]) {
+for (const kind of ["close", "withdraw", "editComment", "deleteComment", "comment"]) {
   test(`${kind}: preserves completion timing while active detail queries refresh`, async () => {
     const { client } = setup()
     let finishRefresh
@@ -225,7 +256,8 @@ for (const kind of ["close", "withdraw", "comment"]) {
     })
     const unsubscribe = observer.subscribe(() => {})
     let completed = false
-    const mutation = mutatePetition(client, { kind, petition, text: "Yes" }).then(() => {
+    const command = { kind, petition, text: "Yes", commentId: "comment-1" }
+    const mutation = mutatePetition(client, command).then(() => {
       completed = true
     })
     await new Promise((resolve) => setTimeout(resolve, 0))

@@ -16,6 +16,8 @@ type PetitionCommand =
       | { kind: "comment"; text: string }
       | { kind: "sign"; reason: string }
       | { kind: "withdraw" }
+      | { kind: "editComment"; commentId: string; text: string }
+      | { kind: "deleteComment"; commentId: string }
     ))
 
 function failureMessage(command: PetitionCommand) {
@@ -38,16 +40,28 @@ function execute(command: PetitionCommand) {
   if (command.kind === "sign")
     return api.createSignature({ petitionId, reason: command.reason.trim() || null })
   if (command.kind === "withdraw") return api.deleteSignature({ petitionId })
+  if (command.kind === "editComment")
+    return api.updateComment({ id: command.commentId, text: command.text })
+  if (command.kind === "deleteComment") return api.deleteComment({ id: command.commentId })
   if (command.kind === "update") return api.createUpdate({ ...command.input, petitionId })
   if (command.kind === "edit") return api.updatePetition({ ...command.input, id: petitionId })
   if (command.kind === "close") return api.closePetition({ id: petitionId })
   return api.markPetitionVictory({ id: petitionId })
 }
 
+// Participation shows one message: the first reason the server gave.
+const singleMessage = new Set<PetitionCommand["kind"]>([
+  "comment",
+  "editComment",
+  "deleteComment",
+  "sign",
+  "withdraw",
+])
+
 // Callers own form state and participation hints; the server remains authoritative.
-// Successful writes refresh their projections only. Owner commands and withdrawals wait for
-// refreshed detail (a withdrawal would otherwise show the stale "signed" state); creation,
-// signing and commenting confirm immediately.
+// Successful writes refresh their projections only. Owner commands, withdrawals and comment
+// edits wait for refreshed detail (the page would otherwise show the stale signature or
+// comment); creation, signing and commenting confirm immediately.
 export function mutatePetition(
   queryClient: QueryClient,
   command: Extract<PetitionCommand, { kind: "create" }>,
@@ -61,10 +75,9 @@ export async function mutatePetition(
   if (result.success === false) {
     // `unknown` errors are transport failures or unexpected responses; their text isn't for users.
     const errors = result.errors.filter((error) => error.type !== "unknown")
-    const message =
-      command.kind === "comment" || command.kind === "sign" || command.kind === "withdraw"
-        ? errors[0]?.message
-        : errors.map((error) => error.message).join(" ")
+    const message = singleMessage.has(command.kind)
+      ? errors[0]?.message
+      : errors.map((error) => error.message).join(" ")
     throw new Error(message || failureMessage(command))
   }
 

@@ -8,6 +8,7 @@ import { Link, useParams } from "react-router-dom"
 import type { PetitionDetailDto, SharedPetitionDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
+import { PetitionComment } from "../features/petition/petition-comment"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -225,18 +226,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
           {renderCommentForm()}
           <div className="petition-thread">
             {comments.map((comment) => (
-              <div key={comment.id}>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-medium">
-                    {comment.author || "A campus community member"}
-                  </span>
-                  {comment.insertedAt ? (
-                    <span className="text-muted-foreground">{formatDate(comment.insertedAt)}</span>
-                  ) : null}
-                </div>
-                <p className="text-sm leading-7 break-words whitespace-pre-wrap">{comment.text}</p>
-                <ReportContent petitionId={petition.id} commentId={comment.id} />
-              </div>
+              <PetitionComment key={comment.id} petition={petition} comment={comment} />
             ))}
           </div>
         </section>
