@@ -192,5 +192,5 @@ test("an account without a password is offered a link to set one instead", async
   expect(sent("/api/auth/request-password-reset").map((r) => r.body)).toEqual([
     { email: "ada@school.edu", redirectTo: "/reset" },
   ])
-  expect(container.textContent).toContain("check your email")
+  expect(container.textContent).toContain("Check your email: we sent ada@school.edu a link")
 })

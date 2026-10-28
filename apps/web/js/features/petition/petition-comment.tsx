@@ -93,7 +93,7 @@ export function PetitionComment({
     if (!comment.canEdit || mode === "edit") return null
     if (mode === "delete") {
       return (
-        <div role="group" aria-label="Delete comment" className="space-y-2">
+        <div role="group" aria-label="Delete comment" className="mt-2 space-y-2">
           <p className="text-sm">Delete this comment? This can’t be undone.</p>
           {remove.isError ? (
             <p role="alert" className="text-sm text-destructive">

@@ -119,9 +119,8 @@ function ChangePasswordForm() {
 function SetPasswordLink({ email }: { email: string }) {
   const request = useMutation({
     mutationFn: async () => {
-      const { data, error } = await authClient.requestPasswordReset({ email, redirectTo: "/reset" })
+      const { error } = await authClient.requestPasswordReset({ email, redirectTo: "/reset" })
       throwAuthError(error, "Couldn’t send the link. Please try again.")
-      return data?.message ?? "Check your email for a link to set your password."
     },
   })
 
@@ -138,10 +137,15 @@ function SetPasswordLink({ email }: { email: string }) {
       )}
       {request.isSuccess ? (
         <p role="status" className="text-sm">
-          {request.data}
+          Check your email: we sent {email} a link to set your password.
         </p>
       ) : (
-        <Button type="button" onClick={() => request.mutate()} disabled={request.isPending}>
+        <Button
+          type="button"
+          className="self-start"
+          onClick={() => request.mutate()}
+          disabled={request.isPending}
+        >
           {request.isPending ? (
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
           ) : (
