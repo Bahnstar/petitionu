@@ -55,7 +55,7 @@ The main choices:
 17. As a student who forgot my password, I want to request a reset email, so that I can get back into my account.
 18. As a student, I want the reset page to let me set a new password and sign me in, and to count as confirming my email, so that recovery is a single step.
 19. As a student, I want a password reset or change to sign me out on every other device, so that someone who knew my old password loses access.
-20. As a signed-in student, I want to change my password by entering my current one and the new one twice, so that I can keep my account secure.
+20. As a signed-in student, I want to change my password by entering my current one and the new one twice, so that I can keep my account secure. If I only ever signed in with emailed links, I want the profile to offer a link to set a password instead, so that I'm not shown a form I can't use.
 21. As a signed-in student, I want to sign out, so that my session ends on a shared computer.
 22. As a student, I want links in reset, confirmation and magic-link emails to expire and only work once, so that an old email can't be used to get into my account.
 23. As a student, I want repeated sign-in or reset attempts to be rate-limited, so that attackers can't guess my password or flood my inbox.
@@ -65,7 +65,7 @@ The main choices:
 
 ### Profile and campus
 
-27. As a signed-in student, I want to see my profile, including email, name, role, graduation year, whether my email is verified, whether my profile is complete, and my campus, so that I know my account status.
+27. As a signed-in student, I want to see my profile, including email, name, role, graduation year, whether my email is verified, whether my profile is complete, my campus, and whether I have a password, so that I know my account status.
 28. As a confirmed student, I want to fill in my first name, last name and graduation year (between 1900 and 2100), so that my profile is complete.
 29. As a confirmed student without a campus, I want completing my profile to match me to my campus by email domain, and to tell me to contact support if there's no single supported match, so that I'm not stuck.
 30. As an unconfirmed student, I want a clear message that I must confirm my email before completing my profile, so that I know what to do next.
@@ -87,7 +87,7 @@ The main choices:
 
 ### Signatures and comments
 
-43. As a student on the right campus, I want to sign an open petition once, optionally with a reason, so that my support counts.
+43. As a student on the right campus, I want to sign an open petition once, optionally with a reason, so that my support counts, and to withdraw my own signature while the petition still takes signatures, so that I can change my mind.
 44. As a student, I want to be stopped from signing a closed petition, one past its deadline, or one from another campus that doesn't accept outside signatures, so that the rules are applied consistently.
 45. As a student, I want concurrent signing to never produce duplicate signatures or race past a petition closing, so that counts stay accurate.
 46. As a student, I want to comment on an open petition that allows comments, and reply to existing comments, so that I can discuss the issue.
@@ -182,7 +182,7 @@ The main choices:
   - `days_left` (30 days from creation when there's no deadline, otherwise days until the deadline);
   - `author` (with anonymity), `email_verified` and `profile_complete`;
   - the user activity stats.
-- Writes that Ash protected with row locks keep them. Signature, comment and update creation lock the petition row (`FOR UPDATE`) inside a transaction before checking it is open, its deadline, comment settings, campus and whether its classroom is archived. Report resolution locks the report row. Signature uniqueness is still enforced by the existing unique index on petition and user.
+- Writes that Ash protected with row locks keep them. Signature, comment and update creation lock the petition row (`FOR UPDATE`) inside a transaction before checking it is open, its deadline, comment settings, campus and whether its classroom is archived. Withdrawing a signature takes the same lock and the same checks with the same messages, except the campus check: a signer may withdraw after their campus stops qualifying. Report resolution locks the report row. Signature uniqueness is still enforced by the existing unique index on petition and user.
 
 ### Authentication (Better Auth)
 
@@ -228,7 +228,7 @@ The main choices:
 - One Effect RPC group in the shared domain package. The JSON serialization runs over HTTP at `POST /rpc`. Procedures keep today's camelCase names so the frontend recognizes them:
   - **Accounts:** getMe, getUserById, getUsers, updateMyProfile, setUserRole, getOrganizations, getPreferences, getNotifications, createSupportRequest, getMySupportRequests, getSupportRequests, resolveSupportRequest, supportContact.
   - **Petitions:** getPetitions, getPublicPetitions, getPetitionById, createPetition, createClassroomPetition, getClassroomPetitions, updatePetition, closePetition, markPetitionVictory, getCategories.
-  - **Participation:** createSignature, getSignatures, createComment, getComments, createUpdate, getUpdates, getUpdatesForPetition.
+  - **Participation:** createSignature, deleteSignature, getSignatures, createComment, getComments, createUpdate, getUpdates, getUpdatesForPetition.
   - **Classrooms:** getClassrooms, getClassroomById, getMyClassrooms (offset pagination with total count), createClassroom, updateClassroom, archiveClassroom, unarchiveClassroom, regenerateJoinCode, getClassroomMemberships, getMembershipsForClassroom, getPendingMemberships, joinClassroomByCode, requestToJoinClassroom, inviteToClassroom, approveMembership, removeFromClassroom, promoteToTa, demoteToStudent.
   - **Moderation:** createContentReport, getContentReports, resolveContentReport.
 - Each procedure has a fixed input schema and a fixed output DTO. Client-side field selection (`fields: [...]`) is dropped. Each DTO is defined as the union of what the frontend currently asks for at that call site, so no screen loses data. A procedure with call sites that need different depths gets one DTO covering all of them; these differences are small.
