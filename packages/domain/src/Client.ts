@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Layer, ManagedRuntime } from "effect"
+import { Cause, Context, Effect, Exit, Layer, ManagedRuntime, Schema, SchemaIssue } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
 import { type Rpc, RpcClient, type RpcGroup, RpcSerialization } from "effect/rpc"
 import type { RpcClientError } from "effect/rpc/RpcClientError"
@@ -105,6 +105,30 @@ const isTaggedFailure = (error: unknown): error is TaggedFailure =>
   typeof error._tag === "string" &&
   error._tag in errorTypes
 
+const issueEntries = SchemaIssue.makeFormatterStandardSchemaV1()
+
+/**
+ * Checks a payload against its procedure's schema, as the server will, reporting every field it
+ * rejects like the server's `Invalid`. Runs before the call, so only payload failures are
+ * reported this way; a response the client can't read stays `unknown`.
+ */
+const payloadErrors = (
+  schema: Schema.Top,
+  payload: unknown,
+): ReadonlyArray<RpcErrorEntry> | undefined => {
+  const checked = Schema.encodeUnknownExit(schema as Schema.Codec<unknown>, { errors: "all" })(
+    payload,
+  )
+  if (Exit.isSuccess(checked)) return undefined
+  const error = Cause.squash(checked.cause)
+  if (!Schema.isSchemaError(error)) return undefined
+  return issueEntries(error.issue).issues.map(({ path, message }) => ({
+    type: "invalid",
+    message,
+    ...(path && path.length > 0 ? { field: path.map(String).join(".") } : {}),
+  }))
+}
+
 const toErrors = (cause: Cause.Cause<unknown>): ReadonlyArray<RpcErrorEntry> => {
   const error = Cause.squash(cause)
   if (!isTaggedFailure(error)) {
@@ -146,9 +170,11 @@ export const makeApiClient = (options: ApiClientOptions = {}): ApiClient => {
   )
   const runtime = ManagedRuntime.make(layer)
   const client: Record<string, (payload?: unknown) => Promise<RpcResult<unknown>>> = {}
-  for (const tag of AppRpcs.requests.keys()) {
-    client[tag] = (payload) =>
-      runtime.runPromise(
+  for (const [tag, rpc] of AppRpcs.requests) {
+    client[tag] = (payload) => {
+      const invalid = payloadErrors(rpc.payloadSchema, payload)
+      if (invalid) return Promise.resolve({ success: false, errors: invalid })
+      return runtime.runPromise(
         Api.use((api) =>
           (api as unknown as Record<string, (p: unknown) => Effect.Effect<unknown, unknown>>)[tag]!(
             payload,
@@ -160,6 +186,7 @@ export const makeApiClient = (options: ApiClientOptions = {}): ApiClient => {
           ),
         ),
       )
+    }
   }
   return client as unknown as ApiClient
 }
