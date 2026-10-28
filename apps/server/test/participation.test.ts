@@ -205,6 +205,158 @@ describe("signatures", () => {
   )
 })
 
+describe("withdrawing a signature", () => {
+  it.live("a student withdraws their own signature, which then no longer counts", () =>
+    Effect.gen(function* () {
+      const { app, school, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const other = yield* newStudent()
+      const petition = yield* insertPetition(app, {
+        userId: owner.id,
+        organizationId: school.id,
+        goal: 10,
+      })
+      const petitionId = petition.id
+      // Six signatures on a goal of ten is trending; five isn't.
+      for (const user of [signer, other]) {
+        expectData(yield* user.browser.rpc((api) => api.createSignature({ petitionId })))
+      }
+      for (let n = 0; n < 4; n++) {
+        const extra = yield* newStudent()
+        expectData(yield* extra.browser.rpc((api) => api.createSignature({ petitionId })))
+      }
+      assert.include(
+        expectData(yield* signer.browser.rpc((api) => api.getPetitionById({ id: petitionId }))),
+        { hasSigned: true, signaturesCount: 6, trending: true },
+      )
+
+      expectData(yield* signer.browser.rpc((api) => api.deleteSignature({ petitionId })))
+      assert.include(
+        expectData(yield* signer.browser.rpc((api) => api.getPetitionById({ id: petitionId }))),
+        { hasSigned: false, signaturesCount: 5, trending: false },
+      )
+      // Only the caller's own signature goes.
+      assert.include(
+        expectData(yield* other.browser.rpc((api) => api.getPetitionById({ id: petitionId }))),
+        { hasSigned: true },
+      )
+      assert.deepStrictEqual(
+        expectErrors(yield* signer.browser.rpc((api) => api.deleteSignature({ petitionId }))),
+        [{ type: "invalid", field: "petitionId", message: "You haven't signed this petition." }],
+      )
+      // Withdrawing isn't final: the student may sign again.
+      expectData(yield* signer.browser.rpc((api) => api.createSignature({ petitionId })))
+      assert.strictEqual(yield* count(app, "signature"), 6)
+    }),
+  )
+
+  it.live("a petition that no longer takes signatures keeps them, with signing's messages", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const professor = yield* newStudent()
+      const signer = yield* newStudent()
+      const classroom = yield* insertClassroom(app, { professorId: professor.id })
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: signer.id })
+      const signed = (options: { classroomId?: string } = {}) =>
+        Effect.gen(function* () {
+          const petition = yield* insertPetition(app, { userId: professor.id, ...options })
+          expectData(
+            yield* signer.browser.rpc((api) => api.createSignature({ petitionId: petition.id })),
+          )
+          return petition.id
+        })
+      const withdraw = (petitionId: string) =>
+        signer.browser.rpc((api) => api.deleteSignature({ petitionId }))
+
+      for (const [columns, message] of [
+        [{ status: "closed" }, "This petition is closed."],
+        [{ status: "victory" }, "This petition is closed."],
+        [{ deadline: new Date(Date.now() - 60_000) }, "This petition's deadline has passed."],
+        [{ hidden_at: new Date() }, "This petition is unavailable."],
+      ] as const) {
+        const petitionId = yield* signed()
+        yield* updatePetitionRow(app, petitionId, columns)
+        assert.deepStrictEqual(
+          expectErrors(yield* withdraw(petitionId)),
+          [{ type: "invalid", field: "petitionId", message }],
+          JSON.stringify(columns),
+        )
+      }
+      const inClassroom = yield* signed({ classroomId: classroom.id })
+      yield* setClassroomArchived(app, classroom.id, true)
+      assert.deepStrictEqual(expectErrors(yield* withdraw(inClassroom)), [
+        {
+          type: "invalid",
+          field: "petitionId",
+          message: "This classroom is archived or unavailable.",
+        },
+      ])
+      assert.strictEqual(yield* count(app, "signature"), 5)
+
+      // Signing needs the right campus; withdrawing doesn't.
+      const school = yield* createOrganization(app, { domain: "public.edu" })
+      yield* app.sql`UPDATE organization SET allow_public_signatures = true WHERE id = ${school.id}`
+      const campusPetition = yield* insertPetition(app, {
+        userId: professor.id,
+        organizationId: school.id,
+      })
+      expectData(
+        yield* signer.browser.rpc((api) => api.createSignature({ petitionId: campusPetition.id })),
+      )
+      yield* app.sql`UPDATE organization SET allow_public_signatures = false WHERE id = ${school.id}`
+      expectData(yield* withdraw(campusPetition.id))
+    }),
+  )
+
+  it.live("guests and users who can't participate can't withdraw", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const withdraw = { petitionId: petition.id }
+      const guest = yield* makeBrowser(app)
+      assert.deepStrictEqual(
+        expectErrors(yield* guest.rpc((api) => api.deleteSignature(withdraw))),
+        [{ type: "unauthenticated", message: "Sign in to participate." }],
+      )
+      const unconfirmed = yield* createUser(app, { stage: "unconfirmed" })
+      assert.deepStrictEqual(
+        expectErrors(yield* unconfirmed.browser.rpc((api) => api.deleteSignature(withdraw))),
+        [{ type: "invalid", message: "Confirm your email before participating." }],
+      )
+    }),
+  )
+
+  it.live("a withdrawal waiting on a petition that is being closed is rejected", () =>
+    Effect.gen(function* () {
+      const { app, newStudent } = yield* makeCampus
+      const owner = yield* newStudent()
+      const signer = yield* newStudent()
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      expectData(
+        yield* signer.browser.rpc((api) => api.createSignature({ petitionId: petition.id })),
+      )
+
+      // Hold the petition's row lock, as closing does, while the withdrawal arrives.
+      const withdrawing = yield* Effect.gen(function* () {
+        yield* app.sql`SELECT id FROM petition WHERE id = ${petition.id} FOR UPDATE`
+        const withdrawing = yield* Effect.forkChild(
+          signer.browser.rpc((api) => api.deleteSignature({ petitionId: petition.id })),
+        )
+        yield* waitForLockWaiter(app)
+        yield* app.sql`UPDATE petition SET status = 'closed' WHERE id = ${petition.id}`
+        return withdrawing
+      }).pipe(app.sql.withTransaction, Effect.orDie)
+
+      assert.deepStrictEqual(expectErrors(yield* Fiber.join(withdrawing)), [
+        { type: "invalid", field: "petitionId", message: "This petition is closed." },
+      ])
+      assert.strictEqual(yield* count(app, "signature"), 1)
+    }),
+  )
+})
+
 describe("comments", () => {
   it.live("a student comments and replies, with author names; client user ids are ignored", () =>
     Effect.gen(function* () {

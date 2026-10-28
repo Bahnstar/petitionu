@@ -48,6 +48,15 @@ export const createSignature = Rpc.make("createSignature", {
   error: Schema.Union([Unauthenticated, Invalid]),
 })
 
+/**
+ * Withdraws the caller's own signature. The petition must still take signatures: open, before
+ * its deadline, and not in an archived classroom.
+ */
+export const deleteSignature = Rpc.make("deleteSignature", {
+  payload: { petitionId: Schema.String },
+  error: Schema.Union([Unauthenticated, Invalid]),
+})
+
 /** Signatures on petitions the caller may see, oldest first; optionally one petition's. */
 export const getSignatures = Rpc.make("getSignatures", {
   payload: petitionFilter,
@@ -92,6 +101,7 @@ export const getUpdatesForPetition = Rpc.make("getUpdatesForPetition", {
 
 export class ParticipationRpcs extends RpcGroup.make(
   createSignature,
+  deleteSignature,
   getSignatures,
   createComment,
   getComments,

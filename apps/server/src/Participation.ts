@@ -117,6 +117,18 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
               : Effect.die(error),
           ),
         ),
+      deleteSignature: ({ petitionId }) =>
+        participate("withdrawal", petitionId, Effect.void, (user) =>
+          Effect.gen(function* () {
+            const deleted = yield* sql`
+              DELETE FROM signature WHERE petition_id = ${petitionId} AND user_id = ${user.id}
+              RETURNING id
+            `
+            if (deleted.length === 0) {
+              return yield* invalidField("petitionId", "You haven't signed this petition.")
+            }
+          }),
+        ).pipe(Effect.catchTag("SqlError", Effect.die)),
       getSignatures: ({ petitionId }) =>
         Effect.flatMap(CurrentUser, (user) => selectSignatures(visibleRows(user, petitionId))),
       createComment: ({ petitionId, text: raw, parentCommentId }) =>

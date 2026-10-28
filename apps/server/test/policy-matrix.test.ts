@@ -310,6 +310,18 @@ const freshSupportRequest = (world: WorldShape) =>
     return result.success ? result.data.id : yield* Effect.die(result.errors)
   })
 
+/** Withdraws the actor's signature from a fresh petition they've signed (guests sign nothing). */
+const signedFresh =
+  (setup: (world: WorldShape) => Effect.Effect<{ readonly id: string }>): Cell =>
+  (world, actor) =>
+    Effect.gen(function* () {
+      const petition = yield* setup(world)
+      if (actor.id) yield* insertSignature(world.app, { petitionId: petition.id, userId: actor.id })
+      return yield* outcome(
+        yield* actor.browser.rpc((api) => api.deleteSignature({ petitionId: petition.id })),
+      )
+    })
+
 type Row = readonly [name: string, expected: Record<ActorName, Outcome>, cell: Cell]
 
 const rows: ReadonlyArray<Row> = [
@@ -494,6 +506,32 @@ const rows: ReadonlyArray<Row> = [
     classroomParticipants,
     fresh(freshClassroomPetition, (api, petition) =>
       api.createSignature({ petitionId: petition.id }),
+    ),
+  ],
+  [
+    // Seeded for every actor, so the cell tests withdrawing, not whether they could sign.
+    "deleteSignature (their own, on a campus A petition)",
+    participants,
+    signedFresh(freshCampusPetition),
+  ],
+  [
+    "deleteSignature (their own, on a classroom petition)",
+    classroomParticipants,
+    signedFresh(freshClassroomPetition),
+  ],
+  [
+    // Only the caller's own signature can go: a bystander's stays.
+    "deleteSignature (a campus A petition only a bystander signed)",
+    signedIn("invalid"),
+    fresh(
+      (world) =>
+        Effect.gen(function* () {
+          const petition = yield* freshCampusPetition(world)
+          const bystander = yield* world.insertUser()
+          yield* insertSignature(world.app, { petitionId: petition.id, userId: bystander.id })
+          return petition
+        }),
+      (api, petition) => api.deleteSignature({ petitionId: petition.id }),
     ),
   ],
   ...(["campus", "classroom"] as const).flatMap((key): ReadonlyArray<Row> => {

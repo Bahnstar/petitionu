@@ -36,6 +36,7 @@ const cases = [
   },
   { command: { kind: "comment", petition, text: "I agree" }, action: "createComment" },
   { command: { kind: "sign", petition, reason: "  " }, action: "createSignature" },
+  { command: { kind: "withdraw", petition }, action: "deleteSignature", returns: "nothing" },
   { command: { kind: "edit", petition, input: { title: "New title" } }, action: "updatePetition" },
   {
     command: { kind: "update", petition, input: { title: "News", body: "We did it" } },
@@ -68,6 +69,7 @@ const petitionDto = {
   category: { id: "category-1", name: "Campus", color: null },
 }
 const results = {
+  deleteSignature: null,
   createComment: {
     id: "result-1",
     petitionId: petition.id,
@@ -98,7 +100,7 @@ const exitFor = (request, failure) => ({
   requestId: request.id,
   exit: failure
     ? { _tag: "Failure", cause: [{ _tag: "Fail", error: failure(request.tag) }] }
-    : { _tag: "Success", value: results[request.tag] ?? petitionDto },
+    : { _tag: "Success", value: request.tag in results ? results[request.tag] : petitionDto },
 })
 
 function setup(failure) {
@@ -133,11 +135,12 @@ const refusal = (tag) =>
         ],
       }
 
-for (const { command, action, affected = [0, 1, 2, 3, 4] } of cases) {
+for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
   test(`${action}: sends CSRF and refreshes only related cached projections`, async () => {
     const { client, requests } = setup()
     const data = await mutatePetition(client, command)
-    assert.equal(data.id, "result-1")
+    if (returns === "nothing") assert.equal(data, undefined)
+    else assert.equal(data.id, "result-1")
     assert.equal(requests.length, 1)
     const request = requests[0]
     assert.match(request.url, /\/rpc\/?$/)
@@ -146,7 +149,7 @@ for (const { command, action, affected = [0, 1, 2, 3, 4] } of cases) {
     assert.equal(request.body.tag, action)
     const payload = request.body.payload
     if (["edit", "close", "victory"].includes(command.kind)) assert.equal(payload.id, petition.id)
-    if (["sign", "comment", "update"].includes(command.kind))
+    if (["sign", "withdraw", "comment", "update"].includes(command.kind))
       assert.equal(payload.petitionId, petition.id)
     if (command.classroomId) assert.equal(payload.classroomId, command.classroomId)
     if (command.kind === "sign") assert.equal(payload.reason, null)
@@ -162,7 +165,7 @@ for (const { command, action, affected = [0, 1, 2, 3, 4] } of cases) {
 
   test(`${action}: rejected writes preserve the cache and show server errors`, async () => {
     const { client } = setup(refusal)
-    const message = ["comment", "sign", "close", "victory"].includes(command.kind)
+    const message = ["comment", "sign", "withdraw", "close", "victory"].includes(command.kind)
       ? "Not allowed."
       : "Not allowed. Please try later."
     await assert.rejects(mutatePetition(client, command), { message })
@@ -207,7 +210,7 @@ test("public participation does not refresh classroom projections", async () => 
   client.clear()
 })
 
-for (const kind of ["close", "comment"]) {
+for (const kind of ["close", "withdraw", "comment"]) {
   test(`${kind}: preserves completion timing while active detail queries refresh`, async () => {
     const { client } = setup()
     let finishRefresh

@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
+import { Loader2, Undo2 } from "lucide-react"
 
 // Guests get the shared fields only; signed-in readers also get the petition's activity.
 type Petition = SharedPetitionDto &
@@ -119,6 +120,11 @@ function PetitionContent({ petition }: { petition: Petition }) {
     onSuccess: () => {
       setSignatureReason("")
     },
+  })
+  const withdrawMutation = useMutation({
+    mutationFn: () => mutatePetition(queryClient, { kind: "withdraw", petition }),
+    // The refreshed petition says whether the reader has signed from here on.
+    onSuccess: () => signatureMutation.reset(),
   })
   const sharePetition = async () => {
     setShareMessage("")
@@ -349,12 +355,40 @@ function PetitionContent({ petition }: { petition: Petition }) {
   function renderSignatureForm() {
     if (signed) {
       return (
-        <div role="status" className="text-sm leading-7">
-          <span
-            className="mr-2 hero-check-circle size-5 align-middle text-primary"
-            aria-hidden="true"
-          />
-          Your signature is counted. Help this idea reach more people by sharing it.
+        <div className="space-y-4">
+          <div role="status" className="text-sm leading-7">
+            <span
+              className="mr-2 hero-check-circle size-5 align-middle text-primary"
+              aria-hidden="true"
+            />
+            Your signature is counted. Help this idea reach more people by sharing it.
+          </div>
+          {/* Signatures can only be withdrawn while the petition still takes them. */}
+          {closed ? null : (
+            <>
+              {withdrawMutation.isError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {withdrawMutation.error.message}
+                </p>
+              ) : null}
+              <Button
+                id="withdraw-signature"
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={withdrawMutation.isPending}
+                onClick={() => withdrawMutation.mutate()}
+              >
+                {withdrawMutation.isPending ? (
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Undo2 aria-hidden="true" />
+                )}
+                {withdrawMutation.isPending ? "Withdrawing…" : "Withdraw signature"}
+              </Button>
+            </>
+          )}
         </div>
       )
     }

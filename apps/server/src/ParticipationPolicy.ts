@@ -4,8 +4,11 @@ import type { SqlClient } from "effect/sql"
 import { isUuid } from "./Input.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 
-/** What the caller wants to add to the petition: each kind has its own rules. */
-export type ParticipationKind = "signature" | "comment" | "update"
+/**
+ * What the caller wants to add to the petition, or (`withdrawal`) take back: each kind has its
+ * own rules.
+ */
+export type ParticipationKind = "signature" | "withdrawal" | "comment" | "update"
 
 const rejected = (message: string) => invalidField("petitionId", message)
 
@@ -48,9 +51,11 @@ const check = (petition: LockedPetition, user: SignedIn, kind: ParticipationKind
 /**
  * Ash's `CheckPetition`: locks the petition `FOR UPDATE` (so call it inside the transaction that
  * writes), then checks that `user` may add a `kind` to it. The petition must be visible to the
- * user and its classroom, if any, not archived. Signatures and comments need an open petition
- * before its deadline; comments need comments allowed; signatures need the right campus.
- * Updates need the user to manage the petition. Fails with `Invalid` on `petitionId`.
+ * user and its classroom, if any, not archived. Signatures, withdrawals and comments need an
+ * open petition before its deadline; comments need comments allowed; signatures need the right
+ * campus (withdrawals don't, so a signer can still withdraw after their campus stops
+ * qualifying). Updates need the user to manage the petition. Fails with `Invalid` on
+ * `petitionId`.
  */
 export const checkPetition = (
   sql: SqlClient.SqlClient,
