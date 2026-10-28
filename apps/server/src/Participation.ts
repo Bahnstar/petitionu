@@ -11,11 +11,16 @@ import {
 } from "@petitionu/domain"
 import { Effect, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
+import { checkCommentWrite, commentEditable, commentVisible } from "./CommentPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
 import { checkInput, isUuid, text } from "./Input.ts"
 import { checkPetition, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 import { isoTimestamp } from "./Timestamps.ts"
+
+/** Comment text, as Ash's attribute constraints check it: trimmed, present, at most 5000. */
+const commentText = (raw: string) =>
+  text("text", raw, { maxLength: 5000, required: "must be present" })
 
 const insertedAt = (sql: SqlClient.SqlClient, alias: string) =>
   sql`${isoTimestamp(sql, `${alias}.inserted_at`)} AS inserted_at`
@@ -24,16 +29,15 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
+    /** Rows of `t` on one petition, or on any when `petitionId` is missing. */
+    const onePetition = (petitionId: string | null | undefined) =>
+      petitionId ? sql`t.petition_id::text = ${petitionId}` : sql`true`
+
     /** Rows of `table` aliased `t` on petitions `actor` may see, optionally one petition's. */
-    const visibleRows = (
-      actor: Actor,
-      petitionId: string | null | undefined,
-      extra: Statement.Fragment = sql`true`,
-    ) => sql`
+    const visibleRows = (actor: Actor, petitionId: string | null | undefined) => sql`
       EXISTS (SELECT 1 FROM petition p WHERE p.id = t.petition_id
         AND ${petitionVisible(sql, actor, "p")})
-      AND ${petitionId ? sql`t.petition_id::text = ${petitionId}` : sql`true`}
-      AND ${extra}
+      AND ${onePetition(petitionId)}
     `
 
     const selectSignatures = (where: Statement.Fragment) =>
@@ -48,14 +52,15 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
         `,
       })(undefined).pipe(Effect.orDie)
 
-    const selectComments = (where: Statement.Fragment) =>
+    const selectComments = (actor: SignedIn, where: Statement.Fragment) =>
       SqlSchema.findAll({
         Request: Schema.Void,
         Result: CommentDto,
         execute: () => sql`
           SELECT t.id, t.petition_id, t.parent_comment_id, t.text, ${insertedAt(sql, "t")},
             CASE WHEN u.id IS NULL THEN 'Student'
-              ELSE concat_ws(' ', u.first_name, u.last_name) END AS author
+              ELSE concat_ws(' ', u.first_name, u.last_name) END AS author,
+            ${commentEditable(sql, actor, "t")} AS can_edit
           FROM comment t LEFT JOIN users u ON u.id = t.user_id
           WHERE ${where}
           ORDER BY t.inserted_at, t.id
@@ -132,39 +137,61 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
       getSignatures: ({ petitionId }) =>
         Effect.flatMap(CurrentUser, (user) => selectSignatures(visibleRows(user, petitionId))),
       createComment: ({ petitionId, text: raw, parentCommentId }) =>
-        participate(
-          "comment",
-          petitionId,
-          checkInput({ text: text("text", raw, { maxLength: 5000, required: "must be present" }) }),
-          (user, input) =>
-            Effect.gen(function* () {
-              const parent = parentCommentId ?? null
-              if (parent !== null) {
-                // Ash's `CommentParent`: the parent must be a comment the user can read on
-                // the same petition.
-                const found = isUuid(parent)
-                  ? yield* selectComments(
-                      sql`t.id = ${parent} AND ${visibleRows(user, petitionId, sql`t.hidden_at IS NULL`)}`,
-                    )
-                  : []
-                if (found.length === 0) {
-                  return yield* invalidField(
-                    "parentCommentId",
-                    "Reply to a comment in this petition.",
+        participate("comment", petitionId, checkInput({ text: commentText(raw) }), (user, input) =>
+          Effect.gen(function* () {
+            const parent = parentCommentId ?? null
+            if (parent !== null) {
+              // Ash's `CommentParent`: the parent must be a comment the user can read on
+              // the same petition.
+              const found = isUuid(parent)
+                ? yield* selectComments(
+                    user,
+                    sql`t.id = ${parent} AND t.petition_id = ${petitionId}
+                        AND ${commentVisible(sql, user, "t")}`,
                   )
-                }
+                : []
+              if (found.length === 0) {
+                return yield* invalidField(
+                  "parentCommentId",
+                  "Reply to a comment in this petition.",
+                )
               }
-              const [row] = yield* sql<{ id: string }>`
+            }
+            const [row] = yield* sql<{ id: string }>`
                 INSERT INTO comment (petition_id, user_id, text, parent_comment_id)
                 VALUES (${petitionId}, ${user.id}, ${input.text}, ${parent})
                 RETURNING id
               `
-              return yield* Effect.flatMap(selectComments(sql`t.id = ${row!.id}`), single)
-            }),
+            return yield* Effect.flatMap(selectComments(user, sql`t.id = ${row!.id}`), single)
+          }),
         ).pipe(Effect.catchTag("SqlError", Effect.die)),
+      updateComment: ({ id, text: raw }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const input = yield* checkInput({ text: commentText(raw) })
+          yield* checkCommentWrite(sql, user, id)
+          yield* sql`
+            UPDATE comment SET text = ${input.text}, updated_at = now() AT TIME ZONE 'utc'
+            WHERE id = ${id}
+          `
+          return yield* Effect.flatMap(selectComments(user, sql`t.id = ${id}`), single)
+        }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die)),
+      deleteComment: ({ id }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          yield* checkCommentWrite(sql, user, id)
+          yield* sql`
+            UPDATE comment SET text = NULL, deleted_at = now() AT TIME ZONE 'utc',
+              updated_at = now() AT TIME ZONE 'utc'
+            WHERE id = ${id}
+          `
+        }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die)),
       getComments: ({ petitionId }) =>
         Effect.flatMap(CurrentUser, (user) =>
-          selectComments(visibleRows(user, petitionId, sql`t.hidden_at IS NULL`)),
+          selectComments(
+            user,
+            sql`${onePetition(petitionId)} AND ${commentVisible(sql, user, "t")}`,
+          ),
         ),
       createUpdate: ({ petitionId, title, body }) =>
         participate(

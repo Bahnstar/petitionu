@@ -322,6 +322,26 @@ const signedFresh =
       )
     })
 
+/**
+ * Changes a fresh comment on a fresh petition: the actor's own (seeded, so guests have none and
+ * get a bystander's) or a bystander's.
+ */
+const commentFresh =
+  (
+    setup: (world: WorldShape) => Effect.Effect<{ readonly id: string }>,
+    owner: "actor" | "bystander",
+    change: (api: ApiClient, id: string) => Promise<RpcResult<unknown>>,
+  ): Cell =>
+  (world, actor) =>
+    Effect.gen(function* () {
+      const petition = yield* setup(world)
+      const userId = owner === "actor" && actor.id ? actor.id : (yield* world.insertUser()).id
+      const [comment] = yield* world.app.sql<{ id: string }>`
+        INSERT INTO comment (text, user_id, petition_id)
+        VALUES ('Mine', ${userId}, ${petition.id}) RETURNING id`.pipe(Effect.orDie)
+      return yield* outcome(yield* actor.browser.rpc((api) => change(api, comment!.id)))
+    })
+
 type Row = readonly [name: string, expected: Record<ActorName, Outcome>, cell: Cell]
 
 const rows: ReadonlyArray<Row> = [
@@ -534,6 +554,36 @@ const rows: ReadonlyArray<Row> = [
       (api, petition) => api.deleteSignature({ petitionId: petition.id }),
     ),
   ],
+  ...(
+    [
+      ["updateComment", (api, id) => api.updateComment({ id, text: "Edited" })],
+      ["deleteComment", (api, id) => api.deleteComment({ id })],
+    ] as const satisfies ReadonlyArray<
+      readonly [string, (api: ApiClient, id: string) => Promise<RpcResult<unknown>>]
+    >
+  ).flatMap(([name, change]): ReadonlyArray<Row> => [
+    // Ash's comment update and destroy policy: the author, while they can still read it.
+    [
+      `${name} (their own, on a campus A petition)`,
+      signedIn("ok"),
+      commentFresh(freshCampusPetition, "actor", change),
+    ],
+    [
+      `${name} (their own, on a classroom petition)`,
+      classroomOnly,
+      commentFresh(freshClassroomPetition, "actor", change),
+    ],
+    [
+      `${name} (a bystander's, on a campus A petition)`,
+      signedIn("forbidden"),
+      commentFresh(freshCampusPetition, "bystander", change),
+    ],
+    [
+      `${name} (a bystander's, on a classroom petition)`,
+      signedIn("hidden", { member: "forbidden", ta: "forbidden", professor: "forbidden" }),
+      commentFresh(freshClassroomPetition, "bystander", change),
+    ],
+  ]),
   ...(["campus", "classroom"] as const).flatMap((key): ReadonlyArray<Row> => {
     const reads = key === "campus" ? signedIn("ok") : classroomOnly
     const petitionId = (world: WorldShape) =>

@@ -13,6 +13,7 @@ import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { authorizeHide, authorizeResolve, visibleReports } from "./ModerationPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
 import { isUuid, optionalNote, requiredNote } from "./Input.ts"
+import { commentVisible } from "./CommentPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 import { isoTimestamp } from "./Timestamps.ts"
 
@@ -89,7 +90,7 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
                 SELECT p.id AS petition_id, p.title, coalesce(c.text, p.description) AS text,
                   p.organization_id
                 FROM comment c JOIN petition p ON p.id = c.petition_id
-                WHERE c.id = ${comment} AND c.hidden_at IS NULL AND ${visible}
+                WHERE c.id = ${comment} AND ${commentVisible(sql, user, "c")}
               `,
             )(id)
         if (Option.isNone(found)) return yield* unavailable

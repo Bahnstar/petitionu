@@ -176,6 +176,7 @@ The main choices:
   - New `account`, `session` and `verification` tables, with snake_case columns and foreign keys to `users`.
   - A backfill creates one credential `account` row per user that has a `hashed_password`, copying the bcrypt hash unchanged.
 - `confirmed_at` stays the domain's source of truth for confirmation. Better Auth database hooks set `confirmed_at` whenever `email_verified` becomes true, so `confirmed_at`, `email_verified` and the participation checks never disagree.
+- Migration 0004 adds `comment.deleted_at`. Deleting a comment keeps the row (content reports reference it through a foreign key with no `ON DELETE`, and replies through `parent_comment_id`), sets `deleted_at` and clears the text. Deleted comments drop out of every read, like hidden ones, and can't be replied to, edited or reported; report snapshots keep the reported text.
 - Legacy objects are kept but no longer used: `tokens`, `users.hashed_password` and `oban_jobs`. Dropping them comes later (see Out of Scope).
 - Data access is hand-written SQL through the Effect SQL client, with Schema-decoded rows. Ash calculations become SQL expressions or subqueries:
   - `signatures_count`, `has_signed`, `can_manage` and `trending` (more than 5 signatures and at least 50% of the goal);
@@ -216,6 +217,7 @@ The main choices:
   - remove (professor, active TA, or a student leaving);
   - `set_role` (superadmin for anything; admin only for non-superadmins in their own organization, and never granting superadmin);
   - support request and report read and resolve (owner, superadmin, or admin of the same organization);
+  - comment edit and delete (the author only; the comment and its petition visible to them and not hidden; a comment they can't see is `NotFound`, someone else's `Forbidden`). Archived classrooms are read-only, so comments there can't be changed either. Edits are checked like new comments; closed petitions don't block them;
   - the participation validation messages, which are kept word for word.
 - Field policies on `User` become separate response schemas, chosen by policy:
   - a public user shape (id, names);
@@ -228,7 +230,7 @@ The main choices:
 - One Effect RPC group in the shared domain package. The JSON serialization runs over HTTP at `POST /rpc`. Procedures keep today's camelCase names so the frontend recognizes them:
   - **Accounts:** getMe, getUserById, getUsers, updateMyProfile, setUserRole, getOrganizations, getPreferences, getNotifications, createSupportRequest, getMySupportRequests, getSupportRequests, resolveSupportRequest, supportContact.
   - **Petitions:** getPetitions, getPublicPetitions, getPetitionById, createPetition, createClassroomPetition, getClassroomPetitions, updatePetition, closePetition, markPetitionVictory, getCategories.
-  - **Participation:** createSignature, deleteSignature, getSignatures, createComment, getComments, createUpdate, getUpdates, getUpdatesForPetition.
+  - **Participation:** createSignature, deleteSignature, getSignatures, createComment, updateComment, deleteComment, getComments, createUpdate, getUpdates, getUpdatesForPetition.
   - **Classrooms:** getClassrooms, getClassroomById, getMyClassrooms (offset pagination with total count), createClassroom, updateClassroom, archiveClassroom, unarchiveClassroom, regenerateJoinCode, getClassroomMemberships, getMembershipsForClassroom, getPendingMemberships, joinClassroomByCode, requestToJoinClassroom, inviteToClassroom, approveMembership, removeFromClassroom, promoteToTa, demoteToStudent.
   - **Moderation:** createContentReport, getContentReports, resolveContentReport.
 - Each procedure has a fixed input schema and a fixed output DTO. Client-side field selection (`fields: [...]`) is dropped. Each DTO is defined as the union of what the frontend currently asks for at that call site, so no screen loses data. A procedure with call sites that need different depths gets one DTO covering all of them; these differences are small.

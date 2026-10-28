@@ -64,6 +64,8 @@ export const PetitionCommentDto = Schema.Struct({
   text: Schema.NullOr(Schema.String),
   insertedAt: Schema.String,
   author: Schema.String,
+  /** The caller wrote it and may still edit or delete it (not in an archived classroom). */
+  canEdit: Schema.Boolean,
 })
 export const PetitionSignatureDto = Schema.Struct({
   id: Schema.String,

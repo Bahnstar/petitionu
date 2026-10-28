@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
-import { Invalid, Unauthenticated } from "./Errors.ts"
+import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
 
 /** A signature. Who signed is never exposed; `hasSigned` on the petition tells the caller. */
 export const SignatureDto = Schema.Struct({
@@ -23,6 +23,8 @@ export const CommentDto = Schema.Struct({
   author: Schema.String,
   /** ISO 8601, UTC. */
   insertedAt: Schema.String,
+  /** The caller wrote it and may still edit or delete it (not in an archived classroom). */
+  canEdit: Schema.Boolean,
 })
 export type CommentDto = typeof CommentDto.Type
 
@@ -74,7 +76,26 @@ export const createComment = Rpc.make("createComment", {
   error: Schema.Union([Unauthenticated, Invalid]),
 })
 
-/** Comments that aren't hidden, on petitions the caller may see, oldest first. */
+/**
+ * Changes the text of the caller's own comment, checked as for `createComment`. The comment and
+ * its petition must be visible to the caller and not in an archived classroom.
+ */
+export const updateComment = Rpc.make("updateComment", {
+  payload: { id: Schema.String, text: Schema.String },
+  success: CommentDto,
+  error: Schema.Union([NotFound, Forbidden, Invalid]),
+}).middleware(RequireUser)
+
+/**
+ * Deletes the caller's own comment, under `updateComment`'s rules. The row stays, without its
+ * text, so replies and content reports keep their references; it drops out of every read.
+ */
+export const deleteComment = Rpc.make("deleteComment", {
+  payload: { id: Schema.String },
+  error: Schema.Union([NotFound, Forbidden, Invalid]),
+}).middleware(RequireUser)
+
+/** Comments that aren't hidden or deleted, on petitions the caller may see, oldest first. */
 export const getComments = Rpc.make("getComments", {
   payload: petitionFilter,
   success: Schema.Array(CommentDto),
@@ -104,6 +125,8 @@ export class ParticipationRpcs extends RpcGroup.make(
   deleteSignature,
   getSignatures,
   createComment,
+  updateComment,
+  deleteComment,
   getComments,
   createUpdate,
   getUpdates,

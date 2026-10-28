@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest"
 import type { ApiClient, RpcResult } from "@petitionu/domain"
 import { Effect, Fiber } from "effect"
 import { makeTestApp } from "./support/harness.ts"
-import { makeBrowser } from "./support/browser.ts"
+import { type Browser, makeBrowser } from "./support/browser.ts"
 import { insertClassroom, setClassroomArchived, upsertMembership } from "./support/classrooms.ts"
 import { insertPetition, updatePetitionRow } from "./support/petitions.ts"
 import { createOrganization, createUser } from "./support/users.ts"
@@ -496,6 +496,236 @@ describe("comments", () => {
         ],
       )
     }),
+  )
+})
+
+describe("editing and deleting comments", () => {
+  /** A campus with a petition and one comment on it by `author`. */
+  const commented = Effect.gen(function* () {
+    const campus = yield* makeCampus
+    const author = yield* campus.newStudent({ firstName: "Ada", lastName: "Lovelace" })
+    const other = yield* campus.newStudent()
+    const petition = yield* insertPetition(campus.app, {
+      userId: other.id,
+      organizationId: campus.school.id,
+    })
+    const comment = expectData(
+      yield* author.browser.rpc((api) =>
+        api.createComment({ petitionId: petition.id, text: "Frist!" }),
+      ),
+    )
+    return { ...campus, author, other, petition, comment }
+  })
+
+  const pageComments = (browser: Browser, petitionId: string) =>
+    Effect.map(
+      browser.rpc((api) => api.getPetitionById({ id: petitionId })),
+      (result) => {
+        const petition = expectData(result)
+        return "comments" in petition ? petition.comments : assert.fail("no comments for a user")
+      },
+    )
+
+  it.live("the author edits their comment; only they are offered the edit", () =>
+    Effect.gen(function* () {
+      const { author, other, petition, comment } = yield* commented
+      const edited = expectData(
+        yield* author.browser.rpc((api) =>
+          api.updateComment({ id: comment.id, text: "  First!  " }),
+        ),
+      )
+      assert.include(edited, { id: comment.id, text: "First!", author: "Ada Lovelace" })
+
+      assert.deepStrictEqual(
+        (yield* pageComments(author.browser, petition.id)).map((c) => [c.text, c.canEdit]),
+        [["First!", true]],
+      )
+      assert.deepStrictEqual(
+        (yield* pageComments(other.browser, petition.id)).map((c) => [c.text, c.canEdit]),
+        [["First!", false]],
+      )
+    }),
+  )
+
+  it.live("edits are checked like new comments", () =>
+    Effect.gen(function* () {
+      const { author, comment } = yield* commented
+      for (const [text, message] of [
+        ["   ", "must be present"],
+        ["x".repeat(5001), "length must be less than or equal to 5000"],
+      ] as const) {
+        assert.deepStrictEqual(
+          expectErrors(
+            yield* author.browser.rpc((api) => api.updateComment({ id: comment.id, text })),
+          ),
+          [{ type: "invalid", field: "text", message }],
+        )
+      }
+    }),
+  )
+
+  it.live("a deleted comment disappears but its replies and reports stay", () =>
+    Effect.gen(function* () {
+      const { app, school, author, other, petition, comment } = yield* commented
+      const admin = yield* createUser(app, { organizationId: school.id, role: "admin" })
+      const reply = expectData(
+        yield* other.browser.rpc((api) =>
+          api.createComment({
+            petitionId: petition.id,
+            text: "Agreed",
+            parentCommentId: comment.id,
+          }),
+        ),
+      )
+      const report = expectData(
+        yield* other.browser.rpc((api) =>
+          api.createContentReport({ commentId: comment.id, reason: "spam" }),
+        ),
+      )
+
+      expectData(yield* author.browser.rpc((api) => api.deleteComment({ id: comment.id })))
+      assert.deepStrictEqual(
+        (yield* pageComments(author.browser, petition.id)).map((c) => c.id),
+        [reply.id],
+      )
+      assert.deepStrictEqual(
+        expectData(
+          yield* other.browser.rpc((api) => api.getComments({ petitionId: petition.id })),
+        ).map((c) => [c.id, c.parentCommentId]),
+        [[reply.id, comment.id]],
+      )
+      // The text is gone from the row; the report's snapshot keeps what was reported.
+      const [row] = yield* app.sql<{ text: string | null }>`
+        SELECT text FROM comment WHERE id = ${comment.id}`
+      assert.strictEqual(row!.text, null)
+      const reports = expectData(yield* admin.browser.rpc((api) => api.getContentReports({})))
+      assert.deepInclude(
+        reports.map((r) => [r.id, r.commentId, r.targetText]),
+        [report.id, comment.id, "Frist!"],
+      )
+      expectData(
+        yield* admin.browser.rpc((api) =>
+          api.resolveContentReport({
+            id: report.id,
+            outcome: "resolved",
+            hideContent: true,
+            resolutionNote: "Spam",
+          }),
+        ),
+      )
+
+      // A deleted comment can't be changed, deleted again, replied to or reported.
+      const gone = [{ type: "not_found", message: "Comment not found" }]
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* author.browser.rpc((api) => api.updateComment({ id: comment.id, text: "Back" })),
+        ),
+        gone,
+      )
+      assert.deepStrictEqual(
+        expectErrors(yield* author.browser.rpc((api) => api.deleteComment({ id: comment.id }))),
+        gone,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* other.browser.rpc((api) =>
+            api.createComment({ petitionId: petition.id, text: "Re", parentCommentId: comment.id }),
+          ),
+        ),
+        [
+          {
+            type: "invalid",
+            field: "parentCommentId",
+            message: "Reply to a comment in this petition.",
+          },
+        ],
+      )
+      assert.strictEqual(
+        expectErrors(
+          yield* other.browser.rpc((api) =>
+            api.createContentReport({ commentId: comment.id, reason: "spam" }),
+          ),
+        ).length,
+        1,
+      )
+    }),
+  )
+
+  it.live(
+    "only the author may change a comment they can still see, outside archived classrooms",
+    () =>
+      Effect.gen(function* () {
+        const { app, newStudent } = yield* makeCampus
+        const professor = yield* newStudent()
+        const author = yield* newStudent()
+        const classroom = yield* insertClassroom(app, { professorId: professor.id })
+        yield* upsertMembership(app, { classroomId: classroom.id, userId: author.id })
+        const comment = (petitionId: string, text = "Mine") =>
+          Effect.map(
+            author.browser.rpc((api) => api.createComment({ petitionId, text })),
+            expectData,
+          )
+        const changes = (id: string) =>
+          calls(
+            (api) => api.updateComment({ id, text: "Edited" }),
+            (api) => api.deleteComment({ id }),
+          )
+        const refused = (browser: Browser, id: string) =>
+          Effect.gen(function* () {
+            const errors: Array<unknown> = []
+            for (const change of changes(id)) errors.push(expectErrors(yield* browser.rpc(change)))
+            return errors
+          })
+        const notFound = [{ type: "not_found", message: "Comment not found" }]
+
+        // Someone else's comment, readable: Forbidden.
+        const campusPetition = yield* insertPetition(app, { userId: professor.id })
+        const onCampus = yield* comment(campusPetition.id)
+        assert.deepStrictEqual(yield* refused(professor.browser, onCampus.id), [
+          [{ type: "forbidden", message: "Only the author can change this comment." }],
+          [{ type: "forbidden", message: "Only the author can change this comment." }],
+        ])
+        // Closed petitions don't block edits (as in Ash); only taking part is closed.
+        yield* updatePetitionRow(app, campusPetition.id, { status: "closed" })
+        expectData(
+          yield* author.browser.rpc((api) => api.updateComment({ id: onCampus.id, text: "Later" })),
+        )
+        // Hidden by a moderator, or on a hidden petition: not found, even for the author.
+        const openPetition = yield* insertPetition(app, { userId: professor.id })
+        const hidden = yield* comment(openPetition.id)
+        yield* app.sql`UPDATE comment SET hidden_at = now() WHERE id = ${hidden.id}`
+        assert.deepStrictEqual(yield* refused(author.browser, hidden.id), [notFound, notFound])
+        yield* updatePetitionRow(app, campusPetition.id, { hidden_at: new Date() })
+        assert.deepStrictEqual(yield* refused(author.browser, onCampus.id), [notFound, notFound])
+        for (const id of [crypto.randomUUID(), "nope"]) {
+          assert.deepStrictEqual(yield* refused(author.browser, id), [notFound, notFound])
+        }
+
+        // Classroom comments: the author must still be in the classroom, and it must be open.
+        const classroomPetition = yield* insertPetition(app, {
+          userId: professor.id,
+          classroomId: classroom.id,
+        })
+        const inClassroom = yield* comment(classroomPetition.id)
+        yield* setClassroomArchived(app, classroom.id, true)
+        const archived = [
+          { type: "invalid", message: "This classroom is archived or unavailable." },
+        ]
+        assert.deepStrictEqual(yield* refused(author.browser, inClassroom.id), [archived, archived])
+        const page = expectData(
+          yield* author.browser.rpc((api) => api.getPetitionById({ id: classroomPetition.id })),
+        )
+        assert.deepStrictEqual("comments" in page ? page.comments.map((c) => c.canEdit) : [], [
+          false,
+        ])
+        yield* setClassroomArchived(app, classroom.id, false)
+        yield* upsertMembership(app, {
+          classroomId: classroom.id,
+          userId: author.id,
+          status: "removed",
+        })
+        assert.deepStrictEqual(yield* refused(author.browser, inClassroom.id), [notFound, notFound])
+      }),
   )
 })
 

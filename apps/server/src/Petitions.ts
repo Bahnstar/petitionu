@@ -19,6 +19,7 @@ import {
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { classroomVisible } from "./ClassroomPolicy.ts"
+import { commentEditable, commentVisible } from "./CommentPolicy.ts"
 import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
@@ -44,19 +45,21 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         Option.isSome(petition) ? Effect.succeed(petition.value) : Effect.fail(petitionNotFound),
       )
 
-    const comments = SqlSchema.findAll({
-      Request: Schema.String,
-      Result: PetitionCommentDto,
-      execute: (petitionId) => sql`
-        SELECT c.id, c.text,
-          ${isoTimestamp(sql, "c.inserted_at")} AS inserted_at,
-          CASE WHEN u.id IS NULL THEN 'Student' ELSE concat_ws(' ', u.first_name, u.last_name) END
-            AS author
-        FROM comment c LEFT JOIN users u ON u.id = c.user_id
-        WHERE c.petition_id = ${petitionId} AND c.hidden_at IS NULL
-        ORDER BY c.inserted_at, c.id
-      `,
-    })
+    const comments = (actor: SignedIn, petitionId: string) =>
+      SqlSchema.findAll({
+        Request: Schema.String,
+        Result: PetitionCommentDto,
+        execute: (id) => sql`
+          SELECT c.id, c.text,
+            ${isoTimestamp(sql, "c.inserted_at")} AS inserted_at,
+            CASE WHEN u.id IS NULL THEN 'Student'
+              ELSE concat_ws(' ', u.first_name, u.last_name) END AS author,
+            ${commentEditable(sql, actor, "c")} AS can_edit
+          FROM comment c LEFT JOIN users u ON u.id = c.user_id
+          WHERE c.petition_id = ${id} AND ${commentVisible(sql, actor, "c")}
+          ORDER BY c.inserted_at, c.id
+        `,
+      })(petitionId)
     const signatures = SqlSchema.findAll({
       Request: Schema.String,
       Result: PetitionSignatureDto,
@@ -213,7 +216,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
           }
           return {
             ...petition,
-            comments: yield* comments(petition.id).pipe(Effect.orDie),
+            comments: yield* comments(actor, petition.id).pipe(Effect.orDie),
             signatures: yield* signatures(petition.id).pipe(Effect.orDie),
             updates: yield* updates(petition.id).pipe(Effect.orDie),
           }

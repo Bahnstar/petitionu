@@ -77,6 +77,7 @@ const results = {
     text: "I agree",
     author: "Ada Lovelace",
     insertedAt,
+    canEdit: true,
   },
   createSignature: {
     id: "result-1",
