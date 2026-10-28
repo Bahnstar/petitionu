@@ -17,6 +17,7 @@ Verified against `effect@4.0.6` and `better-auth@1.7.14` while building the serv
 - RPC middleware `headers` merge the HTTP headers with headers the client puts in the JSON body, and the body wins. CSRF, Origin and content-type checks therefore run in an `HttpRouter.middleware` on the real request (`src/Csrf.ts`), never in RPC middleware.
 - `RpcClient.withHeaders` and the per-call `headers` option set message headers, not HTTP headers. Real HTTP headers (X-CSRF-Token) go through the client's fetch, as `makeApiClient` does.
 - The RPC client validates payloads before sending: a payload its schema rejects is a defect, not a typed error. Keep payload schemas loose and validate in the handler.
+  - Note (October 2026): that's still true of the raw `RpcClient`, but the shared client (`makeApiClient` in `packages/domain/src/Client.ts`) now encodes each payload against its schema first and answers a rejection itself, as `invalid` entries per field worded by the schema, without sending the call. A caller that skips the shared client and sends a payload the server's schema rejects gets a defect from the server's decode, before any handler runs. Strict schemas that check what the user typed (e.g. a trimmed length) put the check on the encoded side, before any decoding transformation; see `packages/domain/src/Inputs.ts`.
 
 ## SQL and the job queue
 
