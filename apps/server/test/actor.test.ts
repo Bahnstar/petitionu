@@ -118,6 +118,7 @@ describe("getMe", () => {
         profileComplete: true,
         organizationId: organization.id,
         organization: { id: organization.id, name: "Example State" },
+        hasPassword: true,
       })
       assert.match(insertedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/)
       assert.isBelow(Math.abs(Date.parse(insertedAt) - Date.now()), 60_000)

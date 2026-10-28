@@ -25,7 +25,9 @@ export const findMeQuery = (sql: SqlClient.SqlClient) =>
           AS profile_complete,
         u.organization_id,
         CASE WHEN o.id IS NULL THEN NULL ELSE json_build_object('id', o.id, 'name', o.name) END
-          AS organization
+          AS organization,
+        EXISTS (SELECT 1 FROM account a WHERE a.user_id = u.id
+          AND a.provider_id = 'credential' AND a.password IS NOT NULL) AS has_password
       FROM users u LEFT JOIN organization o ON o.id = u.organization_id
       WHERE u.id = ${id}
     `,

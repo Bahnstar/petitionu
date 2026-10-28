@@ -43,10 +43,11 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:tooling && bun run test:petitions && bun run test:auth && bun run test:bundle-size && bun run size",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:tooling && bun run test:petitions && bun run test:auth && bun run test:profile && bun run test:bundle-size && bun run size",
     "test:tooling": "node tools/verify-tooling.mjs",
     "test:petitions": "bun test tests/petition-mutations.test.mjs",
     "test:auth": "bun test tests/auth-pages.test.tsx",
+    "test:profile": "bun test tests/profile-password.test.tsx",
     "test:bundle-size": "bun test tests/bundle-size.test.mjs",
     "size": "vite build && node tools/check-bundle-size.mjs"
   },

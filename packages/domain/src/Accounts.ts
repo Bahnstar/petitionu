@@ -22,6 +22,8 @@ export const MeDto = Schema.Struct({
   profileComplete: Schema.Boolean,
   organizationId: Schema.NullOr(Schema.String),
   organization: Schema.NullOr(OrganizationSummary),
+  /** Whether the user can sign in with a password; magic-link-only accounts have none. */
+  hasPassword: Schema.Boolean,
 })
 export type MeDto = typeof MeDto.Type
 

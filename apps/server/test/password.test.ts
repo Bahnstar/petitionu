@@ -187,6 +187,48 @@ describe("change password", () => {
       yield* signIn(app, user.email, newPassword)
     }),
   )
+
+  it.live("getMe says whether there's a password; a reset gives a magic-link account one", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const withPassword = yield* createUser(app, { stage: "confirmed" })
+      const me = yield* withPassword.browser.rpc((api) => api.getMe())
+      assert.isTrue(me.success && me.data.hasPassword)
+
+      // Signing up through a magic link creates no password.
+      const email = uniqueEmail()
+      const browser = yield* makeBrowser(app)
+      const { token } = yield* withEmailTo(
+        app,
+        email,
+        browser.auth("/sign-in/magic-link", { email }),
+      )
+      yield* browser.authGet(`/magic-link/verify?token=${encodeURIComponent(token)}`)
+      yield* browser.reloadCsrf
+      const magic = yield* browser.rpc((api) => api.getMe())
+      if (!magic.success) return assert.fail(JSON.stringify(magic))
+      assert.isFalse(magic.data.hasPassword)
+      const change = yield* browser.auth("/change-password", {
+        currentPassword: "anything at all",
+        newPassword,
+      })
+      assert.strictEqual(change.status, 400)
+
+      // A reset link sets one.
+      const reset = yield* requestReset(app, email)
+      assert.strictEqual(
+        (yield* reset.browser.auth("/reset-password", {
+          token: reset.token,
+          newPassword,
+          newPasswordConfirmation: newPassword,
+        })).status,
+        200,
+      )
+      const after = yield* signIn(app, email, newPassword)
+      const reread = yield* after.rpc((api) => api.getMe())
+      assert.isTrue(reread.success && reread.data.hasPassword)
+    }),
+  )
 })
 
 describe("rate limits", () => {

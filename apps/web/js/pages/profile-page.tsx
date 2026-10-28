@@ -10,6 +10,7 @@ import { useAuth, type CurrentUser } from "../contexts/auth-context"
 import { AuthLink } from "../components/auth-link"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ProfileConnection } from "../features/profile/profile-connection"
+import { PasswordSettings } from "../features/profile/password-settings"
 
 export default function ProfilePage() {
   useDocumentTitle("Your profile")
@@ -164,6 +165,7 @@ function ProfileForm({ user }: { user: CurrentUser }) {
           </Button>
         </form>
       </Card>
+      <PasswordSettings user={user} />
     </main>
   )
 }
