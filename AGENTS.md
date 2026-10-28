@@ -21,6 +21,7 @@ Add a feature area as its own modules plus one line at each composition point, f
 - Errors come from `packages/domain/src/Errors.ts`: `Unauthenticated`, `Forbidden`, `NotFound`, `Invalid({message, fields})`. A record the caller can't read is `NotFound`; readable but not permitted is `Forbidden`.
 - Policy modules hold read-scoping SQL fragments (`petitionVisible`, `petitionManageable`) and decision functions for writes. Scope every read and list through them.
 - Validate input in the handler and fail with `Invalid` naming the field. Keep payload schemas loose (plain strings): a payload the client schema rejects becomes an `unknown` defect in the browser, not a field error.
+  - Note (October 2026): this reason no longer holds for the shared client. `makeApiClient` now checks each payload before the call and returns a rejection as `invalid` entries, one per field, worded by the schema. Support has moved to strict shared schemas (`Uuid`, `Note` in `packages/domain/src/Inputs.ts`) and dropped its handler checks; the other areas still use loose schemas. Until an area is converted as a whole, follow its existing style. A strict `Uuid` turns a malformed id from `NotFound` into `Invalid`, so converting an area also changes its policy-matrix rows.
 - `test/policy-matrix.test.ts` is the authorization contract: every procedure as every actor type. A new procedure, or a change to who may call one, gets a matrix row; the matrix fails when a procedure has none.
 
 ## Database
