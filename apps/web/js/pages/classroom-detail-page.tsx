@@ -20,7 +20,9 @@ import { api } from "@/lib/api"
 import { MemberList } from "../features/classroom/member-list"
 import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
+import type { ClassroomDto } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
 // Loading state component
@@ -50,6 +52,27 @@ function ClassroomDetailLoadingState() {
         </div>
       </div>
     </main>
+  )
+}
+
+function ClassroomCounts({
+  classroom,
+}: {
+  classroom: Pick<ClassroomDto, "memberCount" | "petitionCount"> | undefined
+}) {
+  const memberCount = classroom?.memberCount ?? 0
+  const petitionCount = classroom?.petitionCount ?? 0
+  return (
+    <>
+      <span className="flex items-center gap-1">
+        <Users className="h-4 w-4" />
+        {memberCount} {plural(memberCount, "member")}
+      </span>
+      <span className="flex items-center gap-1">
+        <FileText className="h-4 w-4" />
+        {petitionCount} {plural(petitionCount, "petition")}
+      </span>
+    </>
   )
 }
 
@@ -388,17 +411,12 @@ export default function ClassroomDetailPage() {
             <p className="app-page-description max-w-2xl">{classroom.description}</p>
           )}
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              {classroom?.memberCount ?? 0} members
-            </span>
-            <span className="flex items-center gap-1">
-              <FileText className="h-4 w-4" />
-              {classroom?.petitionCount ?? 0} petitions
-            </span>
+            <ClassroomCounts classroom={classroom} />
             <span>Led by your professor</span>
             {canManage && pendingCount > 0 && (
-              <Badge variant="secondary">{pendingCount} pending requests</Badge>
+              <Badge variant="secondary">
+                {pendingCount} pending {plural(pendingCount, "request")}
+              </Badge>
             )}
           </div>
         </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import type { ClassroomDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 
 type Classroom = ClassroomDto
 
@@ -109,11 +110,12 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        {classroom.memberCount ?? 0} members
+                        {classroom.memberCount ?? 0} {plural(classroom.memberCount ?? 0, "member")}
                       </span>
                       <span className="flex items-center gap-1">
                         <FileText className="h-3 w-3" />
-                        {classroom.petitionCount ?? 0} petitions
+                        {classroom.petitionCount ?? 0}{" "}
+                        {plural(classroom.petitionCount ?? 0, "petition")}
                       </span>
                     </div>
                   </div>
@@ -125,7 +127,8 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
 
           {activeClassrooms.length > limit && (
             <p className="pt-2 text-center text-xs text-muted-foreground">
-              +{activeClassrooms.length - limit} more classrooms
+              +{activeClassrooms.length - limit} more{" "}
+              {plural(activeClassrooms.length - limit, "classroom")}
             </p>
           )}
         </div>

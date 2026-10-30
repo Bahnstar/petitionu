@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { ClassroomDto } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 
 export type Classroom = ClassroomDto
 
@@ -65,11 +66,11 @@ export function ClassroomCard({
         <div className="mt-auto flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Users className="size-3.5" aria-hidden="true" />
-            {classroom.memberCount ?? 0} members
+            {classroom.memberCount ?? 0} {plural(classroom.memberCount ?? 0, "member")}
           </span>
           <span className="flex items-center gap-1.5">
             <FileText className="size-3.5" aria-hidden="true" />
-            {classroom.petitionCount ?? 0} petitions
+            {classroom.petitionCount ?? 0} {plural(classroom.petitionCount ?? 0, "petition")}
           </span>
         </div>
       </Link>
