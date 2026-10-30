@@ -5,6 +5,7 @@ import {
   NotFound,
   Notification,
   Preference,
+  type Role,
   type SignedIn,
   UserDetails,
   type UserDto,
@@ -23,6 +24,13 @@ import {
 } from "./UsersPolicy.ts"
 
 const userNotFound = new NotFound({ message: "User not found" })
+
+/**
+ * Writes a user's role. Deciding who may is the caller's job: `setUserRole` asks the policies
+ * for the signed-in actor; the operator CLI has no actor and answers for itself.
+ */
+export const writeUserRole = (sql: SqlClient.SqlClient, id: string, role: Role) =>
+  sql`UPDATE users SET role = ${role}, updated_at = now() AT TIME ZONE 'utc' WHERE id = ${id}`
 
 const ActivityCounts = Schema.Struct({
   numPetitions: Schema.Number,
@@ -158,8 +166,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
           if (Option.isNone(target)) return yield* userNotFound
           yield* validateRequestedRole(actor, role)
           yield* authorizeSetRole(actor, target.value)
-          yield* sql`UPDATE users SET role = ${role}, updated_at = now() AT TIME ZONE 'utc'
-            WHERE id = ${id}`.pipe(Effect.orDie)
+          yield* writeUserRole(sql, id, role).pipe(Effect.orDie)
           return { ...target.value, role }
         }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die)),
       getPreferences: () =>
