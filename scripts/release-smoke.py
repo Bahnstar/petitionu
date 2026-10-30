@@ -22,6 +22,13 @@ server = Path(sys.argv[1] if len(sys.argv) > 1 else "apps/server/dist").resolve(
 for entry in ("serve.js", "migrate.js", "operator.js"):
     if not (server / entry).is_file():
         raise SystemExit(f"{server / entry} is missing; run `bun run build` first")
+# Needs no database or secrets, so a bundle that can't even start fails here.
+operator_help = subprocess.run(
+    ["node", str(server / "operator.js"), "--help"],
+    env={"PATH": os.environ["PATH"]}, capture_output=True, text=True, timeout=30,
+)
+if operator_help.returncode != 0 or "set-role" not in operator_help.stdout:
+    raise SystemExit(f"operator.js --help failed:\n{operator_help.stdout}{operator_help.stderr}")
 database = f"petitionu_release_{secrets.token_hex(6)}"
 environment = os.environ.copy()
 for key in ("PGHOST", "PGUSER"):
