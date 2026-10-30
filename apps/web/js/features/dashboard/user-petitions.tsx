@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { ActivityPetition } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 
 type Petition = ActivityPetition
 
@@ -84,7 +85,9 @@ export function UserPetitions({ petitions }: { petitions: ReadonlyArray<Petition
                     <strong className="font-medium text-foreground">
                       {signatures.toLocaleString()}
                     </strong>{" "}
-                    {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}
+                    {goal > 0
+                      ? `of ${goal.toLocaleString()} ${plural(goal, "signature")}`
+                      : plural(signatures, "signature")}
                   </span>
                   {daysLeft != null && Number.isFinite(daysLeft) && petition.status === "open" ? (
                     <span>

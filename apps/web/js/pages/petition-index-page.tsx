@@ -3,7 +3,7 @@ import { ReportContent } from "../features/moderation/report-content"
 import { useCurrentTime } from "../hooks/use-current-time"
 import { AuthLink } from "../components/auth-link"
 import { useEffect, useRef, useState } from "react"
-import { formatDate } from "@/lib/utils"
+import { formatDate, plural } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
 import { isUuid, type PetitionDetailDto, type SharedPetitionDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
@@ -67,7 +67,9 @@ function MobileSignBar({
       <p className="min-w-0 text-sm leading-tight">
         <strong className="font-display text-2xl font-normal">{count.toLocaleString()}</strong>{" "}
         <span className="text-muted-foreground">
-          {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}
+          {goal > 0
+            ? `of ${goal.toLocaleString()} ${plural(goal, "signature")}`
+            : plural(count, "signature")}
         </span>
       </p>
       {signed ? (
@@ -501,7 +503,11 @@ function PetitionContent({ petition }: { petition: Petition }) {
         </h2>
         <p className="petition-tally-count">
           <strong>{signatureCount.toLocaleString()}</strong>
-          <span>{goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}</span>
+          <span>
+            {goal > 0
+              ? `of ${goal.toLocaleString()} ${plural(goal, "signature")}`
+              : plural(signatureCount, "signature")}
+          </span>
         </p>
         {goal > 0 ? renderMarks() : null}
         <p className="petition-tally-note">{tallyNote()}</p>

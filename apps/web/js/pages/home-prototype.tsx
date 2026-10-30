@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom"
 import { PrototypeSwitcher, homeVariants } from "../components/prototype-switcher"
 import { CampaignHeader, BoardHeader, ExplorerHeader } from "../components/prototype-headers"
 import { landingIdeas, publicLandingVariants } from "./landing-prototype"
+import { plural } from "@/lib/utils"
 
 type PetitionContent = { id: string; title: string; description?: string | null }
 type PreviewPetition = PetitionContent & {
@@ -370,7 +371,9 @@ export function CauseExplorer(props: VariantProps) {
         <div className="hp-explorer-list">
           <div className="hp-explorer-list-heading">
             <h2>Find your people</h2>
-            <span>{props.petitions.length} petitions</span>
+            <span>
+              {props.petitions.length} {plural(props.petitions.length, "petition")}
+            </span>
           </div>
           <Search {...props} />
           {props.petitions.map((petition) => (

@@ -17,3 +17,8 @@ export function formatDate(value: Date | null | undefined) {
   const time = value.getTime()
   return Number.isFinite(time) ? longDate.format(time) : ""
 }
+
+// The noun for a count: plural(1, "member") is "member", plural(2, "member") is "members".
+export function plural(count: number, noun: string) {
+  return count === 1 ? noun : `${noun}s`
+}
