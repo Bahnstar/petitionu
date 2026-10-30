@@ -18,10 +18,10 @@ does not prevent account creation or email confirmation. Other domain suffixes
 cannot create organizations automatically.
 
 The verification job (`apps/server/src/SchoolVerification.ts`) runs from the
-`job_queue` table, one job per user, on every server process with `JOB_WORKERS` on.
-It queries `whois.educause.edu` for `.edu` domains and `whois.ja.net` for `.ac.uk`
-domains. The response must identify the requested domain and provide a registrant
-name.
+`job_queue` table on every server process with `JOB_WORKERS` on. Confirmation queues
+one job per user, and an operator's retry adds another. It queries
+`whois.educause.edu` for `.edu` domains and `whois.ja.net` for `.ac.uk` domains.
+The response must identify the requested domain and provide a registrant name.
 
 On success, the organization becomes `verified`. The app stores the registry name,
 server, and check time. It replaces a domain-based placeholder name with the
