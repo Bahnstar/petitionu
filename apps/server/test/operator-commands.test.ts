@@ -18,6 +18,14 @@ const userCount = (app: TestApp) =>
     Effect.orDie,
   )
 
+const superadminCount = (app: TestApp) =>
+  app.sql<{ count: number }>`
+    SELECT count(*)::int AS count FROM users WHERE role = 'superadmin'
+  `.pipe(
+    Effect.map((rows) => rows[0]!.count),
+    Effect.orDie,
+  )
+
 /** A confirmed student waiting for a pending school at `domain`. */
 const waitingUser = (app: TestApp, domain = schoolDomain()) =>
   Effect.gen(function* () {
@@ -242,6 +250,77 @@ describe("set-role", () => {
       )
       assert.strictEqual(byEmail.code, 0, byEmail.stderr)
       assert.strictEqual((yield* me(user.browser)).role, "student")
+    }),
+  )
+
+  it.live("demotes a superadmin while another remains", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { role: "superadmin" })
+      yield* createUser(app, { role: "superadmin" })
+
+      const result = yield* runOperator(app.database, "set-role", user.email, "student")
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, "superadmin -> student")
+      assert.strictEqual(yield* superadminCount(app), 1)
+    }),
+  )
+
+  it.live("won't demote the last superadmin without --force", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { role: "superadmin" })
+
+      const refused = yield* runOperator(app.database, "set-role", user.email, "admin")
+      assert.notStrictEqual(refused.code, 0)
+      assert.include(refused.stderr, "last superadmin")
+      assert.include(refused.stderr, "--force")
+      assert.strictEqual((yield* me(user.browser)).role, "superadmin")
+
+      const forced = yield* runOperator(app.database, "set-role", user.email, "admin", "--force")
+      assert.strictEqual(forced.code, 0, forced.stderr)
+      assert.include(forced.stdout, "superadmin -> admin")
+      assert.include(forced.stdout, "no superadmin")
+      assert.strictEqual(yield* superadminCount(app), 0)
+    }),
+  )
+
+  it.live("--force doesn't excuse granting a role to an unconfirmed account", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const squatter = yield* createUser(app, { stage: "unconfirmed" })
+      const result = yield* runOperator(
+        app.database,
+        "set-role",
+        squatter.email,
+        "superadmin",
+        "--force",
+      )
+      assert.notStrictEqual(result.code, 0)
+      assert.include(result.stderr, "hasn't confirmed their email")
+    }),
+  )
+
+  it.live("lets only one of two concurrent demotions take the last-but-one superadmin", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const first = yield* createUser(app, { role: "superadmin" })
+      const second = yield* createUser(app, { role: "superadmin" })
+      for (let round = 0; round < 5; round++) {
+        yield* app.sql`
+          UPDATE users SET role = 'superadmin' WHERE id IN (${first.id}, ${second.id})
+        `.pipe(Effect.orDie)
+
+        const results = yield* runConcurrently(2, (index) =>
+          runOperator(app.database, "set-role", [first, second][index]!.email, "student"),
+        )
+
+        assert.strictEqual(yield* superadminCount(app), 1, JSON.stringify(results))
+        const refused = results.filter((result) => result.code !== 0)
+        assert.lengthOf(refused, 1, JSON.stringify(results))
+        assert.include(refused[0]!.stderr, "last superadmin")
+      }
     }),
   )
 

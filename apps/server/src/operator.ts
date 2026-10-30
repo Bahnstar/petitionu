@@ -50,9 +50,13 @@ const role = Command.make(
       Flag.withDescription("Create the account, on a system with no users yet"),
       Flag.withDefault(false),
     ),
+    force: Flag.Boolean("force").pipe(
+      Flag.withDescription("Allow the change that leaves no superadmin"),
+      Flag.withDefault(false),
+    ),
   },
-  ({ user, role, create }) =>
-    setRole({ target: user, role, create }).pipe(
+  ({ user, role, create, force }) =>
+    setRole({ target: user, role, create, force }).pipe(
       Effect.flatMap(print),
       Effect.provide(Database),
     ),
