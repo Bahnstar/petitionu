@@ -49,7 +49,7 @@ Tests never import policy modules, SQL helpers or DTO mappers. Use `it.live` for
 
 ## Deployment
 
-One Docker image with two entry points (`apps/server/dist/serve.js`, `migrate.js`), deployed with Compose or Railway. If build outputs move, update the Dockerfile, `compose.yaml`, `railway.json` and [docs/deployment.md](docs/deployment.md) together. Recovery and cutover scripts are in `scripts/` and documented there.
+One Docker image with three entry points (`apps/server/dist/serve.js`, `migrate.js`, `operator.js`), deployed with Compose or Railway. If build outputs move, update the Dockerfile, `compose.yaml`, `railway.json` and [docs/deployment.md](docs/deployment.md) together. Recovery and cutover scripts are in `scripts/` and documented there.
 
 ## Maintaining this file
 

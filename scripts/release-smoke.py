@@ -19,7 +19,7 @@ import urllib.parse
 import urllib.request
 
 server = Path(sys.argv[1] if len(sys.argv) > 1 else "apps/server/dist").resolve()
-for entry in ("serve.js", "migrate.js"):
+for entry in ("serve.js", "migrate.js", "operator.js"):
     if not (server / entry).is_file():
         raise SystemExit(f"{server / entry} is missing; run `bun run build` first")
 database = f"petitionu_release_{secrets.token_hex(6)}"

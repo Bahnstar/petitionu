@@ -1,4 +1,5 @@
-# Production stack: Postgres, a one-shot migration, the app and a Cloudflare Tunnel.
+# Production stack: Postgres, a one-shot migration, the app and a Cloudflare Tunnel, plus
+# operator commands on demand: `docker compose run --rm operator <command>`.
 # Secrets come from `.env` (copy `.env.example`; never commit the filled file).
 # See docs/deployment.md.
 name: petitionu
@@ -58,6 +59,16 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  operator:
+    <<: *app
+    # Only for `docker compose run`; `up` skips it.
+    profiles: ["operator"]
+    entrypoint: ["node", "apps/server/dist/operator.js"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   cloudflared:
     image: cloudflare/cloudflared:latest
