@@ -41,6 +41,10 @@ export function PetitionCard({ petition }: { petition: Petition }) {
   }
 
   function deadlineLabel() {
+    // The badge already says Victory; `closed` covers every status but open.
+    if (petition.status === "victory") {
+      return null
+    }
     if (closed) {
       return "Closed"
     }
