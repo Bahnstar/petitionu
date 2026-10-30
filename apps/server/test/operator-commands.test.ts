@@ -9,7 +9,7 @@ import {
 } from "./support/campus.ts"
 import { dropDatabase, makeTestApp, type TestApp } from "./support/harness.ts"
 import { type Jobs, makeJobsApp } from "./support/jobs.ts"
-import { runOperator } from "./support/operator.ts"
+import { runConcurrently, runOperator } from "./support/operator.ts"
 import { createUser, emailsTo, uniqueEmail } from "./support/users.ts"
 
 const userCount = (app: TestApp) =>
@@ -225,13 +225,13 @@ describe("set-role", () => {
     }),
   )
 
-  it.live("sets any role by email or id, and demotes a superadmin", () =>
+  it.live("sets any role by email or id", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
-      const user = yield* createUser(app, { role: "superadmin" })
+      const user = yield* createUser(app, { role: "admin" })
       const byId = yield* runOperator(app.database, "set-role", user.id, "professor")
       assert.strictEqual(byId.code, 0, byId.stderr)
-      assert.include(byId.stdout, "superadmin -> professor")
+      assert.include(byId.stdout, "admin -> professor")
       assert.strictEqual((yield* me(user.browser)).role, "professor")
 
       const byEmail = yield* runOperator(
@@ -263,17 +263,76 @@ describe("set-role", () => {
       assert.notStrictEqual(result.code, 0)
       assert.include(result.stderr, `No user matches ${email}`)
       assert.strictEqual(yield* userCount(app), 0)
+    }),
+  )
 
-      const byId = yield* runOperator(
+  it.live("--create takes any address sign-up would, personal hosts included", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const result = yield* runOperator(
         app.database,
         "set-role",
-        crypto.randomUUID(),
-        "admin",
+        "founder@gmail.com",
+        "superadmin",
         "--create",
       )
-      assert.notStrictEqual(byId.code, 0)
-      assert.include(byId.stderr, "--create needs an email address")
+      assert.strictEqual(result.code, 0, result.stderr)
+      const { me: account } = yield* magicSignIn(app, "founder@gmail.com")
+      assert.strictEqual(account.role, "superadmin")
+    }),
+  )
+
+  it.live("--create refuses anything that isn't an email address", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      for (const target of [
+        "a b@school.edu",
+        "<x>@school.edu",
+        "founder",
+        "a@b@school.edu",
+        "founder@school",
+        crypto.randomUUID(),
+      ]) {
+        const result = yield* runOperator(app.database, "set-role", target, "admin", "--create")
+        assert.notStrictEqual(result.code, 0, target)
+        assert.include(result.stderr, "--create needs a valid email address", target)
+      }
       assert.strictEqual(yield* userCount(app), 0)
+    }),
+  )
+
+  it.live("--create refuses once any user exists, even for that user", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const existing = yield* createUser(app)
+      for (const target of ["typo@schoool.edu", existing.email]) {
+        const result = yield* runOperator(
+          app.database,
+          "set-role",
+          target,
+          "superadmin",
+          "--create",
+        )
+        assert.notStrictEqual(result.code, 0, target)
+        assert.include(result.stderr, "--create is only for a system with no users", target)
+      }
+      assert.strictEqual(yield* userCount(app), 1)
+      assert.strictEqual((yield* me(existing.browser)).role, "student")
+    }),
+  )
+
+  it.live("lets only one of several concurrent --create runs make the first user", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const results = yield* runConcurrently(6, (index) =>
+        runOperator(app.database, "set-role", `first${index}@gmail.com`, "superadmin", "--create"),
+      )
+      assert.strictEqual(yield* userCount(app), 1, JSON.stringify(results))
+      const refused = results.filter((result) => result.code !== 0)
+      assert.lengthOf(refused, 5, JSON.stringify(results))
+      for (const result of refused) {
+        assert.include(result.stderr, "--create is only for a system with no users")
+      }
     }),
   )
 

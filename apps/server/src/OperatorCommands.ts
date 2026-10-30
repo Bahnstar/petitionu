@@ -1,6 +1,7 @@
-import { EmailDomain, isUuid, Role } from "@petitionu/domain"
+import { isUuid, Role } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
+import { z } from "zod"
 import {
   activateMembership,
   matchesDomain,
@@ -120,8 +121,39 @@ export const approveOrganization = Effect.fn("approveOrganization")(function* (t
 })
 
 /**
+ * Adds the first account of a system with no users. Once there are users, the person can sign
+ * up instead, and a mistyped address must not leave a stray unconfirmed superadmin behind.
+ * Concurrent runs queue on the lock, and each looks for users only once it holds it, so only
+ * the first gets through. The address check is the one Better Auth applies at sign-up, so any
+ * account made here can sign in.
+ */
+const createFirstUser = Effect.fnUntraced(function* (target: string, role: Role) {
+  const sql = yield* SqlClient.SqlClient
+  if (!z.email().safeParse(target).success) {
+    return yield* new OperatorError({
+      message: `--create needs a valid email address, not ${target}.`,
+    })
+  }
+  yield* sql`SELECT pg_advisory_xact_lock(hashtext('operator_create_first_user'))`
+  const users = yield* sql`SELECT 1 FROM users LIMIT 1`
+  if (users.length > 0) {
+    return yield* new OperatorError({
+      message: `--create is only for a system with no users, and this one has some. Have ${target} sign up and confirm their email, then run this without --create.`,
+    })
+  }
+  const email = target.toLowerCase()
+  const [created] = yield* sql<{ id: string }>`
+    INSERT INTO users (email, role) VALUES (${email}, ${role}) RETURNING id
+  `
+  return [
+    `Created ${describeUser({ id: created!.id, email })} with role ${role}`,
+    "Sign in with an emailed magic link or password reset to confirm the account.",
+  ]
+})
+
+/**
  * Sets a user's role, whoever holds which role today, so this is how the first superadmin gets
- * made. `create` adds the account first when there is none, for a system without users.
+ * made. `create` adds the account instead, on a system without users.
  *
  * Sign-up doesn't prove the address, and an unconfirmed account can already sign in, so someone
  * who registered the operator's address first would receive the role. `admin` and `superadmin`
@@ -137,23 +169,9 @@ export const setRole = Effect.fn("setRole")(function* (options: {
   const sql = yield* SqlClient.SqlClient
   return yield* sql.withTransaction(
     Effect.gen(function* () {
+      if (create) return yield* createFirstUser(target, role)
       const found = yield* findUser(target)
-      if (Option.isNone(found)) {
-        if (!create) return yield* noUser(target)
-        if (EmailDomain.fromEmail(target) === undefined) {
-          return yield* new OperatorError({
-            message: `--create needs an email address, not ${target}.`,
-          })
-        }
-        const email = target.toLowerCase()
-        const [created] = yield* sql<{ id: string }>`
-          INSERT INTO users (email, role) VALUES (${email}, ${role}) RETURNING id
-        `
-        return [
-          `Created ${describeUser({ id: created!.id, email })} with role ${role}`,
-          "Sign in with an emailed magic link or password reset to confirm the account.",
-        ]
-      }
+      if (Option.isNone(found)) return yield* noUser(target)
       const user = found.value
       if (user.role === role) return [`${describeUser(user)} already has role ${role}; unchanged`]
       if ((role === "admin" || role === "superadmin") && !user.confirmed) {
