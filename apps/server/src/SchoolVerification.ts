@@ -99,6 +99,9 @@ export class SchoolVerificationQueue extends Context.Service<
 
   static readonly layer = SchoolVerificationQueue.layerWith({})
 
+  /** Waits for the queue to open, for callers that then offer inside a transaction. */
+  static readonly ready = SchoolVerificationQueue.use(({ queue }) => Effect.asVoid(queue))
+
   /** Queues verification of `userId`'s pending school; a no-op if it's already queued. */
   static readonly enqueue = (userId: string) =>
     SchoolVerificationQueue.use(({ queue }) =>
