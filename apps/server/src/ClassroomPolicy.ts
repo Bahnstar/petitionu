@@ -1,9 +1,4 @@
-import {
-  Forbidden,
-  type MembershipRole,
-  type MembershipStatus,
-  type SignedIn,
-} from "@petitionu/domain"
+import { Forbidden, type MembershipStatus, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient, Statement } from "effect/sql"
 
@@ -62,14 +57,17 @@ export interface MembershipTarget {
 export const isProfessor = (user: SignedIn, target: { readonly professorId: string }) =>
   target.professorId === user.id
 
-const isStaff = (user: SignedIn, target: MembershipTarget) =>
+const isStaff = (user: SignedIn, target: Pick<MembershipTarget, "professorId" | "actorIsTa">) =>
   isProfessor(user, target) || target.actorIsTa
 
-/** Inviting: the professor invites anyone; an active TA invites students only. */
+/**
+ * Inviting, with the membership the invitation would create as the target: the professor
+ * invites anyone; an active TA invites students only.
+ */
 export const canInvite = (
-  staff: { readonly isProfessor: boolean; readonly isTa: boolean },
-  role: MembershipRole,
-) => staff.isProfessor || (staff.isTa && role === "student")
+  user: SignedIn,
+  target: Pick<MembershipTarget, "role" | "professorId" | "actorIsTa">,
+) => isProfessor(user, target) || (target.actorIsTa && target.role === "student")
 
 /** Approving a pending request of an open classroom: its professor or an active TA. */
 export const canApprove = (user: SignedIn, target: MembershipTarget) =>

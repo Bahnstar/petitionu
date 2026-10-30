@@ -463,19 +463,20 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             Effect.gen(function* () {
               // Lock the classroom first, then check the inviter's role in a later statement:
               // one that waited for the lock would see the role as of before the wait.
-              const [staff] = yield* sql`
+              const [classroom] = yield* sql`
                 SELECT id FROM classrooms WHERE id = ${classroomId} FOR UPDATE
               `.pipe(
                 Effect.andThen(
-                  sql<{ isProfessor: boolean; isTa: boolean }>`
-                    SELECT c.professor_id = ${user.id} AS is_professor,
-                      ${activeTa(sql, user.id, sql`c.id`)} AS is_ta
+                  sql<{ professorId: string; actorIsTa: boolean }>`
+                    SELECT c.professor_id, ${activeTa(sql, user.id, sql`c.id`)} AS actor_is_ta
                     FROM classrooms c WHERE c.id = ${classroomId}
                   `,
                 ),
                 Effect.orDie,
               )
-              if (staff === undefined || !canInvite(staff, role)) return yield* forbidden
+              if (classroom === undefined || !canInvite(user, { ...classroom, role })) {
+                return yield* forbidden
+              }
               const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
               if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
               const membership = yield* insertMembership({
