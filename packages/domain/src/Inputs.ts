@@ -12,18 +12,46 @@ import { Schema, SchemaTransformation } from "effect"
  */
 export const Uuid = Schema.String.check(Schema.isGUID({ message: "is invalid" }))
 
-/** Trimmed length between `min` and `max`, worded like Ash's changeset errors. */
-const trimmedLength = (min: number, max: number) =>
-  [
-    Schema.makeFilter((value: string) => value.trim().length >= min, {
-      message: `length must be greater than or equal to ${min}`,
-    }),
-    Schema.makeFilter((value: string) => value.trim().length <= max, {
-      message: `length must be less than or equal to ${max}`,
-    }),
-  ] as const
+/** Whether `value` is shaped like a record id, for the few ids a handler checks itself. */
+export const isUuid = Schema.is(Uuid)
 
-/** A required note: 1 to 5000 characters once trimmed. The handler receives it trimmed. */
-export const Note = Schema.String.check(...trimmedLength(1, 5000)).pipe(
-  Schema.decodeTo(Schema.String, SchemaTransformation.trim()),
-)
+/** At most `maxLength` characters once trimmed, worded like Ash's changeset errors. */
+const trimmedMaxLength = (maxLength: number) =>
+  Schema.makeFilter((value: string) => value.trim().length <= maxLength, {
+    message: `length must be less than or equal to ${maxLength}`,
+  })
+
+export interface NoteOptions {
+  readonly maxLength: number
+  /** The message for a blank or missing value, as the area words it ("is required"). */
+  readonly required: string
+}
+
+/** Required text: present and at most `maxLength` characters once trimmed. Decodes trimmed. */
+export const Note = ({ maxLength, required }: NoteOptions) => {
+  // Encoding reads a missing key's message from the encoded side, decoding from the outer
+  // schema, so both carry it.
+  const key = { messageMissingKey: required }
+  return Schema.String.check(
+    Schema.makeFilter((value: string) => value.trim().length > 0, { message: required }),
+    trimmedMaxLength(maxLength),
+  )
+    .annotateKey(key)
+    .pipe(Schema.decodeTo(Schema.String, SchemaTransformation.trim()))
+    .annotateKey(key)
+}
+
+/**
+ * Optional text: at most `maxLength` characters once trimmed. Decodes trimmed, with a blank
+ * value (or `null`) as `null`.
+ */
+export const OptionalNote = (maxLength: number) =>
+  Schema.NullOr(Schema.String.check(trimmedMaxLength(maxLength))).pipe(
+    Schema.decodeTo(
+      Schema.NullOr(Schema.String),
+      SchemaTransformation.transform({
+        decode: (value) => value?.trim() || null,
+        encode: (value) => value,
+      }),
+    ),
+  )

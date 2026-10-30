@@ -24,15 +24,18 @@ export const SupportRequest = Schema.Struct({
 })
 export type SupportRequest = typeof SupportRequest.Type
 
+/** A request message or resolution note: 1 to 5000 characters once trimmed. */
+const SupportNote = Note({ maxLength: 5000, required: "length must be greater than or equal to 1" })
+
 export const CreateSupportRequestInput = Schema.Struct({
   kind: SupportRequestKind,
-  message: Note,
+  message: SupportNote,
 })
 export type CreateSupportRequestInput = typeof CreateSupportRequestInput.Type
 
 export const ResolveSupportRequestInput = Schema.Struct({
   id: Uuid,
-  resolutionNote: Note,
+  resolutionNote: SupportNote,
 })
 export type ResolveSupportRequestInput = typeof ResolveSupportRequestInput.Type
 
