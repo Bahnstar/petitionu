@@ -159,17 +159,26 @@ const createFirstUser = Effect.fnUntraced(function* (target: string, role: Role)
  * who registered the operator's address first would receive the role. `admin` and `superadmin`
  * therefore need a confirmed account. A created account has no password: the first magic-link
  * or password-reset sign-in proves the address and confirms it.
+ *
+ * The change that would leave no superadmin needs `force`. Every run locks the superadmin rows
+ * in one order before reading the target, so concurrent demotions wait for each other, and the
+ * later one counts what the earlier one left. Locking the target first would deadlock them.
+ * `setUserRole` has no such guard: a superadmin there may demote themself.
  */
 export const setRole = Effect.fn("setRole")(function* (options: {
   readonly target: string
   readonly role: Role
   readonly create: boolean
+  readonly force: boolean
 }) {
-  const { target, role, create } = options
+  const { target, role, create, force } = options
   const sql = yield* SqlClient.SqlClient
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       if (create) return yield* createFirstUser(target, role)
+      const superadmins = yield* sql<{ id: string }>`
+        SELECT id FROM users WHERE role = 'superadmin' ORDER BY id FOR UPDATE
+      `
       const found = yield* findUser(target)
       if (Option.isNone(found)) return yield* noUser(target)
       const user = found.value
@@ -179,8 +188,17 @@ export const setRole = Effect.fn("setRole")(function* (options: {
           message: `${user.email} hasn't confirmed their email; confirm it before granting ${role}.`,
         })
       }
+      const leavesNone = user.role === "superadmin" && superadmins.every(({ id }) => id === user.id)
+      if (leavesNone && !force) {
+        return yield* new OperatorError({
+          message: `${user.email} is the last superadmin; pass --force to leave the system without one.`,
+        })
+      }
       yield* writeUserRole(sql, user.id, role)
-      return [`Set role of ${describeUser(user)}: ${user.role} -> ${role}`]
+      return [
+        `Set role of ${describeUser(user)}: ${user.role} -> ${role}`,
+        ...(leavesNone ? ["This leaves no superadmin."] : []),
+      ]
     }),
   )
 })
