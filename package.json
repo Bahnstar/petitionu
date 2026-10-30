@@ -14,6 +14,7 @@
     "format": "bun run --filter './packages/*' --filter './apps/*' format",
     "test-db": "scripts/test-db.sh",
     "seed": "bun run --filter '@petitionu/server' seed",
-    "migrate": "node apps/server/src/migrate.ts"
+    "migrate": "node apps/server/src/migrate.ts",
+    "operator": "node apps/server/src/operator.ts"
   }
 }

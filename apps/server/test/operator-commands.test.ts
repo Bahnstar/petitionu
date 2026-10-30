@@ -1,0 +1,393 @@
+import { assert, describe, it } from "@effect/vitest"
+import { Effect } from "effect"
+import {
+  magicSignIn,
+  me,
+  organizationsAt,
+  pendingOrganizationOf,
+  schoolDomain,
+} from "./support/campus.ts"
+import { dropDatabase, makeTestApp, type TestApp } from "./support/harness.ts"
+import { type Jobs, makeJobsApp } from "./support/jobs.ts"
+import { runOperator } from "./support/operator.ts"
+import { createUser, emailsTo, uniqueEmail } from "./support/users.ts"
+
+const userCount = (app: TestApp) =>
+  app.sql<{ count: number }>`SELECT count(*)::int AS count FROM users`.pipe(
+    Effect.map((rows) => rows[0]!.count),
+    Effect.orDie,
+  )
+
+/** A confirmed student waiting for a pending school at `domain`. */
+const waitingUser = (app: TestApp, domain = schoolDomain()) =>
+  Effect.gen(function* () {
+    const user = yield* createUser(app, { stage: "confirmed", email: uniqueEmail(domain) })
+    return { user, domain, organizationId: (yield* pendingOrganizationOf(app, user.id))! }
+  })
+
+/** Lets the user's job fail all 20 attempts, leaving it failed and the school's check recent. */
+const exhaustJob = (app: TestApp, jobs: Jobs) =>
+  Effect.gen(function* () {
+    yield* app.registry.script("unavailable")
+    for (let attempt = 0; attempt < 20; attempt++) {
+      yield* jobs.elapse("1 day")
+      yield* jobs.drain
+    }
+  })
+
+describe("operator entry point", () => {
+  it.live("lists the commands without needing a database", () =>
+    Effect.gen(function* () {
+      const help = yield* runOperator({ url: "" }, "--help")
+      assert.strictEqual(help.code, 0, help.stderr)
+      for (const command of ["approve-organization", "set-role", "retry-verification"]) {
+        assert.include(help.stdout, command)
+      }
+    }),
+  )
+
+  it.live("exits non-zero on bad arguments and when the database is unreachable", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      assert.notStrictEqual((yield* runOperator(app.database, "nope")).code, 0)
+      assert.notStrictEqual(
+        (yield* runOperator(app.database, "set-role", "a@example.edu", "owner")).code,
+        0,
+      )
+      yield* dropDatabase(app.database.name)
+      const down = yield* runOperator(app.database, "set-role", "a@example.edu", "admin")
+      assert.notStrictEqual(down.code, 0)
+      assert.notStrictEqual(down.stderr, "")
+    }),
+  )
+})
+
+describe("approve-organization", () => {
+  it.live(
+    "approves a pending school and activates users whose jobs are failed or still queued",
+    () =>
+      Effect.gen(function* () {
+        const { app, jobs } = yield* makeJobsApp()
+        const failed = yield* waitingUser(app)
+        yield* exhaustJob(app, jobs)
+        assert.deepStrictEqual(yield* jobs.allJobsFor(failed.user.id), ["failed"])
+        const queued = yield* waitingUser(app, failed.domain)
+        const before = yield* emailsTo(app, queued.user.email)
+
+        const result = yield* runOperator(app.database, "approve-organization", failed.domain)
+
+        assert.strictEqual(result.code, 0, result.stderr)
+        assert.include(result.stdout, "pending -> approved")
+        assert.include(result.stdout, "Activated 2 waiting user(s)")
+        assert.include(result.stdout, failed.user.email)
+        assert.include(result.stdout, queued.user.email)
+        const [organization] = yield* organizationsAt(app, failed.domain)
+        assert.strictEqual(organization!.verificationStatus, "approved")
+        // The name stays as it was; approval doesn't claim a registry match.
+        assert.strictEqual(organization!.name, failed.domain)
+        for (const { user } of [failed, queued]) {
+          assert.strictEqual((yield* me(user.browser)).organizationId, failed.organizationId)
+          assert.isNull(yield* pendingOrganizationOf(app, user.id))
+        }
+        // No notice goes out, as with the job's activation.
+        assert.strictEqual(yield* emailsTo(app, queued.user.email), before)
+
+        // The queued job finds nothing left to do and never asks the registry.
+        const lookups = (yield* app.registry.lookups).length
+        assert.deepStrictEqual(yield* jobs.drain, ["skipped"])
+        assert.lengthOf(yield* app.registry.lookups, lookups)
+
+        // New confirmations join directly.
+        const later = yield* createUser(app, {
+          stage: "confirmed",
+          email: uniqueEmail(failed.domain),
+        })
+        assert.strictEqual((yield* me(later.browser)).organizationId, failed.organizationId)
+      }),
+  )
+
+  it.live("leaves users whose email is outside the domain waiting", () =>
+    Effect.gen(function* () {
+      const { app } = yield* makeJobsApp()
+      const matching = yield* waitingUser(app)
+      const moved = yield* waitingUser(app, matching.domain)
+      const elsewhere = uniqueEmail(schoolDomain())
+      yield* app.sql`UPDATE users SET email = ${elsewhere} WHERE id = ${moved.user.id}`.pipe(
+        Effect.orDie,
+      )
+
+      const result = yield* runOperator(app.database, "approve-organization", matching.domain)
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, "Activated 1 waiting user(s)")
+      assert.include(
+        result.stdout,
+        `Left 1 user(s) waiting, email outside the domain: ${elsewhere}`,
+      )
+      assert.strictEqual(yield* pendingOrganizationOf(app, moved.user.id), moved.organizationId)
+    }),
+  )
+
+  it.live("finds the organization by id or by domain in any case", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const byCase = yield* waitingUser(app)
+      const result = yield* runOperator(
+        app.database,
+        "approve-organization",
+        byCase.domain.toUpperCase(),
+      )
+      assert.strictEqual(result.code, 0, result.stderr)
+      const byId = yield* waitingUser(app)
+      const second = yield* runOperator(app.database, "approve-organization", byId.organizationId)
+      assert.strictEqual(second.code, 0, second.stderr)
+      assert.include(second.stdout, "pending -> approved")
+    }),
+  )
+
+  it.live("keeps a verified school's status, still activates stragglers, and can be repeated", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const { user, domain, organizationId } = yield* waitingUser(app)
+      yield* app.sql`
+        UPDATE organization SET verification_status = 'verified' WHERE id = ${organizationId}
+      `.pipe(Effect.orDie)
+
+      const first = yield* runOperator(app.database, "approve-organization", domain)
+      assert.strictEqual(first.code, 0, first.stderr)
+      assert.include(first.stdout, "already verified")
+      assert.include(first.stdout, "Activated 1 waiting user(s)")
+      assert.strictEqual((yield* me(user.browser)).organizationId, organizationId)
+      assert.strictEqual((yield* organizationsAt(app, domain))[0]!.verificationStatus, "verified")
+
+      const again = yield* runOperator(app.database, "approve-organization", domain)
+      assert.strictEqual(again.code, 0, again.stderr)
+      assert.include(again.stdout, "Activated 0 waiting user(s)")
+    }),
+  )
+
+  it.live("refuses an organization that doesn't exist", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const domain = schoolDomain()
+      const result = yield* runOperator(app.database, "approve-organization", domain)
+      assert.notStrictEqual(result.code, 0)
+      assert.include(result.stderr, `No organization matches ${domain}`)
+      assert.lengthOf(yield* organizationsAt(app, domain), 0)
+    }),
+  )
+})
+
+describe("set-role", () => {
+  it.live("bootstraps the first superadmin on a system with no users", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      assert.strictEqual(yield* userCount(app), 0)
+      const email = "Founder@Example.com"
+
+      const result = yield* runOperator(app.database, "set-role", email, "superadmin", "--create")
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, "Created founder@example.com")
+      assert.include(result.stdout, "role superadmin")
+
+      const { browser, me: account } = yield* magicSignIn(app, email.toLowerCase())
+      assert.strictEqual(account.role, "superadmin")
+      assert.isTrue(account.emailVerified)
+
+      const other = yield* createUser(app, { stage: "confirmed" })
+      const promoted = yield* browser.rpc((api) =>
+        api.setUserRole({ id: other.id, role: "superadmin" }),
+      )
+      assert.isTrue(promoted.success, JSON.stringify(promoted))
+    }),
+  )
+
+  it.live("makes a campus-less user the first superadmin, with no superadmin to authorize it", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const operator = yield* createUser(app, {
+        stage: "confirmed",
+        email: uniqueEmail("gmail.com"),
+      })
+      const student = yield* createUser(app)
+      const before = yield* operator.browser.rpc((api) => api.getUsers())
+      assert.isTrue(before.success && before.data.length === 1)
+
+      const result = yield* runOperator(app.database, "set-role", operator.email, "superadmin")
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, `Set role of ${operator.email}`)
+      assert.include(result.stdout, "student -> superadmin")
+      assert.strictEqual((yield* me(operator.browser)).role, "superadmin")
+      const after = yield* operator.browser.rpc((api) => api.getUsers())
+      assert.isTrue(after.success && after.data.some((user) => user.id === student.id))
+    }),
+  )
+
+  it.live("sets any role by email or id, and demotes a superadmin", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { role: "superadmin" })
+      const byId = yield* runOperator(app.database, "set-role", user.id, "professor")
+      assert.strictEqual(byId.code, 0, byId.stderr)
+      assert.include(byId.stdout, "superadmin -> professor")
+      assert.strictEqual((yield* me(user.browser)).role, "professor")
+
+      const byEmail = yield* runOperator(
+        app.database,
+        "set-role",
+        user.email.toUpperCase(),
+        "student",
+      )
+      assert.strictEqual(byEmail.code, 0, byEmail.stderr)
+      assert.strictEqual((yield* me(user.browser)).role, "student")
+    }),
+  )
+
+  it.live("reports an unchanged role and exits 0", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app)
+      const result = yield* runOperator(app.database, "set-role", user.email, "student")
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, "already has role student")
+    }),
+  )
+
+  it.live("refuses a user who doesn't exist unless told to create them", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const email = uniqueEmail()
+      const result = yield* runOperator(app.database, "set-role", email, "admin")
+      assert.notStrictEqual(result.code, 0)
+      assert.include(result.stderr, `No user matches ${email}`)
+      assert.strictEqual(yield* userCount(app), 0)
+
+      const byId = yield* runOperator(
+        app.database,
+        "set-role",
+        crypto.randomUUID(),
+        "admin",
+        "--create",
+      )
+      assert.notStrictEqual(byId.code, 0)
+      assert.include(byId.stderr, "--create needs an email address")
+      assert.strictEqual(yield* userCount(app), 0)
+    }),
+  )
+
+  it.live("won't grant admin or superadmin to an unconfirmed account", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const squatter = yield* createUser(app, { stage: "unconfirmed" })
+      for (const role of ["admin", "superadmin"]) {
+        const result = yield* runOperator(app.database, "set-role", squatter.email, role)
+        assert.notStrictEqual(result.code, 0)
+        assert.include(result.stderr, "hasn't confirmed their email")
+      }
+      assert.strictEqual((yield* me(squatter.browser)).role, "student")
+
+      const professor = yield* runOperator(app.database, "set-role", squatter.email, "professor")
+      assert.strictEqual(professor.code, 0, professor.stderr)
+    }),
+  )
+})
+
+describe("retry-verification", () => {
+  it.live("queues a fresh job for a failed one, which then activates the user", () =>
+    Effect.gen(function* () {
+      const { app, jobs } = yield* makeJobsApp()
+      const { user, organizationId } = yield* waitingUser(app)
+      yield* exhaustJob(app, jobs)
+      yield* app.registry.script(() => ({ name: "Registry University", source: "test-registry" }))
+      yield* jobs.elapse("1 day")
+      assert.deepStrictEqual(yield* jobs.drain, [])
+
+      const result = yield* runOperator(app.database, "retry-verification", user.email)
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, `Queued verification job`)
+      assert.include(result.stdout, "failed after 20 attempt(s)")
+      assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "pending"])
+
+      assert.deepStrictEqual(yield* jobs.drain, ["activated"])
+      assert.strictEqual((yield* me(user.browser)).organizationId, organizationId)
+      assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "completed"])
+    }),
+  )
+
+  it.live(
+    "a retried job that defers stays queued, and a retry can itself fail and be retried",
+    () =>
+      Effect.gen(function* () {
+        const { app, jobs } = yield* makeJobsApp()
+        const { user } = yield* waitingUser(app)
+        yield* exhaustJob(app, jobs)
+        const lookups = (yield* app.registry.lookups).length
+
+        // The school's last lookup just failed, so the retry waits rather than asking again.
+        const first = yield* runOperator(app.database, "retry-verification", user.id)
+        assert.strictEqual(first.code, 0, first.stderr)
+        assert.deepStrictEqual(yield* jobs.drain, ["deferred"])
+        assert.lengthOf(yield* app.registry.lookups, lookups)
+        assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "pending"])
+
+        const whileQueued = yield* runOperator(app.database, "retry-verification", user.email)
+        assert.notStrictEqual(whileQueued.code, 0)
+        assert.include(whileQueued.stderr, "has a job that is pending, not failed")
+        assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "pending"])
+
+        yield* exhaustJob(app, jobs)
+        assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "failed"])
+        const second = yield* runOperator(app.database, "retry-verification", user.email)
+        assert.strictEqual(second.code, 0, second.stderr)
+        assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "failed", "pending"])
+      }),
+  )
+
+  it.live("refuses when there's nothing to retry", () =>
+    Effect.gen(function* () {
+      const { app, jobs } = yield* makeJobsApp()
+      const expectRefused = (target: string, reason: string) =>
+        Effect.gen(function* () {
+          const result = yield* runOperator(app.database, "retry-verification", target)
+          assert.notStrictEqual(result.code, 0)
+          assert.include(result.stderr, reason)
+        })
+
+      yield* expectRefused(uniqueEmail(), "No user matches")
+
+      const queued = yield* waitingUser(app)
+      yield* expectRefused(queued.user.email, "has a job that is pending, not failed")
+
+      yield* jobs.drain
+      yield* expectRefused(queued.user.email, "already belongs to an organization")
+
+      const personal = yield* createUser(app, {
+        stage: "confirmed",
+        email: uniqueEmail("gmail.com"),
+      })
+      yield* expectRefused(personal.email, "isn't waiting for a school")
+
+      const jobless = yield* waitingUser(app)
+      yield* app.sql`DELETE FROM job_queue WHERE id = ${jobless.user.id}`.pipe(Effect.orDie)
+      yield* expectRefused(jobless.user.email, "has no verification job")
+    }),
+  )
+
+  it.live("refuses a user the job has already activated after a failure", () =>
+    Effect.gen(function* () {
+      const { app, jobs } = yield* makeJobsApp()
+      const { user, domain } = yield* waitingUser(app)
+      yield* exhaustJob(app, jobs)
+      const approved = yield* runOperator(app.database, "approve-organization", domain)
+      assert.strictEqual(approved.code, 0, approved.stderr)
+
+      const result = yield* runOperator(app.database, "retry-verification", user.email)
+      assert.notStrictEqual(result.code, 0)
+      assert.include(result.stderr, "already belongs to an organization")
+      assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed"])
+    }),
+  )
+})

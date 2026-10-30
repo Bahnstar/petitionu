@@ -36,7 +36,7 @@ const PublicHost = Schema.String.check(
 /** What an entry point defaults: the web app's directory, and whether it uses `PUBLIC_HOST`. */
 export interface SettingsDefaults {
   readonly webDistDir: string
-  /** `migrate` and `seed` build no links, so they don't need `PUBLIC_HOST`. */
+  /** `migrate`, `operator` and `seed` build no links, so they don't need `PUBLIC_HOST`. */
   readonly publicHostUnused?: boolean
 }
 
