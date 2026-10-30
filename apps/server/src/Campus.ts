@@ -1,11 +1,4 @@
-import {
-  CampusRpcs,
-  CurrentUser,
-  EmailDomain,
-  type FieldError,
-  invalidField,
-  invalidFields,
-} from "@petitionu/domain"
+import { CampusRpcs, CurrentUser, EmailDomain, invalidField } from "@petitionu/domain"
 import { Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { findMeQuery } from "./Accounts.ts"
@@ -103,28 +96,6 @@ const noCampus = invalidField(
   "We could not match your email to one supported campus. Contact support for help.",
 )
 
-/** Ash trims string inputs and treats blank ones as missing. */
-const trimmed = (value: string | null | undefined) => {
-  const trimmedValue = value?.trim()
-  return trimmedValue === "" ? undefined : trimmedValue
-}
-
-const nameErrors = (field: string, value: string | undefined): Array<FieldError> => {
-  if (value === undefined) return [{ field, message: "must be present" }]
-  if (value.length > 100) return [{ field, message: "must have length of between 1 and 100" }]
-  return []
-}
-
-const graduationYearErrors = (year: number | null | undefined): Array<FieldError> =>
-  year === null || year === undefined || (year >= 1900 && year <= 2100)
-    ? []
-    : [
-        {
-          field: "graduationYear",
-          message: "must be greater than or equal to 1900 and must be less than or equal to 2100",
-        },
-      ]
-
 export const CampusHandlers = CampusRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
@@ -142,20 +113,9 @@ export const CampusHandlers = CampusRpcs.toLayer(
     })
 
     return CampusRpcs.of({
-      updateMyProfile: (input) =>
+      updateMyProfile: ({ firstName, lastName, graduationYear }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          const firstName = trimmed(input.firstName)
-          const lastName = trimmed(input.lastName)
-          const errors = [
-            ...nameErrors("firstName", firstName),
-            ...nameErrors("lastName", lastName),
-            ...graduationYearErrors(input.graduationYear),
-          ]
-          if (errors.length > 0) {
-            return yield* invalidFields(errors, errors.map((error) => error.message).join(" "))
-          }
-
           return yield* sql.withTransaction(
             Effect.gen(function* () {
               const [user] = yield* sql<{
@@ -170,8 +130,8 @@ export const CampusHandlers = CampusRpcs.toLayer(
               const campus = user.organizationId === null ? yield* campusFor(user.email) : undefined
               if (user.organizationId === null && campus === undefined) return yield* noCampus
               yield* sql`
-                UPDATE users SET first_name = ${firstName!}, last_name = ${lastName!},
-                  graduation_year = ${input.graduationYear ?? null},
+                UPDATE users SET first_name = ${firstName}, last_name = ${lastName},
+                  graduation_year = ${graduationYear ?? null},
                   ${campus === undefined ? sql`` : sql`organization_id = ${campus}, pending_organization_id = NULL,`}
                   updated_at = (now() AT TIME ZONE 'utc')
                 WHERE id = ${actor.id}

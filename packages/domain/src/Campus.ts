@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { MeDto } from "./Accounts.ts"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Invalid } from "./Errors.ts"
+import { Note } from "./Inputs.ts"
 
 export const VerificationStatus = Schema.Literals(["pending", "verified", "approved"])
 export type VerificationStatus = typeof VerificationStatus.Type
@@ -19,14 +20,24 @@ export const OrganizationDto = Schema.Struct({
 })
 export type OrganizationDto = typeof OrganizationDto.Type
 
-/**
- * The profile fields a student fills in. Names are trimmed and required, and the graduation
- * year is optional; the server checks them and reports each problem per field.
- */
+/** A name: 1 to 100 characters once trimmed. */
+const ProfileName = Note({
+  maxLength: 100,
+  required: "must be present",
+  tooLong: "must have length of between 1 and 100",
+})
+
+const GraduationYear = Schema.Int.check(
+  Schema.makeFilter((year: number) => year >= 1900 && year <= 2100, {
+    message: "must be greater than or equal to 1900 and must be less than or equal to 2100",
+  }),
+)
+
+/** The profile fields a student fills in: both names, and optionally a graduation year. */
 export const UpdateMyProfileInput = Schema.Struct({
-  firstName: Schema.optionalKey(Schema.NullOr(Schema.String)),
-  lastName: Schema.optionalKey(Schema.NullOr(Schema.String)),
-  graduationYear: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+  firstName: ProfileName,
+  lastName: ProfileName,
+  graduationYear: Schema.optionalKey(Schema.NullOr(GraduationYear)),
 })
 export type UpdateMyProfileInput = typeof UpdateMyProfileInput.Type
 
@@ -45,6 +56,6 @@ export const getOrganizations = Rpc.make("getOrganizations", {
   success: Schema.Array(OrganizationDto),
 })
 
-export class CampusRpcs extends RpcGroup.make(updateMyProfile, getOrganizations).middleware(
-  ActorMiddleware,
-) {}
+export class CampusRpcs extends RpcGroup.make(updateMyProfile, getOrganizations)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}

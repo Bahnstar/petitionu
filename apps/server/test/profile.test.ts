@@ -177,7 +177,7 @@ describe("updateMyProfile", () => {
       const user = yield* confirmedAt(app, domain)
 
       assert.deepStrictEqual(
-        yield* save(user.browser, { firstName: "  ", lastName: null, graduationYear: 12 }),
+        yield* save(user.browser, { firstName: "  ", lastName: "", graduationYear: 12 }),
         {
           success: false,
           errors: [

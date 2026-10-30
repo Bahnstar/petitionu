@@ -360,6 +360,11 @@ const rows: ReadonlyArray<Row> = [
     participants,
     call((api) => api.updateMyProfile({ firstName: "Ada", lastName: "Lovelace" })),
   ],
+  [
+    "updateMyProfile (a blank first name)",
+    rejectedPayload,
+    call((api) => api.updateMyProfile({ firstName: " ", lastName: "Lovelace" })),
+  ],
   ["getOrganizations", expected("ok"), call((api) => api.getOrganizations())],
 
   // Users

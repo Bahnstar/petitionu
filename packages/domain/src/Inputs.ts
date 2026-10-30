@@ -16,25 +16,27 @@ export const Uuid = Schema.String.check(Schema.isGUID({ message: "is invalid" })
 export const isUuid = Schema.is(Uuid)
 
 /** At most `maxLength` characters once trimmed, worded like Ash's changeset errors. */
-const trimmedMaxLength = (maxLength: number) =>
-  Schema.makeFilter((value: string) => value.trim().length <= maxLength, {
-    message: `length must be less than or equal to ${maxLength}`,
-  })
+const trimmedMaxLength = (
+  maxLength: number,
+  message = `length must be less than or equal to ${maxLength}`,
+) => Schema.makeFilter((value: string) => value.trim().length <= maxLength, { message })
 
 export interface NoteOptions {
   readonly maxLength: number
   /** The message for a blank or missing value, as the area words it ("is required"). */
   readonly required: string
+  /** The message for a value that's too long, when the area doesn't use Ash's default. */
+  readonly tooLong?: string
 }
 
 /** Required text: present and at most `maxLength` characters once trimmed. Decodes trimmed. */
-export const Note = ({ maxLength, required }: NoteOptions) => {
+export const Note = ({ maxLength, required, tooLong }: NoteOptions) => {
   // Encoding reads a missing key's message from the encoded side, decoding from the outer
   // schema, so both carry it.
   const key = { messageMissingKey: required }
   return Schema.String.check(
     Schema.makeFilter((value: string) => value.trim().length > 0, { message: required }),
-    trimmedMaxLength(maxLength),
+    trimmedMaxLength(maxLength, tooLong),
   )
     .annotateKey(key)
     .pipe(Schema.decodeTo(Schema.String, SchemaTransformation.trim()))
