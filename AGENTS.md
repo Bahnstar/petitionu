@@ -9,8 +9,8 @@
 
 ## Workspace
 
-- `packages/domain`: the contract shared with the browser. Each area has one module with its RPC group, DTO schemas and input checks; `Rpcs.ts` merges the groups into `AppRpcs`; `Client.ts` is the browser client (`makeApiClient`, `buildCSRFHeaders`, `reloadCSRFToken`).
-- `apps/server`: the Effect server. Each area has its handler module (`Petitions.ts`) and its policy module (`PetitionPolicy.ts`). Composition points take one line per area: `AppRpcs` in the domain, `RpcHandlers` in `src/Rpc.ts`, routes and layers in `src/App.ts`.
+- `packages/domain`: the contract shared with the browser. Each area has one module with its RPC group, DTO and payload schemas; `Inputs.ts` and `Timestamps.ts` hold the shared payload and response field schemas; `Rpcs.ts` merges the groups into `AppRpcs`; `Client.ts` is the browser client (`makeApiClient`, `buildCSRFHeaders`, `reloadCSRFToken`).
+- `apps/server`: the Effect server. Each area has its handler module (`Petitions.ts`); areas that make authorization decisions also have a policy module (`PetitionPolicy.ts`). Composition points take one line per area: `AppRpcs` in the domain, `RpcHandlers` in `src/Rpc.ts`, routes and layers in `src/App.ts`.
 - `apps/web`: the React app. Shared primitives in `components/ui`; pages and features in `js/`.
 
 Add a feature area as its own modules plus one line at each composition point, following an existing area.
@@ -19,9 +19,11 @@ Add a feature area as its own modules plus one line at each composition point, f
 
 - An area group ends with `.middleware(ActorMiddleware)`; `yield* CurrentActor` gives `Guest` or `SignedIn`. Sign-in-only procedures add `.middleware(RequireUser)` and read `yield* CurrentUser`. Procedures that create content use `requireParticipant` (confirmed email and complete profile) instead of `RequireUser`.
 - Errors come from `packages/domain/src/Errors.ts`: `Unauthenticated`, `Forbidden`, `NotFound`, `Invalid({message, fields})`. A record the caller can't read is `NotFound`; readable but not permitted is `Forbidden`.
-- Policy modules hold read-scoping SQL fragments (`petitionVisible`, `petitionManageable`) and decision functions for writes. Scope every read and list through them.
-- Validate input in the handler and fail with `Invalid` naming the field. Keep payload schemas loose (plain strings): a payload the client schema rejects becomes an `unknown` defect in the browser, not a field error.
-  - Note (October 2026): this reason no longer holds for the shared client. `makeApiClient` now checks each payload before the call and returns a rejection as `invalid` entries, one per field, worded by the schema. Support has moved to strict shared schemas (`Uuid`, `Note` in `packages/domain/src/Inputs.ts`) and dropped its handler checks; the other areas still use loose schemas. Until an area is converted as a whole, follow its existing style. A strict `Uuid` turns a malformed id from `NotFound` into `Invalid`, so converting an area also changes its policy-matrix rows.
+- In areas that make authorization decisions, the policy module holds read-scoping SQL fragments (`petitionVisible`, `petitionManageable`) and decision functions for writes. Scope every read and list through them.
+- Check input in the payload schema with the shared schemas in `packages/domain/src/Inputs.ts`: `Uuid` for ids, `Note` and `OptionalNote` for text, with the area's length limit and wording. The shared client checks each payload before the call and reports a rejection as `invalid` entries, one per field, worded by the schema; the server checks again when it decodes, so handlers get checked, trimmed values. Add `.annotateRpcs(Rpc.ParseOptions, { errors: "all" })` to the group so the server reports every field too.
+  - A malformed id is therefore `Invalid`, not `NotFound`, guests included. A page that takes an id from the URL checks it with `isUuid` first and shows its not-found view.
+  - Keep in the handler only the checks a schema can't make (the database, the clock), failing with `Invalid` naming the field. An id stays a plain string only when the handler must answer a malformed one like an unknown one (join codes, reported content).
+  - A caller that skips the shared client and sends a payload the schema rejects gets a defect, not a field error.
 - `test/policy-matrix.test.ts` is the authorization contract: every procedure as every actor type. A new procedure, or a change to who may call one, gets a matrix row; the matrix fails when a procedure has none.
 
 ## Database

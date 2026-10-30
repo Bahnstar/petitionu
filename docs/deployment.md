@@ -79,6 +79,8 @@ See [Railway config as code](https://docs.railway.com/config-as-code) and [Docke
 
 Keep the previous image available. Roll the app back only when its code supports the migrated schema. Do not run down migrations to recover from a failed deployment.
 
+Pages opened before a deploy keep the previous web bundle until they reload. Its client checks payloads against the previous procedure schemas, so after a release that tightens one (a stricter id or length check, say) such a page can send a payload the new server rejects. The server answers with a defect rather than a field error, and the page shows its generic failure message. Reloading picks up the new bundle; expect a short tail of these errors after releases that change the RPC contract.
+
 ## Test the build locally
 
 Run `bun install --frozen-lockfile` and `bun run build`. Then set `PGHOST`, `PGUSER` and, when needed, `PGPORT` and `PGPASSWORD` to a disposable PostgreSQL server, put the PostgreSQL client tools on `PATH`, and run `python3 scripts/release-smoke.py`. It creates a temporary database, runs the migrate entry point twice, starts the server and checks HTTP 200, then restarts it against an unreachable database and checks HTTP 503. It stops its own server processes and removes only its temporary database. It uses dummy mail credentials and sends no email.
