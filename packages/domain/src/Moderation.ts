@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
+import { Note, OptionalNote, Uuid } from "./Inputs.ts"
 
 export const ContentReportReason = Schema.Literals(["spam", "harassment", "privacy", "other"])
 export type ContentReportReason = typeof ContentReportReason.Type
@@ -33,23 +34,27 @@ export const ContentReport = Schema.Struct({
 })
 export type ContentReport = typeof ContentReport.Type
 
+/**
+ * The ids stay plain strings: the handler answers a malformed one with the message it gives for
+ * content the caller can't see.
+ */
 export const CreateContentReportInput = Schema.Struct({
   /** The reported petition. Ignored when `commentId` is set: the comment's petition is used. */
   petitionId: Schema.optional(Schema.NullOr(Schema.String)),
   commentId: Schema.optional(Schema.NullOr(Schema.String)),
   reason: ContentReportReason,
   /** Optional, up to 5000 characters once trimmed. */
-  details: Schema.optional(Schema.NullOr(Schema.String)),
+  details: Schema.optional(OptionalNote(5000)),
 })
 export type CreateContentReportInput = typeof CreateContentReportInput.Type
 
 export const ResolveContentReportInput = Schema.Struct({
-  id: Schema.String,
+  id: Uuid,
   outcome: ContentReportOutcome,
   /** Hides the reported comment or petition; only with `outcome: "resolved"`. */
   hideContent: Schema.optional(Schema.Boolean),
   /** 1 to 5000 characters once trimmed; the reporter can read it. */
-  resolutionNote: Schema.String,
+  resolutionNote: Note({ maxLength: 5000, required: "length must be greater than or equal to 1" }),
 })
 export type ResolveContentReportInput = typeof ResolveContentReportInput.Type
 
@@ -80,4 +85,6 @@ export class ModerationRpcs extends RpcGroup.make(
   createContentReport,
   getContentReports,
   resolveContentReport,
-).middleware(ActorMiddleware) {}
+)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}

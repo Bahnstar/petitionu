@@ -899,6 +899,19 @@ const rows: ReadonlyArray<Row> = [
       api.resolveContentReport({ id, outcome: "dismissed", resolutionNote: "Fine" }),
     ),
   ],
+  [
+    "resolveContentReport (a malformed id)",
+    rejectedPayload,
+    call((api) =>
+      api.resolveContentReport({ id: malformedId, outcome: "dismissed", resolutionNote: "Fine" }),
+    ),
+  ],
+  [
+    // The reported ids stay loose: a malformed one is unavailable content, after sign-in.
+    "createContentReport (a malformed petition id)",
+    signedIn("invalid"),
+    call((api) => api.createContentReport({ petitionId: malformedId, reason: "spam" })),
+  ],
 ]
 
 layer(Layer.effect(World, makeWorld), { excludeTestServices: true, timeout: "120 seconds" })(

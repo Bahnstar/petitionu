@@ -4,6 +4,7 @@ import {
   CurrentUser,
   invalidField,
   invalidRequest,
+  isUuid,
   ModerationRpcs,
   NotFound,
   type SignedIn,
@@ -12,7 +13,6 @@ import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { authorizeHide, authorizeResolve, visibleReports } from "./ModerationPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
-import { isUuid, optionalNote, requiredNote } from "./Input.ts"
 import { commentVisible } from "./CommentPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 import { isoTimestamp } from "./Timestamps.ts"
@@ -130,14 +130,13 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
       createContentReport: (input) =>
         Effect.gen(function* () {
           const user = yield* requireParticipant
-          const text = yield* optionalNote("details", input.details)
           const commentId = input.commentId ?? null
           const found = yield* target(user, input.petitionId ?? null, commentId)
           const [row] = yield* sql<{ id: string }>`
             INSERT INTO content_reports (petition_id, comment_id, target_title, target_text,
               reason, details, organization_id, reporter_id)
             VALUES (${found.petitionId}, ${commentId}, ${found.title}, ${found.text},
-              ${input.reason}, ${text}, ${found.organizationId}, ${user.id})
+              ${input.reason}, ${input.details ?? null}, ${found.organizationId}, ${user.id})
             RETURNING id
           `.pipe(Effect.orDie)
           return yield* findById(row!.id).pipe(Effect.orDie)
@@ -146,13 +145,11 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
         Effect.flatMap(CurrentUser, (actor) =>
           list(actor, state === undefined ? sql`TRUE` : sql`r.state = ${state}`).pipe(Effect.orDie),
         ),
-      resolveContentReport: ({ id, outcome, hideContent, resolutionNote: note }) =>
+      resolveContentReport: ({ id, outcome, hideContent, resolutionNote }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          if (!isUuid(id)) return yield* reportNotFound
           const locked = yield* lockVisible(actor, id).pipe(Effect.orDie)
           if (Option.isNone(locked)) return yield* reportNotFound
-          const text = yield* requiredNote("resolutionNote", note)
           yield* authorizeResolve(actor, locked.value)
           if (locked.value.state !== "open") {
             return yield* invalidRequest("This report has already been reviewed.")
@@ -164,7 +161,7 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
             yield* hide(actor, locked.value)
           }
           yield* sql`
-            UPDATE content_reports SET state = ${outcome}, resolution_note = ${text},
+            UPDATE content_reports SET state = ${outcome}, resolution_note = ${resolutionNote},
               resolver_id = ${actor.id}, resolved_at = now() AT TIME ZONE 'utc',
               updated_at = now() AT TIME ZONE 'utc'
             WHERE id = ${id}

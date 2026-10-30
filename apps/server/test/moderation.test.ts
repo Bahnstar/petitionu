@@ -430,18 +430,21 @@ describe("content reports", () => {
     }),
   )
 
-  it.live("resolving an unknown or malformed report is not found", () =>
+  it.live("resolving an unknown report is not found, and a malformed id is invalid", () =>
     Effect.gen(function* () {
       const { app, superadmin } = yield* makeModeration
-      for (const id of ["nope", crypto.randomUUID()]) {
-        const result = yield* superadmin.browser.rpc((api) =>
+      const resolve = (id: string) =>
+        superadmin.browser.rpc((api) =>
           api.resolveContentReport({ id, outcome: "dismissed", resolutionNote: "x" }),
         )
-        assert.deepStrictEqual(result, {
-          success: false,
-          errors: [{ type: "not_found", message: "Content report not found" }],
-        })
-      }
+      assert.deepStrictEqual(yield* resolve(crypto.randomUUID()), {
+        success: false,
+        errors: [{ type: "not_found", message: "Content report not found" }],
+      })
+      assert.deepStrictEqual(yield* resolve("nope"), {
+        success: false,
+        errors: [{ type: "invalid", field: "id", message: "is invalid" }],
+      })
       const guest = yield* makeBrowser(app)
       assert.deepStrictEqual(errorTypes(yield* guest.rpc((api) => api.getContentReports({}))), [
         "unauthenticated",
