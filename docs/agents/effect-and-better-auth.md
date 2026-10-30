@@ -24,7 +24,8 @@ Verified against `effect@4.0.6` and `better-auth@1.7.14` while building the serv
 - One statement per `sql.unsafe` call (extended protocol only). `PgClient` connects lazily: a bad URL surfaces on the first query.
 - The Pg driver reads `timestamp` columns as `Date`s, truncated to milliseconds. Response DTOs carry them as `Timestamp` or `Deadline` (`packages/domain/src/Timestamps.ts`), which encode the ISO strings, so queries select the columns as they are and decode rows against the DTO's type side (`Result: Schema.toType(PetitionDto)`).
 - A `PersistedQueue` offer made inside `sql.withTransaction` joins that transaction, so queueing a job commits or rolls back with the write. Delivery is at least once: handlers must be idempotent. To cancel a job, complete it and log why; there's no cancel API.
-- The SQL queue store uses the database clock, so `TestClock` can't advance it. Tests drive the queue through `test/support/jobs.ts` (`drain`, `elapse`). The verification job's 60-second deferral writes to the store's table directly, which an Effect upgrade could break.
+- The SQL queue store uses the database clock, so `TestClock` can't advance it. Tests drive the queue through `test/support/jobs.ts` (`drain`, `elapse`). The verification job's 60-second deferral writes to the store's table directly and `verificationJobs` reads it, which an Effect upgrade could break.
+- A queue id is never reusable: `offer` silently ignores an id the table already holds, including a failed or completed job's, until `layerCleanup` removes it (the app doesn't run it). The `id` column is `VARCHAR(36)`. To run a job again, offer it without an id, and act on the job in hand by the `id` that `take` passes, not by anything in its payload.
 
 ## Tests
 

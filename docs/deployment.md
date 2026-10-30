@@ -1,9 +1,10 @@
 # Deploy PetitionU
 
-PetitionU ships as one Docker image built from `Dockerfile`. Bun installs dependencies and builds the web app and server; the image runs them on Node 24 as the unprivileged `node` user. The image has two entry points:
+PetitionU ships as one Docker image built from `Dockerfile`. Bun installs dependencies and builds the web app and server; the image runs them on Node 24 as the unprivileged `node` user. The image has three entry points:
 
 - serve (the default command): `node apps/server/dist/serve.js` serves the app, the API and `/healthz` on `PORT` (default 4000).
 - migrate: `node apps/server/dist/migrate.js` applies pending migrations once and exits. It exits non-zero when a migration fails. Repeating it applies only migrations that have not run.
+- operator: `node apps/server/dist/operator.js <command>` runs one admin command and exits. See [Operator commands](#operator-commands).
 
 Use PostgreSQL 16 or later.
 
@@ -16,9 +17,9 @@ Copy `.env.example` into your hosting provider's secret configuration, or to `.e
 | `DATABASE_URL` | PostgreSQL connection URL. Use an account that may run the migrations. |
 | `DATABASE_SSL` | `true` when the database requires TLS. Defaults to `false`. |
 | `POOL_SIZE` | Database connections per process. Defaults to 10. |
-| `PUBLIC_HOST` | Public hostname, with a port only if the site isn't on 443, and without `https://` or a path. Email links use `https://PUBLIC_HOST`, and auth and RPC requests are only accepted from that origin. Required: outside `NODE_ENV=development` and `test` the app refuses to start without a valid value (`migrate` doesn't need it). |
+| `PUBLIC_HOST` | Public hostname, with a port only if the site isn't on 443, and without `https://` or a path. Email links use `https://PUBLIC_HOST`, and auth and RPC requests are only accepted from that origin. Required: outside `NODE_ENV=development` and `test` the app refuses to start without a valid value (`migrate` and `operator` don't need it). |
 | `PORT` | HTTP port. Defaults to 4000. |
-| `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required: the app refuses to start without them (`migrate` doesn't need them). Independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
+| `BETTER_AUTH_SECRET`, `CSRF_SECRET` | Required: the app refuses to start without them (`migrate` and `operator` don't need them). Independent secrets of at least 32 characters. Generate each with `openssl rand -base64 48`. Changing `BETTER_AUTH_SECRET` invalidates confirmation links; changing `CSRF_SECRET` makes open pages fail RPC calls until they reload. |
 | `RESEND_API_KEY`, `MAIL_FROM`, `SUPPORT_EMAIL` | Resend key, sender address (sent as `PetitionU <MAIL_FROM>`) and monitored reply-to mailbox. Required: outside `NODE_ENV=development` the app refuses to start without them. In development without `RESEND_API_KEY`, emails are logged instead of sent. |
 | `CLIENT_IP_HEADER` | The request header holding the client's address, used for the per-client rate limits on sign-in, password reset and magic-link requests. Defaults to `x-forwarded-for`, which counts only when it holds a single address. Behind Cloudflare, set `cf-connecting-ip`; the Compose stack sets it for you. Only name a header your proxy always sets and overwrites, or clients can choose their own rate-limit bucket. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional OpenTelemetry collector base URL. Export is off when unset. |
@@ -28,7 +29,7 @@ Verify your sender domain in Resend before launch. Production logs are JSON, one
 
 ## Deploy with Docker Compose
 
-`compose.yaml` runs four services on one host:
+`compose.yaml` runs four services on one host, plus an `operator` service that `up` leaves out (see [Operator commands](#operator-commands)):
 
 - `postgres`: PostgreSQL 17 with its data in the `postgres-data` volume and a `pg_isready` health check.
 - `migrate`: a one-shot run of the migrate entry point after Postgres is healthy.
@@ -72,6 +73,58 @@ Deploy and check that the pre-deploy migration succeeds and `/healthz` returns H
 
 See [Railway config as code](https://docs.railway.com/config-as-code) and [Docker builds](https://docs.railway.com/builds/dockerfiles).
 
+## Operator commands
+
+Admin tasks that have no page in the app. The commands need only `DATABASE_URL` (and `DATABASE_SSL` and `POOL_SIZE` if set), run against the live database while the app is up, and go straight to the database with no signed-in actor, so anyone who can run them has full control. Each one works in a single transaction. It prints what it changed and exits 0, or prints why it refused, changes nothing and exits non-zero. Run `--help` after the entry point or any command for its arguments.
+
+With Docker Compose, `operator` is a service of its own on the Compose network, and arguments follow the service name. Compose starts Postgres if it isn't running, and `--rm` removes the container afterwards:
+
+```sh
+docker compose run --rm operator set-role someone@campus.edu superadmin
+```
+
+On Railway, open a shell in the running app service with the [Railway CLI](https://docs.railway.com/cli/ssh), which has the service's variables, and run the entry point there:
+
+```sh
+railway ssh
+node apps/server/dist/operator.js set-role someone@campus.edu superadmin
+```
+
+### Set a user's role
+
+```sh
+set-role <email-or-id> <student|professor|admin|superadmin> [--create]
+```
+
+Sets the role without asking who holds which role today, so this is how the first superadmin gets made; after that a superadmin can also assign roles in the app. It takes effect on the user's next request. Setting the role a user already has changes nothing and exits 0.
+
+`admin` and `superadmin` need a confirmed account, because an unconfirmed one may have been registered by someone who doesn't own the address. The command refuses otherwise.
+
+To make the first superadmin:
+
+- If the person can sign up, have them register and confirm their email, then run `set-role them@campus.edu superadmin`.
+- On a system with no accounts yet, `set-role them@campus.edu superadmin --create` creates the account with that role. Without `--create`, an unknown user is refused. The new account has no password and is unconfirmed: sign in once with an emailed magic link (or a password reset) to confirm it. Mail delivery has to work for this step.
+
+### Approve an organization
+
+```sh
+approve-organization <domain-or-id>
+```
+
+For a school the registry won't confirm. Sets a `pending` organization to `approved` and moves its waiting users in at once, including those whose verification job has failed, and lists them. A user whose email is outside the domain stays waiting and is listed separately. No email is sent; users see the campus on their next page load. The name stays as it is, which for a school created at sign-up is its domain.
+
+An organization that is already `verified` or `approved` keeps its status; the command still activates anyone waiting, so it's safe to repeat.
+
+### Retry a failed school verification
+
+```sh
+retry-verification <email-or-id>
+```
+
+Queues a new job, with a fresh 20 attempts, for one user whose job failed after its retries, once the registry may answer again. The running app's workers pick it up, so at least one process needs `JOB_WORKERS` on. If the school's last lookup failed in the past minute, the job waits a minute first. It refuses when there's nothing to retry: the user is unknown, already has an organization, isn't waiting for one, or their latest job isn't failed. To see a failed job's error, read the command's output or the `last_failure` column in `job_queue`.
+
+The queue can't re-run a failed job: it ignores an offer that reuses a job's id, so the retry is a new job and the failed one stays as the record. See [School registry verification](school-registry-verification.md).
+
 ## Check a deployment
 
 1. Check `curl --fail https://YOUR_HOST/healthz`. A ready app returns `{"status":"ok"}`. A failed database query returns HTTP 503 with `{"status":"unavailable"}` and no database details.
@@ -83,7 +136,7 @@ Pages opened before a deploy keep the previous web bundle until they reload. Its
 
 ## Test the build locally
 
-Run `bun install --frozen-lockfile` and `bun run build`. Then set `PGHOST`, `PGUSER` and, when needed, `PGPORT` and `PGPASSWORD` to a disposable PostgreSQL server, put the PostgreSQL client tools on `PATH`, and run `python3 scripts/release-smoke.py`. It creates a temporary database, runs the migrate entry point twice, starts the server and checks HTTP 200, then restarts it against an unreachable database and checks HTTP 503. It stops its own server processes and removes only its temporary database. It uses dummy mail credentials and sends no email.
+Run `bun install --frozen-lockfile` and `bun run build`. Then set `PGHOST`, `PGUSER` and, when needed, `PGPORT` and `PGPASSWORD` to a disposable PostgreSQL server, put the PostgreSQL client tools on `PATH`, and run `python3 scripts/release-smoke.py`. It checks that the three entry points were built, creates a temporary database, runs the migrate entry point twice, starts the server and checks HTTP 200, then restarts it against an unreachable database and checks HTTP 503. It stops its own server processes and removes only its temporary database. It uses dummy mail credentials and sends no email.
 
 ## Rehearse the cutover from the Elixir app
 
