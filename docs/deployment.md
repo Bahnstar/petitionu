@@ -75,9 +75,9 @@ See [Railway config as code](https://docs.railway.com/config-as-code) and [Docke
 
 ## Operator commands
 
-Admin tasks that have no page in the app. The commands need only `DATABASE_URL` (and `DATABASE_SSL` and `POOL_SIZE` if set), run against the live database while the app is up, and go straight to the database with no signed-in actor, so anyone who can run them has full control. Each one works in a single transaction. It prints what it changed and exits 0, or prints why it refused, changes nothing and exits non-zero. Run `--help` after the entry point or any command for its arguments.
+Admin tasks that have no page in the app. The commands run against the live database while the app is up, and go straight to the database with no signed-in actor, so anyone who can run them has full control. They need `DATABASE_URL`, not the auth or mail secrets, but they read the same configuration as the server: an invalid `PORT`, `PUBLIC_HOST`, `OTEL_EXPORTER_OTLP_ENDPOINT` or other variable that's set makes a command fail before it starts. The database must be migrated first, or a command exits 1 with a missing-relation error. Each one works in a single transaction. It prints what it changed and exits 0, or prints why it refused, changes nothing and exits non-zero. Run `--help` after the entry point or any command for its arguments.
 
-With Docker Compose, `operator` is a service of its own on the Compose network, and arguments follow the service name. Compose starts Postgres if it isn't running, and `--rm` removes the container afterwards:
+With Docker Compose, `operator` is a service of its own on the Compose network, and arguments follow the service name. Compose starts Postgres if it isn't running, but `run` doesn't wait for `migrate`, and `--rm` removes the container afterwards:
 
 ```sh
 docker compose run --rm operator set-role someone@campus.edu superadmin
@@ -93,17 +93,19 @@ node apps/server/dist/operator.js set-role someone@campus.edu superadmin
 ### Set a user's role
 
 ```sh
-set-role <email-or-id> <student|professor|admin|superadmin> [--create]
+set-role <email-or-id> <student|professor|admin|superadmin> [--create] [--force]
 ```
 
 Sets the role without asking who holds which role today, so this is how the first superadmin gets made; after that a superadmin can also assign roles in the app. It takes effect on the user's next request. Setting the role a user already has changes nothing and exits 0.
 
-`admin` and `superadmin` need a confirmed account, because an unconfirmed one may have been registered by someone who doesn't own the address. The command refuses otherwise.
+`admin` and `superadmin` need a confirmed account, because an unconfirmed one may have been registered by someone who doesn't own the address. The command refuses otherwise, and `--force` doesn't change that.
 
-To make the first superadmin:
+A change that would leave no superadmin is refused unless you pass `--force`. Only this command checks that: a superadmin can still demote themself in the app.
 
-- If the person can sign up, have them register and confirm their email, then run `set-role them@campus.edu superadmin`.
-- On a system with no accounts yet, `set-role them@campus.edu superadmin --create` creates the account with that role. Without `--create`, an unknown user is refused. The new account has no password and is unconfirmed: sign in once with an emailed magic link (or a password reset) to confirm it. Mail delivery has to work for this step.
+To make the first superadmin, migrate the database first. On a fresh Compose stack, either run `docker compose up -d --build` to the end or run `docker compose run --rm migrate`; on Railway, the pre-deploy step does it. Then:
+
+- If the person can sign up, which is the normal way, have them register and confirm their email, then run `set-role them@campus.edu superadmin`.
+- On a system with no accounts at all, `set-role them@campus.edu superadmin --create` creates the account with that role. Any address sign-up accepts will do, personal ones included. `--create` is refused as soon as any user exists, even if it's the user you named: run the command without it. Without `--create`, an unknown user is refused. The new account has no password and is unconfirmed: sign in once with an emailed magic link (or a password reset) to confirm it. Mail delivery has to work for this step.
 
 ### Approve an organization
 
