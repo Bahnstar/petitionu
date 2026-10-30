@@ -207,9 +207,14 @@ export const setRole = Effect.fn("setRole")(function* (options: {
  * Queues a new verification job, with fresh attempts, for a waiting user whose last job failed.
  * Only offers through the queue; reading the jobs is the one direct use of its table. The old
  * job stays as the failure's record. A worker in the running app picks the new one up.
+ *
+ * The user's row lock makes concurrent runs see each other's job, so only one queues. The queue
+ * opens first because opening takes a connection of its own, which a transaction on the last
+ * one in the pool would wait for forever.
  */
 export const retryVerification = Effect.fn("retryVerification")(function* (target: string) {
   const sql = yield* SqlClient.SqlClient
+  yield* SchoolVerificationQueue.ready
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       const found = yield* findUser(target)

@@ -484,6 +484,38 @@ describe("retry-verification", () => {
       }),
   )
 
+  it.live("finishes on a single-connection pool", () =>
+    Effect.gen(function* () {
+      const { app, jobs } = yield* makeJobsApp()
+      const { user } = yield* waitingUser(app)
+      yield* exhaustJob(app, jobs)
+
+      const result = yield* runOperator(
+        { url: app.database.url, env: { POOL_SIZE: "1" } },
+        "retry-verification",
+        user.email,
+      )
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.deepStrictEqual(yield* jobs.allJobsFor(user.id), ["failed", "pending"])
+    }),
+  )
+
+  it.live("the other commands finish on a single-connection pool too", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const onePool = { url: app.database.url, env: { POOL_SIZE: "1" } }
+      const first = yield* runOperator(onePool, "set-role", "one@gmail.com", "admin", "--create")
+      assert.strictEqual(first.code, 0, first.stderr)
+      const { domain } = yield* waitingUser(app)
+      const approved = yield* runOperator(onePool, "approve-organization", domain)
+      assert.strictEqual(approved.code, 0, approved.stderr)
+      const user = yield* createUser(app, { role: "superadmin" })
+      const demoted = yield* runOperator(onePool, "set-role", user.email, "student", "--force")
+      assert.strictEqual(demoted.code, 0, demoted.stderr)
+    }),
+  )
+
   it.live("refuses when there's nothing to retry", () =>
     Effect.gen(function* () {
       const { app, jobs } = yield* makeJobsApp()
