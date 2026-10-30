@@ -181,7 +181,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
       .filter((signature) => signature.reason?.trim())
       .sort((a, b) => b.insertedAt.getTime() - a.insertedAt.getTime())
       .slice(0, 5)
-    if (signatures.length === 0)
+    if (signatures.length === 0 && petition.status !== "victory")
       return (
         <p className="text-sm leading-7 text-muted-foreground">
           {closed
