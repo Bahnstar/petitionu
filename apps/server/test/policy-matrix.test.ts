@@ -405,6 +405,11 @@ const rows: ReadonlyArray<Row> = [
       (api, user) => api.setUserRole({ id: user.id, role: "student" }),
     ),
   ],
+  [
+    "setUserRole (a malformed id)",
+    rejectedPayload,
+    call((api) => api.setUserRole({ id: malformedId, role: "professor" })),
+  ],
   ["getPreferences", signedIn("ok"), call((api) => api.getPreferences())],
   ["getNotifications", signedIn("ok"), call((api) => api.getNotifications())],
 

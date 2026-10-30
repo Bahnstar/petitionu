@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser, Role } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound } from "./Errors.ts"
+import { Uuid } from "./Inputs.ts"
 import { PetitionDto } from "./Petitions.ts"
 
 /** Anyone may see a user's id and names. */
@@ -77,7 +78,7 @@ export type Notification = typeof Notification.Type
  * record carries their activity; nobody else's does.
  */
 export const getUserById = Rpc.make("getUserById", {
-  payload: { id: Schema.String, includeStats: Schema.optionalKey(Schema.Boolean) },
+  payload: { id: Uuid, includeStats: Schema.optionalKey(Schema.Boolean) },
   success: UserDto,
   error: NotFound,
 })
@@ -86,7 +87,7 @@ export const getUserById = Rpc.make("getUserById", {
 export const getUsers = Rpc.make("getUsers", { success: Schema.Array(UserDto) })
 
 export const setUserRole = Rpc.make("setUserRole", {
-  payload: { id: Schema.String, role: Role },
+  payload: { id: Uuid, role: Role },
   success: UserDetails,
   error: Schema.Union([NotFound, Forbidden, Invalid]),
 }).middleware(RequireUser)
@@ -107,4 +108,6 @@ export class UsersRpcs extends RpcGroup.make(
   setUserRole,
   getPreferences,
   getNotifications,
-).middleware(ActorMiddleware) {}
+)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}

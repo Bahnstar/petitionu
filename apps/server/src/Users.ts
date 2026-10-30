@@ -12,7 +12,6 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
-import { isUuid } from "./Input.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
 import {
@@ -139,7 +138,6 @@ export const UsersHandlers = UsersRpcs.toLayer(
       getUserById: ({ id, includeStats }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentActor
-          if (!isUuid(id)) return yield* userNotFound
           const found = yield* findUser(actor, id).pipe(Effect.orDie)
           if (Option.isNone(found)) return yield* userNotFound
           const user = found.value
@@ -157,7 +155,6 @@ export const UsersHandlers = UsersRpcs.toLayer(
       setUserRole: ({ id, role }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentUser
-          if (!isUuid(id)) return yield* userNotFound
           const target = yield* findUser(actor, id, { lock: true }).pipe(Effect.orDie)
           if (Option.isNone(target)) return yield* userNotFound
           yield* validateRequestedRole(actor, role)

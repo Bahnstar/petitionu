@@ -130,7 +130,10 @@ describe("getUserById", () => {
         })
       }
       const malformed = yield* owner.browser.rpc((api) => api.getUserById({ id: "not-a-uuid" }))
-      assert.isFalse(malformed.success)
+      assert.deepStrictEqual(malformed, {
+        success: false,
+        errors: [{ type: "invalid", field: "id", message: "is invalid" }],
+      })
     }),
   )
 })
