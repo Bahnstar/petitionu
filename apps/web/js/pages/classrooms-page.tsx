@@ -10,6 +10,7 @@ import { ClassroomList } from "../features/classroom/classroom-list"
 import { JoinClassroomForm } from "../features/classroom/join-classroom-form"
 import { useAuth } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
 // Skeleton loading state
@@ -169,7 +170,9 @@ export default function ClassroomsPage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
           <p className="text-sm text-muted-foreground">
             {classroomPage.count}{" "}
-            {showArchived ? "classrooms, including archived" : "active classrooms"}
+            {showArchived
+              ? `${plural(classroomPage.count, "classroom")}, including archived`
+              : `active ${plural(classroomPage.count, "classroom")}`}
           </p>
           <Button
             variant="ghost"

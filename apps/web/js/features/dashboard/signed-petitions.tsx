@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { ActivitySignature } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 
 type Signature = ActivitySignature
 
@@ -71,7 +72,9 @@ export function SignedPetitions({
                     <strong className="font-medium text-foreground">
                       {signatures.toLocaleString()}
                     </strong>{" "}
-                    {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}
+                    {goal > 0
+                      ? `of ${goal.toLocaleString()} ${plural(goal, "signature")}`
+                      : plural(signatures, "signature")}
                   </p>
                   <Progress
                     value={progress}

@@ -11,6 +11,7 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
 - `profile-password.test.tsx` (`bun run test:profile`): the profile page's password card in
   happy-dom with a stubbed `fetch`: the change form's own checks, Better Auth's wrong-password
   error, the CSRF reload after a change, and the reset link offered to accounts without one.
+- `ui-wording.test.tsx` (`bun run test:wording`): singular counts.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 

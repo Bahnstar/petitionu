@@ -2,6 +2,7 @@ import { useCurrentTime } from "../../hooks/use-current-time"
 import { Link } from "react-router-dom"
 import type { PetitionDto } from "@petitionu/domain"
 import { ROUTES } from "@/lib/routes"
+import { plural } from "@/lib/utils"
 
 type Petition = PetitionDto
 
@@ -72,7 +73,9 @@ export function PetitionCard({ petition }: { petition: Petition }) {
         <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
           <span>
             <strong className="text-base font-medium">{signatures.toLocaleString()}</strong>{" "}
-            {goal > 0 ? `of ${goal.toLocaleString()} signatures` : "signatures"}
+            {goal > 0
+              ? `of ${goal.toLocaleString()} ${plural(goal, "signature")}`
+              : plural(signatures, "signature")}
           </span>
           <span className="text-muted-foreground">{deadlineLabel()}</span>
         </div>
