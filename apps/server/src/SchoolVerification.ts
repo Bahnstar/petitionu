@@ -34,8 +34,9 @@ const deferral = 60
 type Queue = PersistedQueue.PersistedQueue<typeof VerifySchoolMembershipJob.Type>
 
 /**
- * The school verification queue. Jobs are keyed by user id, so a user is queued at most once.
- * An offer made inside a SQL transaction commits or rolls back with it.
+ * The school verification queue. Jobs are keyed by user id, so confirmation queues a user at
+ * most once; `requeue` adds later jobs under their own ids. An offer made inside a SQL
+ * transaction commits or rolls back with it.
  *
  * The SQL store connects (to check its migrations, applied by `0003_job_queue`) in the
  * background and on first use rather than at startup, so the app still starts, and
@@ -103,7 +104,34 @@ export class SchoolVerificationQueue extends Context.Service<
     SchoolVerificationQueue.use(({ queue }) =>
       Effect.flatMap(queue, (q) => q.offer({ userId }, { id: userId })),
     )
+
+  /**
+   * Queues a new job for `userId`, with a fresh set of attempts. The store keeps a failed job's
+   * id forever and ignores offers that reuse it, so this one takes a generated id.
+   */
+  static readonly requeue = (userId: string) =>
+    SchoolVerificationQueue.use(({ queue }) => Effect.flatMap(queue, (q) => q.offer({ userId })))
 }
+
+/**
+ * Every verification job for a user, oldest first. The queue has no read API, so this selects
+ * from the store's table directly, which an Effect upgrade could break.
+ */
+export const verificationJobs = (userId: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    return yield* sql<{
+      id: string
+      state: "pending" | "completed" | "failed"
+      attempts: number
+      lastFailure: string | null
+    }>`
+      SELECT id, state, attempts, last_failure
+      FROM ${sql(queueTable)}
+      WHERE queue_name = ${queueName} AND element::jsonb ->> 'userId' = ${userId}
+      ORDER BY sequence
+    `
+  })
 
 /** A conditional update matched no row: the user or school changed while the job ran. */
 export class StaleRecord extends Schema.TaggedError<StaleRecord>()("StaleRecord", {
@@ -127,13 +155,39 @@ const OrganizationRow = Schema.Struct({
   verificationStatus: Schema.String,
   recentlyFailed: Schema.Boolean,
 })
-type OrganizationRow = typeof OrganizationRow.Type
 
-const matchesDomain = (email: string, organization: OrganizationRow) => {
+/** Whether an email address belongs to a school's domain, exactly or as a subdomain. */
+export const matchesDomain = (email: string, domain: string | null) => {
   const host = EmailDomain.fromEmail(email)
-  const domain = organization.domain?.toLowerCase()
-  return host !== undefined && (host === domain || EmailDomain.schoolDomain(host) === domain)
+  const school = domain?.toLowerCase()
+  return host !== undefined && (host === school || EmailDomain.schoolDomain(host) === school)
 }
+
+/**
+ * Moves a waiting user into their pending school. Checks in SQL that the user and the school
+ * are still what the caller read and that the school is verified or approved; returns whether
+ * the user moved.
+ */
+export const activateMembership = Effect.fn("activateMembership")(function* (
+  user: { readonly id: string; readonly email: string },
+  organization: { readonly id: string; readonly domain: string },
+) {
+  const sql = yield* SqlClient.SqlClient
+  const activated = yield* sql`
+    UPDATE users u
+    SET organization_id = ${organization.id}, pending_organization_id = NULL,
+      updated_at = (now() AT TIME ZONE 'utc')
+    WHERE u.id = ${user.id} AND u.organization_id IS NULL AND u.confirmed_at IS NOT NULL
+      AND u.email = ${user.email} AND u.pending_organization_id = ${organization.id}
+      AND EXISTS (
+        SELECT 1 FROM organization o
+        WHERE o.id = ${organization.id} AND o.domain = ${organization.domain}
+          AND o.verification_status IN ('verified', 'approved')
+      )
+    RETURNING u.id
+  `
+  return activated.length > 0
+})
 
 /**
  * One attempt at `VerifySchoolMembership`: checks the user's pending school against the
@@ -177,7 +231,7 @@ export const verifySchoolMembership = Effect.fn("verifySchoolMembership")(functi
   }
   const { email, pendingOrganizationId } = user.value
   const organization = yield* Effect.orDie(findOrganization(pendingOrganizationId))
-  if (!matchesDomain(email, organization)) {
+  if (!matchesDomain(email, organization.domain)) {
     yield* Effect.logWarning("email domain no longer matches the requested organization")
     return "cancelled" satisfies Outcome
   }
@@ -213,20 +267,10 @@ export const verifySchoolMembership = Effect.fn("verifySchoolMembership")(functi
     }
   }
 
-  const activated = yield* Effect.orDie(sql`
-    UPDATE users u
-    SET organization_id = ${organization.id}, pending_organization_id = NULL,
-      updated_at = (now() AT TIME ZONE 'utc')
-    WHERE u.id = ${userId} AND u.organization_id IS NULL AND u.confirmed_at IS NOT NULL
-      AND u.email = ${email} AND u.pending_organization_id = ${organization.id}
-      AND EXISTS (
-        SELECT 1 FROM organization o
-        WHERE o.id = ${organization.id} AND o.domain = ${domain}
-          AND o.verification_status IN ('verified', 'approved')
-      )
-    RETURNING u.id
-  `)
-  if (activated.length === 0) {
+  const activated = yield* Effect.orDie(
+    activateMembership({ id: userId, email }, { id: organization.id, domain }),
+  )
+  if (!activated) {
     return yield* new StaleRecord({ message: "the membership changed during verification" })
   }
   return "activated" satisfies Outcome
@@ -237,14 +281,14 @@ export const verifySchoolMembership = Effect.fn("verifySchoolMembership")(functi
  * Oban's snooze). The queue has no API for this, so it updates the store's row directly; the
  * store then finds the row no longer held by this worker and leaves it alone.
  */
-const deferJob = (userId: string) =>
+const deferJob = (id: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       UPDATE ${sql(queueTable)}
       SET acquired_at = NULL, acquired_by = NULL, attempts = attempts - 1,
         visible_at = now() + interval '${sql.literal(String(deferral))} seconds', updated_at = now()
-      WHERE queue_name = ${queueName} AND id = ${userId} AND state = 'pending'
+      WHERE queue_name = ${queueName} AND id = ${id} AND state = 'pending'
     `
   }).pipe(Effect.orDie)
 
@@ -254,10 +298,10 @@ const deferJob = (userId: string) =>
  */
 const processNext = SchoolVerificationQueue.use(({ queue }) =>
   Effect.flatMap(queue, (q) =>
-    q.take(({ userId }) =>
+    q.take(({ userId }, { id }) =>
       verifySchoolMembership(userId).pipe(
         Effect.timeout(attemptTimeout),
-        Effect.tap((outcome) => (outcome === "deferred" ? deferJob(userId) : Effect.void)),
+        Effect.tap((outcome) => (outcome === "deferred" ? deferJob(id) : Effect.void)),
         Effect.annotateLogs({ job: queueName, userId }),
       ),
     ),
