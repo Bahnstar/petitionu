@@ -2,7 +2,6 @@ import {
   type Actor,
   CommentDto,
   CurrentUser,
-  type Invalid,
   invalidField,
   ParticipationRpcs,
   SignatureDto,
@@ -13,14 +12,9 @@ import { Effect, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { checkCommentWrite, commentEditable, commentVisible } from "./CommentPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
-import { checkInput, isUuid, text } from "./Input.ts"
 import { checkPetition, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 import { isoTimestamp } from "./Timestamps.ts"
-
-/** Comment text, as Ash's attribute constraints check it: trimmed, present, at most 5000. */
-const commentText = (raw: string) =>
-  text("text", raw, { maxLength: 5000, required: "must be present" })
 
 const insertedAt = (sql: SqlClient.SqlClient, alias: string) =>
   sql`${isoTimestamp(sql, `${alias}.inserted_at`)} AS inserted_at`
@@ -31,7 +25,7 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
 
     /** Rows of `t` on one petition, or on any when `petitionId` is missing. */
     const onePetition = (petitionId: string | null | undefined) =>
-      petitionId ? sql`t.petition_id::text = ${petitionId}` : sql`true`
+      petitionId ? sql`t.petition_id = ${petitionId}` : sql`true`
 
     /** Rows of `table` aliased `t` on petitions `actor` may see, optionally one petition's. */
     const visibleRows = (actor: Actor, petitionId: string | null | undefined) => sql`
@@ -80,21 +74,16 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
         `,
       })(undefined).pipe(Effect.orDie)
 
-    /**
-     * Runs `write` for a participant in a transaction, after locking and checking the petition.
-     * `validate` runs first, so bad input is reported before the petition is looked at.
-     */
-    const participate = <I, A, E>(
+    /** Runs `write` for a participant in a transaction, after locking and checking the petition. */
+    const participate = <A, E>(
       kind: ParticipationKind,
       petitionId: string,
-      validate: Effect.Effect<I, Invalid>,
-      write: (user: SignedIn, input: I) => Effect.Effect<A, E>,
+      write: (user: SignedIn) => Effect.Effect<A, E>,
     ) =>
       Effect.gen(function* () {
         const user = yield* requireParticipant
-        const input = yield* validate
         yield* checkPetition(sql, user, petitionId, kind)
-        return yield* write(user, input)
+        return yield* write(user)
       }).pipe(sql.withTransaction)
 
     /** The one row a write just inserted, read back as its DTO. */
@@ -102,19 +91,15 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
 
     return ParticipationRpcs.of({
       createSignature: ({ petitionId, reason }) =>
-        participate(
-          "signature",
-          petitionId,
-          checkInput({ reason: text("reason", reason, { maxLength: 2000 }) }),
-          (user, input) =>
-            Effect.gen(function* () {
-              const [row] = yield* sql<{ id: string }>`
-                INSERT INTO signature (petition_id, user_id, reason, is_verified)
-                VALUES (${petitionId}, ${user.id}, ${input.reason}, true)
-                RETURNING id
-              `
-              return yield* Effect.flatMap(selectSignatures(sql`t.id = ${row!.id}`), single)
-            }),
+        participate("signature", petitionId, (user) =>
+          Effect.gen(function* () {
+            const [row] = yield* sql<{ id: string }>`
+              INSERT INTO signature (petition_id, user_id, reason, is_verified)
+              VALUES (${petitionId}, ${user.id}, ${reason ?? null}, true)
+              RETURNING id
+            `
+            return yield* Effect.flatMap(selectSignatures(sql`t.id = ${row!.id}`), single)
+          }),
         ).pipe(
           Effect.catchTag("SqlError", (error) =>
             error.reason._tag === "UniqueViolation"
@@ -123,7 +108,7 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
           ),
         ),
       deleteSignature: ({ petitionId }) =>
-        participate("withdrawal", petitionId, Effect.void, (user) =>
+        participate("withdrawal", petitionId, (user) =>
           Effect.gen(function* () {
             const deleted = yield* sql`
               DELETE FROM signature WHERE petition_id = ${petitionId} AND user_id = ${user.id}
@@ -136,20 +121,18 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
         ).pipe(Effect.catchTag("SqlError", Effect.die)),
       getSignatures: ({ petitionId }) =>
         Effect.flatMap(CurrentUser, (user) => selectSignatures(visibleRows(user, petitionId))),
-      createComment: ({ petitionId, text: raw, parentCommentId }) =>
-        participate("comment", petitionId, checkInput({ text: commentText(raw) }), (user, input) =>
+      createComment: ({ petitionId, text, parentCommentId }) =>
+        participate("comment", petitionId, (user) =>
           Effect.gen(function* () {
             const parent = parentCommentId ?? null
             if (parent !== null) {
               // Ash's `CommentParent`: the parent must be a comment the user can read on
               // the same petition.
-              const found = isUuid(parent)
-                ? yield* selectComments(
-                    user,
-                    sql`t.id = ${parent} AND t.petition_id = ${petitionId}
-                        AND ${commentVisible(sql, user, "t")}`,
-                  )
-                : []
+              const found = yield* selectComments(
+                user,
+                sql`t.id = ${parent} AND t.petition_id = ${petitionId}
+                    AND ${commentVisible(sql, user, "t")}`,
+              )
               if (found.length === 0) {
                 return yield* invalidField(
                   "parentCommentId",
@@ -159,19 +142,18 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
             }
             const [row] = yield* sql<{ id: string }>`
                 INSERT INTO comment (petition_id, user_id, text, parent_comment_id)
-                VALUES (${petitionId}, ${user.id}, ${input.text}, ${parent})
+                VALUES (${petitionId}, ${user.id}, ${text}, ${parent})
                 RETURNING id
               `
             return yield* Effect.flatMap(selectComments(user, sql`t.id = ${row!.id}`), single)
           }),
         ).pipe(Effect.catchTag("SqlError", Effect.die)),
-      updateComment: ({ id, text: raw }) =>
+      updateComment: ({ id, text }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const input = yield* checkInput({ text: commentText(raw) })
           yield* checkCommentWrite(sql, user, id)
           yield* sql`
-            UPDATE comment SET text = ${input.text}, updated_at = now() AT TIME ZONE 'utc'
+            UPDATE comment SET text = ${text}, updated_at = now() AT TIME ZONE 'utc'
             WHERE id = ${id}
           `
           return yield* Effect.flatMap(selectComments(user, sql`t.id = ${id}`), single)
@@ -194,22 +176,15 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
           ),
         ),
       createUpdate: ({ petitionId, title, body }) =>
-        participate(
-          "update",
-          petitionId,
-          checkInput({
-            title: text("title", title, { maxLength: 200, required: "is required" }),
-            body: text("body", body, { maxLength: 20000, required: "is required" }),
+        participate("update", petitionId, () =>
+          Effect.gen(function* () {
+            const [row] = yield* sql<{ id: string }>`
+              INSERT INTO update (petition_id, title, body)
+              VALUES (${petitionId}, ${title}, ${body})
+              RETURNING id
+            `
+            return yield* Effect.flatMap(selectUpdates(sql`t.id = ${row!.id}`), single)
           }),
-          (_user, input) =>
-            Effect.gen(function* () {
-              const [row] = yield* sql<{ id: string }>`
-                INSERT INTO update (petition_id, title, body)
-                VALUES (${petitionId}, ${input.title}, ${input.body})
-                RETURNING id
-              `
-              return yield* Effect.flatMap(selectUpdates(sql`t.id = ${row!.id}`), single)
-            }),
         ).pipe(Effect.catchTag("SqlError", Effect.die)),
       getUpdates: ({ petitionId }) =>
         Effect.flatMap(CurrentUser, (user) => selectUpdates(visibleRows(user, petitionId))),

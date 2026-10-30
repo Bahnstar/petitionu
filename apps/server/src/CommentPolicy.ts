@@ -1,7 +1,6 @@
 import { type Actor, Forbidden, invalidRequest, NotFound, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
-import { isUuid } from "./Input.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 
 const actorId = (actor: Actor) => (actor._tag === "SignedIn" ? actor.id : null)
@@ -41,7 +40,6 @@ const notFound = new NotFound({ message: "Comment not found" })
  */
 export const checkCommentWrite = (sql: SqlClient.SqlClient, user: SignedIn, commentId: string) =>
   Effect.gen(function* () {
-    if (!isUuid(commentId)) return yield* notFound
     const [comment] = yield* sql<{ readonly isAuthor: boolean; readonly editable: boolean }>`
       SELECT c.user_id = ${user.id} AS is_author,
         ${commentEditable(sql, user, "c")} AS editable

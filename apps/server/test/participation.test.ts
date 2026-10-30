@@ -167,7 +167,7 @@ describe("signatures", () => {
       const unavailable = [
         { type: "invalid", field: "petitionId", message: "This petition is unavailable." },
       ]
-      for (const petitionId of [inClassroom.id, hidden.id, crypto.randomUUID(), "nope"]) {
+      for (const petitionId of [inClassroom.id, hidden.id, crypto.randomUUID()]) {
         assert.deepStrictEqual(
           expectErrors(yield* student.browser.rpc((api) => api.createSignature({ petitionId }))),
           unavailable,
@@ -181,6 +181,22 @@ describe("signatures", () => {
           petitionId,
         )
       }
+      // A malformed id is rejected as a payload, before the call.
+      const malformed = [{ type: "invalid", field: "petitionId", message: "is invalid" }]
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* student.browser.rpc((api) => api.createSignature({ petitionId: "nope" })),
+        ),
+        malformed,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* student.browser.rpc((api) =>
+            api.createComment({ petitionId: "nope", text: "Hi" }),
+          ),
+        ),
+        malformed,
+      )
 
       yield* upsertMembership(app, { classroomId: classroom.id, userId: student.id })
       expectData(
@@ -432,10 +448,7 @@ describe("comments", () => {
           { parentCommentId: elsewhere.id },
           { field: "parentCommentId", message: "Reply to a comment in this petition." },
         ],
-        [
-          { parentCommentId: "not-a-comment" },
-          { field: "parentCommentId", message: "Reply to a comment in this petition." },
-        ],
+        [{ parentCommentId: "not-a-comment" }, { field: "parentCommentId", message: "is invalid" }],
       ] as const) {
         assert.deepStrictEqual(
           expectErrors(yield* comment(input)),
@@ -697,9 +710,12 @@ describe("editing and deleting comments", () => {
         assert.deepStrictEqual(yield* refused(author.browser, hidden.id), [notFound, notFound])
         yield* updatePetitionRow(app, campusPetition.id, { hidden_at: new Date() })
         assert.deepStrictEqual(yield* refused(author.browser, onCampus.id), [notFound, notFound])
-        for (const id of [crypto.randomUUID(), "nope"]) {
-          assert.deepStrictEqual(yield* refused(author.browser, id), [notFound, notFound])
-        }
+        assert.deepStrictEqual(yield* refused(author.browser, crypto.randomUUID()), [
+          notFound,
+          notFound,
+        ])
+        const malformed = [{ type: "invalid", field: "id", message: "is invalid" }]
+        assert.deepStrictEqual(yield* refused(author.browser, "nope"), [malformed, malformed])
 
         // Classroom comments: the author must still be in the classroom, and it must be open.
         const classroomPetition = yield* insertPetition(app, {

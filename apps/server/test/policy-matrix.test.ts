@@ -659,6 +659,22 @@ const rows: ReadonlyArray<Row> = [
     ]
   }),
 
+  [
+    "createSignature (a malformed petition id)",
+    rejectedPayload,
+    call((api) => api.createSignature({ petitionId: malformedId })),
+  ],
+  [
+    "createComment (a blank comment)",
+    rejectedPayload,
+    call((api, world) => api.createComment({ petitionId: world.campusPetition.id, text: " " })),
+  ],
+  [
+    "deleteComment (a malformed id)",
+    rejectedPayload,
+    call((api) => api.deleteComment({ id: malformedId })),
+  ],
+
   // Classrooms
   [
     "getClassrooms (includes the classroom)",

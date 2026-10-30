@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
+import { Note, OptionalNote, Uuid } from "./Inputs.ts"
 
 /** A signature. Who signed is never exposed; `hasSigned` on the petition tells the caller. */
 export const SignatureDto = Schema.Struct({
@@ -38,14 +39,18 @@ export const UpdateDto = Schema.Struct({
 })
 export type UpdateDto = typeof UpdateDto.Type
 
-const petitionFilter = { petitionId: Schema.optional(Schema.NullOr(Schema.String)) }
+const petitionFilter = { petitionId: Schema.optional(Schema.NullOr(Uuid)) }
+
+/** Comment text: up to 5000 characters once trimmed. */
+const CommentText = Note({ maxLength: 5000, required: "must be present" })
 
 /**
  * Signs an open petition once. Needs a confirmed user with a complete profile; a campus
  * petition also needs the signer's campus unless the campus accepts public signatures.
  */
 export const createSignature = Rpc.make("createSignature", {
-  payload: { petitionId: Schema.String, reason: Schema.optional(Schema.NullOr(Schema.String)) },
+  /** `reason`: optional, up to 2000 characters once trimmed. */
+  payload: { petitionId: Uuid, reason: Schema.optional(OptionalNote(2000)) },
   success: SignatureDto,
   error: Schema.Union([Unauthenticated, Invalid]),
 })
@@ -55,7 +60,7 @@ export const createSignature = Rpc.make("createSignature", {
  * its deadline, and not in an archived classroom.
  */
 export const deleteSignature = Rpc.make("deleteSignature", {
-  payload: { petitionId: Schema.String },
+  payload: { petitionId: Uuid },
   error: Schema.Union([Unauthenticated, Invalid]),
 })
 
@@ -68,9 +73,9 @@ export const getSignatures = Rpc.make("getSignatures", {
 /** Comments on an open petition that allows them; `parentCommentId` replies on the same petition. */
 export const createComment = Rpc.make("createComment", {
   payload: {
-    petitionId: Schema.String,
-    text: Schema.String,
-    parentCommentId: Schema.optional(Schema.NullOr(Schema.String)),
+    petitionId: Uuid,
+    text: CommentText,
+    parentCommentId: Schema.optional(Schema.NullOr(Uuid)),
   },
   success: CommentDto,
   error: Schema.Union([Unauthenticated, Invalid]),
@@ -81,7 +86,7 @@ export const createComment = Rpc.make("createComment", {
  * its petition must be visible to the caller and not in an archived classroom.
  */
 export const updateComment = Rpc.make("updateComment", {
-  payload: { id: Schema.String, text: Schema.String },
+  payload: { id: Uuid, text: CommentText },
   success: CommentDto,
   error: Schema.Union([NotFound, Forbidden, Invalid]),
 }).middleware(RequireUser)
@@ -91,7 +96,7 @@ export const updateComment = Rpc.make("updateComment", {
  * text, so replies and content reports keep their references; it drops out of every read.
  */
 export const deleteComment = Rpc.make("deleteComment", {
-  payload: { id: Schema.String },
+  payload: { id: Uuid },
   error: Schema.Union([NotFound, Forbidden, Invalid]),
 }).middleware(RequireUser)
 
@@ -101,9 +106,16 @@ export const getComments = Rpc.make("getComments", {
   success: Schema.Array(CommentDto),
 }).middleware(RequireUser)
 
-/** Publishes an update on a petition the caller wrote or whose classroom they teach. */
+/**
+ * Publishes an update on a petition the caller wrote or whose classroom they teach: a title of
+ * up to 200 characters and a body of up to 20000.
+ */
 export const createUpdate = Rpc.make("createUpdate", {
-  payload: { petitionId: Schema.String, title: Schema.String, body: Schema.String },
+  payload: {
+    petitionId: Uuid,
+    title: Note({ maxLength: 200, required: "is required" }),
+    body: Note({ maxLength: 20000, required: "is required" }),
+  },
   success: UpdateDto,
   error: Schema.Union([Unauthenticated, Invalid]),
 })
@@ -116,7 +128,7 @@ export const getUpdates = Rpc.make("getUpdates", {
 
 /** One petition's updates, newest first (empty when the caller can't see the petition). */
 export const getUpdatesForPetition = Rpc.make("getUpdatesForPetition", {
-  payload: { petitionId: Schema.String },
+  payload: { petitionId: Uuid },
   success: Schema.Array(UpdateDto),
 }).middleware(RequireUser)
 
@@ -131,4 +143,6 @@ export class ParticipationRpcs extends RpcGroup.make(
   createUpdate,
   getUpdates,
   getUpdatesForPetition,
-).middleware(ActorMiddleware) {}
+)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}

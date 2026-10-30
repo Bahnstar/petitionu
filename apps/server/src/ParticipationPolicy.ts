@@ -1,7 +1,6 @@
 import { invalidField, type SignedIn } from "@petitionu/domain"
 import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
-import { isUuid } from "./Input.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 
 /**
@@ -64,7 +63,6 @@ export const checkPetition = (
   kind: ParticipationKind,
 ) =>
   Effect.gen(function* () {
-    if (!isUuid(petitionId)) return yield* rejected("This petition is unavailable.")
     const [petition] = yield* sql<LockedPetition>`
       SELECT p.status,
         coalesce(p.deadline <= (now() AT TIME ZONE 'utc'), false) AS deadline_passed,
