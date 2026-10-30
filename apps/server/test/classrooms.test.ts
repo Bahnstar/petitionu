@@ -59,6 +59,44 @@ describe("classrooms", () => {
     }),
   )
 
+  it.live("a malformed classroom id is invalid, for reads, lists and writes alike", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app)
+      const malformed = [{ type: "invalid", field: "id", message: "is invalid" }]
+      const malformedClassroom = [{ type: "invalid", field: "classroomId", message: "is invalid" }]
+      assert.deepStrictEqual(
+        yield* failure(yield* professor.browser.rpc((api) => api.getClassroomById({ id: "nope" }))),
+        malformed,
+      )
+      assert.deepStrictEqual(
+        yield* failure(yield* professor.browser.rpc((api) => api.archiveClassroom({ id: "nope" }))),
+        malformed,
+      )
+      // The list procedures used to answer an empty list.
+      assert.deepStrictEqual(
+        yield* failure(
+          yield* professor.browser.rpc((api) =>
+            api.getMembershipsForClassroom({ classroomId: "nope" }),
+          ),
+        ),
+        malformedClassroom,
+      )
+      assert.deepStrictEqual(
+        yield* failure(
+          yield* professor.browser.rpc((api) => api.getPendingMemberships({ classroomId: "nope" })),
+        ),
+        malformedClassroom,
+      )
+      assert.deepStrictEqual(
+        yield* failure(
+          yield* professor.browser.rpc((api) => api.getClassroomPetitions({ classroomId: "nope" })),
+        ),
+        malformedClassroom,
+      )
+    }),
+  )
+
   it.live("creation needs a professor or admin with a complete profile", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()

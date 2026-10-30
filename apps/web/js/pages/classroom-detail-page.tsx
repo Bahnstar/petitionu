@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { useState } from "react"
+import { isUuid } from "@petitionu/domain"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -97,11 +98,15 @@ export default function ClassroomDetailPage() {
   const { user: currentUser } = useAuth()
 
   const currentUserId = currentUser?.id
+  // An id that isn't a UUID can't name a classroom: the page shows "Classroom not found", as the
+  // server would for an unknown one, and the classroom's lists aren't fetched.
+  const validId = !!id && isUuid(id)
 
   // Fetch classroom details
   const classroomQuery = useQuery({
     queryKey: ["classroom", id],
     queryFn: async () => {
+      if (!validId) throw new Error("Classroom not found")
       const result = await api.getClassroomById({ id: id! })
 
       if (result.success === false) {
@@ -128,7 +133,7 @@ export default function ClassroomDetailPage() {
 
       return result.data
     },
-    enabled: !!id,
+    enabled: validId,
   })
 
   // Fetch memberships
@@ -143,7 +148,7 @@ export default function ClassroomDetailPage() {
 
       return result.data
     },
-    enabled: !!id,
+    enabled: validId,
   })
 
   useDocumentTitle(classroomQuery?.data?.name ?? "Classroom")

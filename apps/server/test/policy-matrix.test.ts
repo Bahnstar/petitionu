@@ -841,6 +841,22 @@ const rows: ReadonlyArray<Row> = [
     fresh(freshMembership("active"), (api, id) => api.demoteToStudent({ id })),
   ],
 
+  [
+    "getMembershipsForClassroom (a malformed classroom id)",
+    rejectedPayload,
+    call((api) => api.getMembershipsForClassroom({ classroomId: malformedId })),
+  ],
+  [
+    "approveMembership (a malformed id)",
+    rejectedPayload,
+    call((api) => api.approveMembership({ id: malformedId })),
+  ],
+  [
+    "createClassroom (a blank name)",
+    rejectedPayload,
+    call((api) => api.createClassroom({ name: " " })),
+  ],
+
   // Moderation
   [
     "createContentReport (a campus petition)",

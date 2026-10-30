@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
+import { Note, OptionalNote, Uuid } from "./Inputs.ts"
 
 /** The public user shape: id and names. */
 export const ClassroomProfessor = Schema.Struct({
@@ -65,12 +66,17 @@ export const MembershipDto = Schema.Struct({
 })
 export type MembershipDto = typeof MembershipDto.Type
 
-const ById = { id: Schema.String }
-const ByClassroom = { classroomId: Schema.String }
+const ById = { id: Uuid }
+const ByClassroom = { classroomId: Uuid }
+
+/** Up to 255 characters once trimmed. */
+const ClassroomName = Note({ maxLength: 255, required: "is required" })
+/** Optional, up to 2000 characters once trimmed. */
+const ClassroomDescription = OptionalNote(2000)
 
 const ClassroomInput = {
-  name: Schema.String,
-  description: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  name: ClassroomName,
+  description: Schema.optionalKey(ClassroomDescription),
   allowStudentPetitions: Schema.optionalKey(Schema.Boolean),
 }
 
@@ -106,9 +112,9 @@ export const createClassroom = Rpc.make("createClassroom", {
 }).middleware(RequireUser)
 
 const ClassroomUpdate = {
-  id: Schema.String,
-  name: Schema.optionalKey(Schema.String),
-  description: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  id: Uuid,
+  name: Schema.optionalKey(ClassroomName),
+  description: Schema.optionalKey(ClassroomDescription),
   allowStudentPetitions: Schema.optionalKey(Schema.Boolean),
 }
 
@@ -160,7 +166,10 @@ export const getPendingMemberships = Rpc.make("getPendingMemberships", {
 const MembershipCreateError = Schema.Union([Forbidden, Invalid])
 const MembershipWriteError = Schema.Union([NotFound, Forbidden, Invalid])
 
-/** Confirmed users join a non-archived classroom as active students. */
+/**
+ * Confirmed users join a non-archived classroom as active students. The code stays a plain
+ * string: whatever the user typed, a code that matches no classroom gets the same message.
+ */
 export const joinClassroomByCode = Rpc.make("joinClassroomByCode", {
   payload: { joinCode: Schema.String },
   success: MembershipDto,
@@ -177,7 +186,7 @@ export const requestToJoinClassroom = Rpc.make("requestToJoinClassroom", {
 /** The professor invites students or TAs; an active TA invites students. Emails the invitee. */
 export const inviteToClassroom = Rpc.make("inviteToClassroom", {
   payload: {
-    classroomId: Schema.String,
+    classroomId: Uuid,
     email: Schema.String,
     role: Schema.optionalKey(MembershipRole),
   },
@@ -232,4 +241,6 @@ export class ClassroomRpcs extends RpcGroup.make(
   removeFromClassroom,
   promoteToTa,
   demoteToStudent,
-).middleware(ActorMiddleware) {}
+)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}

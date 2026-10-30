@@ -3,6 +3,7 @@ import {
   ClassroomRpcs,
   CurrentUser,
   invalidField,
+  isUuid,
   MembershipDto,
   type MembershipRole,
   MembershipStatus,
@@ -28,7 +29,6 @@ import {
 import { AppConfig } from "./Config.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
-import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { isoTimestamp } from "./Timestamps.ts"
 
@@ -40,29 +40,6 @@ const existingMembershipMessages: Record<MembershipStatus, string> = {
   active: "You are already a member of this classroom",
   pending: "Your membership is awaiting approval",
   removed: "Your membership was removed; contact the professor",
-}
-
-/** Trims like Ash strings do; an empty string becomes `null`. */
-const trimmed = (value: string | null | undefined) => {
-  const text = value?.trim() ?? ""
-  return text === "" ? null : text
-}
-
-const validName = (value: string | null | undefined) => {
-  const name = trimmed(value)
-  if (name === null) return Effect.fail(invalidField("name", "is required"))
-  if (name.length > 255) {
-    return Effect.fail(invalidField("name", "length must be less than or equal to 255"))
-  }
-  return Effect.succeed(name)
-}
-
-const validDescription = (value: string | null | undefined) => {
-  const description = trimmed(value)
-  if (description !== null && description.length > 2000) {
-    return Effect.fail(invalidField("description", "length must be less than or equal to 2000"))
-  }
-  return Effect.succeed(description)
 }
 
 const ClassroomTarget = Schema.Struct({
@@ -157,7 +134,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
      */
     const professorsClassroom = (user: SignedIn, id: string) =>
       Effect.gen(function* () {
-        if (!isUuid(id)) return yield* classroomNotFound
         const visible = yield* listClassrooms(
           sql`c.id = ${id} AND ${classroomVisible(sql, user.id)}`,
         )
@@ -183,7 +159,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const membershipTarget = (user: SignedIn, id: string) =>
       Effect.gen(function* () {
         yield* requireConfirmed(user)
-        if (!isUuid(id)) return yield* membershipNotFound
         const target = yield* findMembershipTarget({ id, actorId: user.id }).pipe(Effect.orDie)
         if (Option.isNone(target)) return yield* membershipNotFound
         return target.value
@@ -206,9 +181,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     /** `ValidateAdmission`: the classroom is open, and `userId` isn't its professor or member. */
     const admit = (classroomId: string, userId: string) =>
       Effect.gen(function* () {
-        const classroom = isUuid(classroomId)
-          ? yield* findAdmissionTarget(classroomId).pipe(Effect.orDie)
-          : Option.none()
+        const classroom = yield* findAdmissionTarget(classroomId).pipe(Effect.orDie)
         if (Option.isNone(classroom) || classroom.value.archived) {
           return yield* invalidField("classroomId", "Classroom is unavailable or archived")
         }
@@ -352,7 +325,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassroomById: ({ id }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          if (!isUuid(id)) return yield* classroomNotFound
           const [classroom] = yield* listClassrooms(
             sql`c.id = ${id} AND ${classroomVisible(sql, user.id)}`,
           )
@@ -391,13 +363,12 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           const user = yield* CurrentUser
           yield* authorizeCreateClassroom(user)
           yield* requireParticipant
-          const name = yield* validName(input.name)
-          const description = yield* validDescription(input.description)
           const [row] = yield* sql<{ id: string }>`
             INSERT INTO classrooms
               (name, description, allow_student_petitions, join_code, professor_id,
                 organization_id)
-            VALUES (${name}, ${description}, ${input.allowStudentPetitions ?? true},
+            VALUES (${input.name}, ${input.description ?? null},
+              ${input.allowStudentPetitions ?? true},
               gen_random_uuid(), ${user.id}, ${user.organizationId})
             RETURNING id
           `.pipe(Effect.orDie)
@@ -407,10 +378,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       updateClassroom: ({ id, ...input }) =>
         Effect.gen(function* () {
           const changes: Record<string, unknown> = {}
-          if (input.name !== undefined) changes.name = yield* validName(input.name)
-          if (input.description !== undefined) {
-            changes.description = yield* validDescription(input.description)
-          }
+          if (input.name !== undefined) changes.name = input.name
+          if (input.description !== undefined) changes.description = input.description
           if (input.allowStudentPetitions !== undefined) {
             changes.allowStudentPetitions = input.allowStudentPetitions
           }
@@ -437,7 +406,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getMembershipsForClassroom: ({ classroomId }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          if (!isUuid(classroomId)) return []
           return yield* listMemberships(
             sql`m.classroom_id = ${classroomId} AND ${membershipVisible(sql, user.id)}`,
           )
@@ -446,7 +414,6 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getPendingMemberships: ({ classroomId }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          if (!isUuid(classroomId)) return []
           return yield* listMemberships(
             sql`m.classroom_id = ${classroomId} AND m.status = 'pending'
               AND ${membershipVisible(sql, user.id)}`,
@@ -457,6 +424,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           yield* requireConfirmed(user)
+          // Join codes are UUIDs; anything else matches no classroom.
           const [classroom] = isUuid(joinCode)
             ? yield* sql<{ id: string }>`
                 SELECT id FROM classrooms WHERE join_code = ${joinCode} AND NOT archived
@@ -495,18 +463,18 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             Effect.gen(function* () {
               // Lock the classroom first, then check the inviter's role in a later statement:
               // one that waited for the lock would see the role as of before the wait.
-              const [staff] = isUuid(classroomId)
-                ? yield* sql`SELECT id FROM classrooms WHERE id = ${classroomId} FOR UPDATE`.pipe(
-                    Effect.andThen(
-                      sql<{ isProfessor: boolean; isTa: boolean }>`
-                        SELECT c.professor_id = ${user.id} AS is_professor,
-                          ${activeTa(sql, user.id, sql`c.id`)} AS is_ta
-                        FROM classrooms c WHERE c.id = ${classroomId}
-                      `,
-                    ),
-                    Effect.orDie,
-                  )
-                : []
+              const [staff] = yield* sql`
+                SELECT id FROM classrooms WHERE id = ${classroomId} FOR UPDATE
+              `.pipe(
+                Effect.andThen(
+                  sql<{ isProfessor: boolean; isTa: boolean }>`
+                    SELECT c.professor_id = ${user.id} AS is_professor,
+                      ${activeTa(sql, user.id, sql`c.id`)} AS is_ta
+                    FROM classrooms c WHERE c.id = ${classroomId}
+                  `,
+                ),
+                Effect.orDie,
+              )
               if (staff === undefined || !canInvite(staff, role)) return yield* forbidden
               const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
               if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
