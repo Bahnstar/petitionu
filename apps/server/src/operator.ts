@@ -47,12 +47,15 @@ const role = Command.make(
     user,
     role: Argument.Literals("role", Role.literals).pipe(Argument.withDescription("The new role")),
     create: Flag.Boolean("create").pipe(
-      Flag.withDescription("Create the account if there is none (the first superadmin)"),
+      Flag.withDescription("Create the account, on a system with no users yet"),
       Flag.withDefault(false),
     ),
   },
   ({ user, role, create }) =>
-    setRole({ target: user, role, create }).pipe(Effect.flatMap(print), Effect.provide(Database)),
+    setRole({ target: user, role, create }).pipe(
+      Effect.flatMap(print),
+      Effect.provide(Database),
+    ),
 ).pipe(Command.withDescription("Set a user's role, without needing an existing superadmin"))
 
 const retry = Command.make("retry-verification", { user }, ({ user }) =>
