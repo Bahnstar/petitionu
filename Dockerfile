@@ -1,6 +1,7 @@
-# One image, two entry points:
+# One image, three entry points:
 #   serve (default): node apps/server/dist/serve.js
 #   migrate:         node apps/server/dist/migrate.js
+#   operator:        node apps/server/dist/operator.js <command>
 ARG BUN_IMAGE=docker.io/oven/bun:1.4.2
 ARG NODE_IMAGE=docker.io/library/node:24-slim
 
