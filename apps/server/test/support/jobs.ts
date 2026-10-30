@@ -28,7 +28,7 @@ export interface Jobs {
    * checks back by that much.
    */
   elapse(duration: Duration.Input): Effect.Effect<void>
-  /** The queued verification jobs for a user (at most one, since jobs dedupe by user). */
+  /** The user's job from confirmation (at most one, since those dedupe by user). */
   jobsFor(userId: string): Effect.Effect<
     ReadonlyArray<{
       readonly state: "pending" | "completed" | "failed"
@@ -37,6 +37,8 @@ export interface Jobs {
       readonly dueIn: number
     }>
   >
+  /** The state of every job for a user, including retries, oldest first. */
+  allJobsFor(userId: string): Effect.Effect<ReadonlyArray<string>>
 }
 
 const describeFailure = (cause: unknown): string => {
@@ -120,5 +122,18 @@ export const makeJobsApp = (options: Parameters<typeof makeTestApp>[0] = {}) =>
         }),
       )
 
-    return { app, jobs: { drain, elapse, jobsFor } satisfies Jobs }
+    const allJobsFor = (userId: string) =>
+      withServices(
+        Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient
+          const rows = yield* sql<{ state: string }>`
+            SELECT state FROM ${sql(queueTable)}
+            WHERE queue_name = ${queueName} AND element::jsonb ->> 'userId' = ${userId}
+            ORDER BY sequence
+          `
+          return rows.map((row) => row.state)
+        }),
+      )
+
+    return { app, jobs: { drain, elapse, jobsFor, allJobsFor } satisfies Jobs }
   })
