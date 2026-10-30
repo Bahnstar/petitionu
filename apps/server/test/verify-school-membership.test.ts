@@ -257,4 +257,19 @@ describe("VerifySchoolMembership", () => {
       assert.lengthOf(yield* organizationsAt(app, domain), 1)
     }),
   )
+
+  it.live("doesn't activate a user at an organization in no known status", () =>
+    Effect.gen(function* () {
+      const { app, jobs } = yield* makeJobsApp()
+      const { user, organization } = yield* pendingUser(app)
+      // The column is free text, so nothing keeps other values out.
+      yield* app.sql`
+        UPDATE organization SET verification_status = 'suspended' WHERE id = ${organization}
+      `.pipe(Effect.orDie)
+
+      assert.deepStrictEqual(yield* jobs.drain, ["failed:StaleRecord"])
+      assert.strictEqual(yield* pendingOrganizationOf(app, user.id), organization)
+      assert.isNull((yield* me(user.browser)).organizationId)
+    }),
+  )
 })

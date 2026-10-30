@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Deferred, Effect, Fiber, Schedule } from "effect"
 import {
   magicSignIn,
   me,
@@ -21,6 +21,16 @@ const userCount = (app: TestApp) =>
 const superadminCount = (app: TestApp) =>
   app.sql<{ count: number }>`
     SELECT count(*)::int AS count FROM users WHERE role = 'superadmin'
+  `.pipe(
+    Effect.map((rows) => rows[0]!.count),
+    Effect.orDie,
+  )
+
+/** How many queries on the app's database are waiting for a lock. */
+const blockedQueries = (app: TestApp) =>
+  app.sql<{ count: number }>`
+    SELECT count(*)::int AS count FROM pg_stat_activity
+    WHERE datname = current_database() AND wait_event_type = 'Lock'
   `.pipe(
     Effect.map((rows) => rows[0]!.count),
     Effect.orDie,
@@ -133,6 +143,27 @@ describe("approve-organization", () => {
         `Left 1 user(s) waiting, email outside the domain: ${elsewhere}`,
       )
       assert.strictEqual(yield* pendingOrganizationOf(app, moved.user.id), moved.organizationId)
+    }),
+  )
+
+  it.live("doesn't count an unconfirmed user as waiting", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const { domain, organizationId } = yield* waitingUser(app)
+      const unconfirmed = yield* createUser(app, {
+        stage: "unconfirmed",
+        email: uniqueEmail(domain),
+      })
+      yield* app.sql`
+        UPDATE users SET pending_organization_id = ${organizationId} WHERE id = ${unconfirmed.id}
+      `.pipe(Effect.orDie)
+
+      const result = yield* runOperator(app.database, "approve-organization", domain)
+
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(result.stdout, "Activated 1 waiting user(s)")
+      assert.notInclude(result.stdout, unconfirmed.email)
+      assert.strictEqual(yield* pendingOrganizationOf(app, unconfirmed.id), organizationId)
     }),
   )
 
@@ -513,6 +544,49 @@ describe("retry-verification", () => {
       const user = yield* createUser(app, { role: "superadmin" })
       const demoted = yield* runOperator(onePool, "set-role", user.email, "student", "--force")
       assert.strictEqual(demoted.code, 0, demoted.stderr)
+    }),
+  )
+
+  it.live("queues one job when run several times at once", () =>
+    Effect.gen(function* () {
+      const { app, jobs } = yield* makeJobsApp()
+      const { user } = yield* waitingUser(app)
+      yield* exhaustJob(app, jobs)
+
+      // All six wait on the user's row and then start together, so they'd all read the job as
+      // failed if they didn't keep the row locked until their job is queued.
+      const locked = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const holder = yield* app.sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* app.sql`SELECT id FROM users WHERE id = ${user.id} FOR UPDATE`
+            yield* Deferred.succeed(locked, undefined)
+            yield* Deferred.await(release)
+          }),
+        )
+        .pipe(Effect.orDie, Effect.forkChild)
+      yield* Deferred.await(locked)
+      const runs = yield* Effect.forkChild(
+        runConcurrently(6, () => runOperator(app.database, "retry-verification", user.email)),
+      )
+      yield* blockedQueries(app).pipe(
+        Effect.repeat({ until: (count) => count === 6, schedule: Schedule.spaced("50 millis") }),
+      )
+      yield* Deferred.succeed(release, undefined)
+      yield* Fiber.join(holder)
+      const results = yield* Fiber.join(runs)
+
+      assert.deepStrictEqual(
+        yield* jobs.allJobsFor(user.id),
+        ["failed", "pending"],
+        JSON.stringify(results),
+      )
+      const refused = results.filter((result) => result.code !== 0)
+      assert.lengthOf(refused, 5, JSON.stringify(results))
+      for (const result of refused) {
+        assert.include(result.stderr, "has a job that is pending, not failed")
+      }
     }),
   )
 
