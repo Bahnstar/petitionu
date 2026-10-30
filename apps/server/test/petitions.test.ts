@@ -130,6 +130,7 @@ describe("petitions", () => {
         [{ deadline: past }, { field: "deadline", message: "Choose a deadline in the future." }],
         [{ deadline: "not a date" }, { field: "deadline", message: "is invalid" }],
         [{ categoryId: crypto.randomUUID() }, { field: "categoryId", message: "is invalid" }],
+        [{ categoryId: "not-a-uuid" }, { field: "categoryId", message: "is invalid" }],
       ] as const) {
         const errors = expectErrors(
           yield* author.browser.rpc((api) => api.createPetition({ ...input, ...change })),
@@ -258,12 +259,17 @@ describe("petitions", () => {
         }
 
         const notFound = [{ type: "not_found", message: "Petition not found" }]
-        for (const id of [classPetition.id, "not-a-uuid", crypto.randomUUID()]) {
+        for (const id of [classPetition.id, crypto.randomUUID()]) {
           assert.deepStrictEqual(
             expectErrors(yield* guest.rpc((api) => api.getPetitionById({ id }))),
             notFound,
           )
         }
+        // A malformed id is rejected as a payload, before the call.
+        assert.deepStrictEqual(
+          expectErrors(yield* guest.rpc((api) => api.getPetitionById({ id: "not-a-uuid" }))),
+          [{ type: "invalid", field: "id", message: "is invalid" }],
+        )
         expectData(yield* guest.rpc((api) => api.getPetitionById({ id: petition.id })))
         yield* updatePetitionRow(app, petition.id, { hidden_at: new Date() })
         assert.deepStrictEqual(

@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { FieldError, Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
+import { Note, Uuid } from "./Inputs.ts"
 
 export const PetitionStatus = Schema.Literals(["open", "closed", "victory"])
 export type PetitionStatus = typeof PetitionStatus.Type
@@ -88,25 +89,40 @@ export const PetitionDetailDto = Schema.Struct({
 })
 export type PetitionDetailDto = typeof PetitionDetailDto.Type
 
-/** The editable fields of a petition. Omitted fields keep their value (or default on create). */
-export const PetitionInputFields = {
-  title: Schema.optional(Schema.NullOr(Schema.String)),
-  description: Schema.optional(Schema.NullOr(Schema.String)),
+const Title = Note({ maxLength: 200, required: "must be present" })
+const Description = Note({ maxLength: 20000, required: "must be present" })
+
+/** A petition's settings; omitted fields keep their value (or default on create). */
+const petitionSettings = {
   goal: Schema.optional(Schema.NullOr(Schema.Number)),
   /** ISO 8601. */
   deadline: Schema.optional(Schema.NullOr(Schema.String)),
   allowComments: Schema.optional(Schema.NullOr(Schema.Boolean)),
   isAnonymous: Schema.optional(Schema.NullOr(Schema.Boolean)),
 }
+
+/** A new petition: a title of up to 200 characters, a description of up to 20000. */
+export const CreatePetitionInput = Schema.Struct({
+  title: Title,
+  description: Description,
+  ...petitionSettings,
+  categoryId: Uuid,
+})
+export type CreatePetitionInput = typeof CreatePetitionInput.Type
+
+/** The editable fields of a petition. Omitted fields keep their value. */
+export const PetitionInputFields = {
+  title: Schema.optional(Title),
+  description: Schema.optional(Description),
+  ...petitionSettings,
+}
 export const PetitionInput = Schema.Struct(PetitionInputFields)
 export type PetitionInput = typeof PetitionInput.Type
 
-const maxLengths = { title: 200, description: 20000 } as const
-
-/** A petition's input with strings trimmed (blank becomes null) and the deadline parsed. */
+/** A petition's input with the goal checked and the deadline parsed. */
 export interface NormalizedPetitionInput {
-  readonly title?: string | null
-  readonly description?: string | null
+  readonly title?: string
+  readonly description?: string
   readonly goal?: number | null
   readonly deadline?: Date | null
   readonly allowComments?: boolean | null
@@ -114,21 +130,6 @@ export interface NormalizedPetitionInput {
 }
 
 type Checked<A> = { readonly value: A; readonly error?: string }
-
-const checkText = (
-  raw: string | null | undefined,
-  required: boolean,
-  maxLength: number,
-): Checked<string | null | undefined> => {
-  const value = raw?.trim() === "" ? null : raw?.trim()
-  if (required && (value === undefined || value === null)) {
-    return { value, error: "must be present" }
-  }
-  if (value && value.length > maxLength) {
-    return { value, error: `length must be less than or equal to ${maxLength}` }
-  }
-  return { value }
-}
 
 const checkGoal = (goal: number | null | undefined, required: boolean): Checked<typeof goal> => {
   if (goal === undefined || goal === null) {
@@ -155,9 +156,9 @@ const checkDeadline = (
 }
 
 /**
- * Checks a petition's input the way the server does, so forms can show the same messages.
- * On create every required field is checked and `goal` defaults to 1000; on update only the
- * fields given are checked. Omitted fields stay omitted in `value`.
+ * Checks what the payload schema can't: the goal (which defaults to 1000 on create) and the
+ * deadline, which must be in the future. The title and description arrive checked and trimmed.
+ * Omitted fields stay omitted in `value`.
  */
 export const validatePetitionInput = (
   input: PetitionInput,
@@ -166,11 +167,13 @@ export const validatePetitionInput = (
   | { readonly ok: true; readonly value: NormalizedPetitionInput }
   | { readonly ok: false; readonly errors: ReadonlyArray<FieldError> } => {
   const creating = options.mode === "create"
-  const required = (key: "title" | "description" | "goal") => creating || input[key] !== undefined
   const checks = {
-    title: checkText(input.title, required("title"), maxLengths.title),
-    description: checkText(input.description, required("description"), maxLengths.description),
-    goal: checkGoal(creating && input.goal === undefined ? 1000 : input.goal, required("goal")),
+    title: { value: input.title },
+    description: { value: input.description },
+    goal: checkGoal(
+      creating && input.goal === undefined ? 1000 : input.goal,
+      creating || input.goal !== undefined,
+    ),
     deadline: checkDeadline(input.deadline, options.now),
     allowComments: { value: input.allowComments },
     isAnonymous: { value: input.isAnonymous },
@@ -193,7 +196,7 @@ export const getCategories = Rpc.make("getCategories", { success: Schema.Array(C
 
 /** Every petition the caller may see, newest first; optionally only one campus's. */
 export const getPetitions = Rpc.make("getPetitions", {
-  payload: { organizationId: Schema.optional(Schema.NullOr(Schema.String)) },
+  payload: { organizationId: Schema.optional(Schema.NullOr(Uuid)) },
   success: Schema.Array(PetitionDto),
 }).middleware(RequireUser)
 
@@ -207,7 +210,7 @@ export const getPublicPetitions = Rpc.make("getPublicPetitions", {
  * petition, or a classroom petition the caller can't see, is `NotFound`.
  */
 export const getPetitionById = Rpc.make("getPetitionById", {
-  payload: { id: Schema.String },
+  payload: { id: Uuid },
   success: Schema.Union([PetitionDetailDto, SharedPetitionDto]),
   error: NotFound,
 })
@@ -215,7 +218,7 @@ export const getPetitionById = Rpc.make("getPetitionById", {
 /** A classroom's petitions the caller may see: newest first, or by goal (largest first). */
 export const getClassroomPetitions = Rpc.make("getClassroomPetitions", {
   payload: {
-    classroomId: Schema.String,
+    classroomId: Uuid,
     sort: Schema.optional(Schema.Literals(["newest", "goal"])),
   },
   success: Schema.Array(PetitionDto),
@@ -223,33 +226,33 @@ export const getClassroomPetitions = Rpc.make("getClassroomPetitions", {
 
 /** Needs a confirmed user with a complete profile; the petition joins the author's campus. */
 export const createPetition = Rpc.make("createPetition", {
-  payload: { ...PetitionInputFields, categoryId: Schema.String },
+  payload: CreatePetitionInput,
   success: PetitionDto,
   error: Schema.Union([Unauthenticated, Invalid]),
 })
 
 /** Like `createPetition`, inside a classroom the caller teaches or is an active member of. */
 export const createClassroomPetition = Rpc.make("createClassroomPetition", {
-  payload: { ...PetitionInputFields, categoryId: Schema.String, classroomId: Schema.String },
+  payload: { ...CreatePetitionInput.fields, classroomId: Uuid },
   success: PetitionDto,
   error: Schema.Union([Unauthenticated, Invalid]),
 })
 
 /** The author or the classroom's professor edits a visible petition. */
 export const updatePetition = Rpc.make("updatePetition", {
-  payload: { id: Schema.String, ...PetitionInputFields },
+  payload: { id: Uuid, ...PetitionInputFields },
   success: PetitionDto,
   error: Schema.Union([NotFound, Forbidden, Invalid]),
 }).middleware(RequireUser)
 
 export const closePetition = Rpc.make("closePetition", {
-  payload: { id: Schema.String },
+  payload: { id: Uuid },
   success: PetitionDto,
   error: Schema.Union([NotFound, Forbidden]),
 }).middleware(RequireUser)
 
 export const markPetitionVictory = Rpc.make("markPetitionVictory", {
-  payload: { id: Schema.String },
+  payload: { id: Uuid },
   success: PetitionDto,
   error: Schema.Union([NotFound, Forbidden]),
 }).middleware(RequireUser)
@@ -265,4 +268,6 @@ export class PetitionRpcs extends RpcGroup.make(
   updatePetition,
   closePetition,
   markPetitionVictory,
-).middleware(ActorMiddleware) {}
+)
+  .middleware(ActorMiddleware)
+  .annotateRpcs(Rpc.ParseOptions, { errors: "all" }) {}

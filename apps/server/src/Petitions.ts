@@ -7,20 +7,18 @@ import {
   invalidFields,
   NotFound,
   PetitionCommentDto,
-  PetitionDto,
-  type PetitionInput,
   PetitionRpcs,
   PetitionSignatureDto,
   PetitionUpdateDto,
   type SignedIn,
   CategoryDto,
+  type CreatePetitionInput,
   validatePetitionInput,
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { classroomVisible } from "./ClassroomPolicy.ts"
 import { commentEditable, commentVisible } from "./CommentPolicy.ts"
-import { isUuid } from "./Input.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
@@ -36,9 +34,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       selectPetitions(sql, actor, where, orderBy ? { orderBy } : {})
 
     const findPetition = (actor: Actor, id: string) =>
-      isUuid(id)
-        ? Effect.map(petitions(actor, sql`p.id = ${id}`), (rows) => Option.fromNullishOr(rows[0]))
-        : Effect.succeed(Option.none<PetitionDto>())
+      Effect.map(petitions(actor, sql`p.id = ${id}`), (rows) => Option.fromNullishOr(rows[0]))
 
     const getPetition = (actor: Actor, id: string) =>
       Effect.flatMap(findPetition(actor, id), (petition) =>
@@ -87,9 +83,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     })
 
     const categoryExists = (id: string) =>
-      isUuid(id)
-        ? Effect.map(sql`SELECT 1 FROM category WHERE id = ${id}`, (rows) => rows.length > 0)
-        : Effect.succeed(false)
+      Effect.map(sql`SELECT 1 FROM category WHERE id = ${id}`, (rows) => rows.length > 0)
 
     /**
      * Ash's `PetitionCampus`: a campus petition takes the author's organization; a classroom
@@ -100,7 +94,6 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       Effect.gen(function* () {
         if (classroomId === null) return user.organizationId
         const unavailable = invalidField("classroomId", "This classroom is unavailable.")
-        if (!isUuid(classroomId)) return yield* unavailable
         const [classroom] = yield* sql<{
           professorId: string
           organizationId: string | null
@@ -121,10 +114,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         return classroom.organizationId ?? user.organizationId
       })
 
-    const create = (
-      input: PetitionInput & { readonly categoryId: string },
-      classroomId: string | null,
-    ) =>
+    const create = (input: CreatePetitionInput, classroomId: string | null) =>
       Effect.gen(function* () {
         const user = yield* requireParticipant
         const checked = validatePetitionInput(input, { mode: "create", now: new Date() })
@@ -159,7 +149,6 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const manage = <A, E, R>(id: string, change: (user: SignedIn) => Effect.Effect<A, E, R>) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        if (!isUuid(id)) return yield* petitionNotFound
         const [row] = yield* sql<{ canManage: boolean }>`
           SELECT ${petitionManageable(sql, user, "p")} AS can_manage
           FROM petition p
@@ -186,10 +175,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       getCategories: () => categories(undefined).pipe(Effect.orDie),
       getPetitions: ({ organizationId }) =>
         Effect.flatMap(CurrentUser, (user) =>
-          petitions(
-            user,
-            organizationId ? sql`p.organization_id::text = ${organizationId}` : sql`true`,
-          ),
+          petitions(user, organizationId ? sql`p.organization_id = ${organizationId}` : sql`true`),
         ),
       getPublicPetitions: () =>
         Effect.flatMap(CurrentUser, (user) => petitions(user, sql`p.classroom_id IS NULL`)),
@@ -197,7 +183,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         Effect.flatMap(CurrentUser, (user) =>
           petitions(
             user,
-            sql`p.classroom_id::text = ${classroomId}`,
+            sql`p.classroom_id = ${classroomId}`,
             sort === "goal"
               ? sql`p.goal DESC NULLS LAST, p.id`
               : sql`p.inserted_at DESC, p.id DESC`,

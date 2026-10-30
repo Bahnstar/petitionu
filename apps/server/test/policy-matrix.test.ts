@@ -241,6 +241,12 @@ const classroomParticipants = signedIn("invalid", insiders)
 /** Operators of the record's campus (A) and superadmins, plus the record's owner. */
 const operatorsAndOwner = signedIn("hidden", { sameCampus: "ok", admin: "ok", superadmin: "ok" })
 const operatorsOnly = signedIn("hidden", { sameCampus: "forbidden", admin: "ok", superadmin: "ok" })
+/**
+ * A payload its schema rejects, such as a malformed id: `invalid` for everyone, guests included,
+ * because the shared client rejects it before the call.
+ */
+const rejectedPayload = expected("invalid")
+const malformedId = "not-a-uuid"
 
 const petitionInput = (world: WorldShape) => ({
   title: "Longer library hours",
@@ -507,6 +513,21 @@ const rows: ReadonlyArray<Row> = [
     "markPetitionVictory (a classroom petition)",
     signedIn("hidden", { member: "ok", professor: "ok", ta: "forbidden" }),
     fresh(freshClassroomPetition, (api, petition) => api.markPetitionVictory({ id: petition.id })),
+  ],
+  [
+    "getPetitionById (a malformed id)",
+    rejectedPayload,
+    call((api) => api.getPetitionById({ id: malformedId })),
+  ],
+  [
+    "updatePetition (a malformed id)",
+    rejectedPayload,
+    call((api) => api.updatePetition({ id: malformedId, goal: 100 })),
+  ],
+  [
+    "createPetition (a blank title)",
+    rejectedPayload,
+    call((api, world) => api.createPetition({ ...petitionInput(world), title: " " })),
   ],
 
   // Signatures, comments, updates

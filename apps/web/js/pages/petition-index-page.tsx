@@ -5,7 +5,7 @@ import { AuthLink } from "../components/auth-link"
 import { useEffect, useRef, useState } from "react"
 import { formatDate } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
-import type { PetitionDetailDto, SharedPetitionDto } from "@petitionu/domain"
+import { isUuid, type PetitionDetailDto, type SharedPetitionDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { PetitionComment } from "../features/petition/petition-comment"
@@ -23,6 +23,8 @@ type Petition = SharedPetitionDto &
   Partial<Pick<PetitionDetailDto, "comments" | "signatures" | "updates">>
 
 async function loadPetition(id: string): Promise<Petition | null> {
+  // An id that isn't a UUID can't name a petition: the same not-found view, without the call.
+  if (!isUuid(id)) return null
   const result = await api.getPetitionById({ id })
   if (result.success === false) {
     if (result.errors.some((error) => error.type === "not_found")) return null
