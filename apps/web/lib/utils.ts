@@ -12,8 +12,8 @@ const longDate = new Intl.DateTimeFormat(undefined, {
 })
 
 // One date style across the app: "September 24, 2026".
-export function formatDate(value: string | null | undefined) {
+export function formatDate(value: Date | null | undefined) {
   if (!value) return ""
-  const time = Date.parse(value)
+  const time = value.getTime()
   return Number.isFinite(time) ? longDate.format(time) : ""
 }

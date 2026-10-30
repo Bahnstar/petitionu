@@ -4,6 +4,7 @@ import { ActorMiddleware, RequireUser, Role } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound } from "./Errors.ts"
 import { Uuid } from "./Inputs.ts"
 import { PetitionDto } from "./Petitions.ts"
+import { Timestamp } from "./Timestamps.ts"
 
 /** Anyone may see a user's id and names. */
 export const PublicUser = Schema.Struct({
@@ -32,8 +33,7 @@ export type ActivityPetition = typeof ActivityPetition.Type
 /** One of the user's own signatures, with the petition it's on. */
 export const ActivitySignature = Schema.Struct({
   id: Schema.String,
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
   petition: ActivityPetition,
 })
 export type ActivitySignature = typeof ActivitySignature.Type
@@ -68,8 +68,7 @@ export const Notification = Schema.Struct({
   title: Schema.String,
   body: Schema.NullOr(Schema.String),
   status: Schema.Literals(["unread", "read", "archived"]),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
 })
 export type Notification = typeof Notification.Type
 

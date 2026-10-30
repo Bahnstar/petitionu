@@ -120,8 +120,11 @@ describe("getMe", () => {
         organization: { id: organization.id, name: "Example State" },
         hasPassword: true,
       })
-      assert.match(insertedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/)
-      assert.isBelow(Math.abs(Date.parse(insertedAt) - Date.now()), 60_000)
+      assert.isBelow(Math.abs(insertedAt.getTime() - Date.now()), 60_000)
+      // Sent with microseconds, as the Phoenix app sent it; a `Date` has milliseconds.
+      const sent = yield* user.browser.rawRpc("getMe")
+      assert.match(sent.value.insertedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}000Z$/)
+      assert.strictEqual(sent.value.insertedAt, `${insertedAt.toISOString().slice(0, 23)}000Z`)
     }),
   )
 

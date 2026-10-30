@@ -22,7 +22,6 @@ import { commentEditable, commentVisible } from "./CommentPolicy.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
-import { isoTimestamp } from "./Timestamps.ts"
 
 const petitionNotFound = new NotFound({ message: "Petition not found" })
 
@@ -44,10 +43,10 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const comments = (actor: SignedIn, petitionId: string) =>
       SqlSchema.findAll({
         Request: Schema.String,
-        Result: PetitionCommentDto,
+        Result: Schema.toType(PetitionCommentDto),
         execute: (id) => sql`
           SELECT c.id, c.text,
-            ${isoTimestamp(sql, "c.inserted_at")} AS inserted_at,
+            c.inserted_at,
             CASE WHEN u.id IS NULL THEN 'Student'
               ELSE concat_ws(' ', u.first_name, u.last_name) END AS author,
             ${commentEditable(sql, actor, "c")} AS can_edit
@@ -58,19 +57,19 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       })(petitionId)
     const signatures = SqlSchema.findAll({
       Request: Schema.String,
-      Result: PetitionSignatureDto,
+      Result: Schema.toType(PetitionSignatureDto),
       execute: (petitionId) => sql`
-        SELECT id, reason, ${isoTimestamp(sql, "inserted_at")} AS inserted_at
+        SELECT id, reason, inserted_at
         FROM signature WHERE petition_id = ${petitionId}
         ORDER BY inserted_at, id
       `,
     })
     const updates = SqlSchema.findAll({
       Request: Schema.String,
-      Result: PetitionUpdateDto,
+      Result: Schema.toType(PetitionUpdateDto),
       execute: (petitionId) => sql`
         SELECT id, title, body,
-          ${isoTimestamp(sql, "inserted_at")} AS inserted_at
+          inserted_at
         FROM update WHERE petition_id = ${petitionId}
         ORDER BY inserted_at, id
       `,

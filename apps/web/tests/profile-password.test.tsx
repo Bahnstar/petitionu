@@ -12,16 +12,17 @@ interface Recorded {
 }
 
 let requests: Recorded[] = []
-let me: MeDto
+let me: typeof MeDto.Encoded
 const originalFetch = globalThis.fetch
 
-const user = (hasPassword: boolean): MeDto => ({
+// As sent: the client decodes it.
+const user = (hasPassword: boolean): typeof MeDto.Encoded => ({
   id: "user-1",
   email: "ada@school.edu",
   firstName: "Ada",
   lastName: "Lovelace",
   role: "student",
-  insertedAt: "2026-10-01T12:00:00.000Z",
+  insertedAt: "2026-10-01T12:00:00.000000Z",
   graduationYear: null,
   emailVerified: true,
   profileComplete: true,

@@ -11,7 +11,6 @@ import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { AppConfig } from "./Config.ts"
 import { authorizeResolve, visibleSupportRequests } from "./SupportPolicy.ts"
-import { isoTimestamp } from "./Timestamps.ts"
 
 /** Used outside production when `SUPPORT_EMAIL` isn't set, as the Phoenix app did. */
 const developmentSupportEmail = "support@localhost.test"
@@ -31,20 +30,19 @@ export const SupportHandlers = SupportRpcs.toLayer(
     const columns = sql`
       r.id, r.kind, r.requester_email::text AS requester_email, r.message, r.state,
       r.resolution_note,
-      ${isoTimestamp(sql, "r.inserted_at")} AS inserted_at,
-      ${isoTimestamp(sql, "r.resolved_at")} AS resolved_at
+      r.inserted_at, r.resolved_at
     `
 
     const findById = SqlSchema.findOne({
       Request: Schema.String,
-      Result: SupportRequest,
+      Result: Schema.toType(SupportRequest),
       execute: (id) => sql`SELECT ${columns} FROM support_requests r WHERE r.id = ${id}`,
     })
 
     const list = (actor: SignedIn, filter: ReturnType<typeof visibleSupportRequests>) =>
       SqlSchema.findAll({
         Request: Schema.Void,
-        Result: SupportRequest,
+        Result: Schema.toType(SupportRequest),
         execute: () => sql`
           SELECT ${columns} FROM support_requests r
           WHERE ${visibleSupportRequests(sql, actor, "r")} AND ${filter}

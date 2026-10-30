@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { FieldError, Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
 import { Note, Uuid } from "./Inputs.ts"
+import { Deadline, Timestamp } from "./Timestamps.ts"
 
 export const PetitionStatus = Schema.Literals(["open", "closed", "victory"])
 export type PetitionStatus = typeof PetitionStatus.Type
@@ -33,10 +34,9 @@ const sharedFields = {
   author: Schema.String,
   allowComments: Schema.Boolean,
   isAnonymous: Schema.Boolean,
-  /** ISO 8601, UTC, whole seconds. */
-  deadline: Schema.NullOr(Schema.String),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  /** Sent to the second. */
+  deadline: Schema.NullOr(Deadline),
+  insertedAt: Timestamp,
 }
 
 /** What a guest gets from `getPetitionById`: the shared fields and the category's name. */
@@ -63,7 +63,7 @@ export type PetitionDto = typeof PetitionDto.Type
 export const PetitionCommentDto = Schema.Struct({
   id: Schema.String,
   text: Schema.NullOr(Schema.String),
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
   author: Schema.String,
   /** The caller wrote it and may still edit or delete it (not in an archived classroom). */
   canEdit: Schema.Boolean,
@@ -71,13 +71,13 @@ export const PetitionCommentDto = Schema.Struct({
 export const PetitionSignatureDto = Schema.Struct({
   id: Schema.String,
   reason: Schema.NullOr(Schema.String),
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
 })
 export const PetitionUpdateDto = Schema.Struct({
   id: Schema.String,
   title: Schema.NullOr(Schema.String),
   body: Schema.NullOr(Schema.String),
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
 })
 
 /** A petition page for a signed-in user: the petition with its comments, signatures and updates. */

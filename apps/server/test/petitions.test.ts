@@ -159,8 +159,13 @@ describe("petitions", () => {
         allowComments: false,
         isAnonymous: true,
         author: "Anonymous student",
-        deadline: `${deadline.toISOString().slice(0, 19)}Z`,
       })
+      // Deadlines are stored and sent to the second.
+      const wholeSeconds = `${deadline.toISOString().slice(0, 19)}Z`
+      assert.deepStrictEqual(created.deadline, new Date(wholeSeconds))
+      const sent = yield* author.browser.rawRpc("getPetitionById", { id: created.id })
+      assert.strictEqual(sent.value.deadline, wholeSeconds)
+      assert.match(sent.value.insertedAt, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/)
     }),
   )
 

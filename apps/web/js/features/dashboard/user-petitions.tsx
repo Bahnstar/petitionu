@@ -41,7 +41,7 @@ export function UserPetitions({ petitions }: { petitions: ReadonlyArray<Petition
             const goal = petition.goal ?? 0
             const progress = goal > 0 ? Math.min(100, Math.max(0, (signatures / goal) * 100)) : 0
             const daysLeft = petition.deadline
-              ? Math.ceil((Date.parse(petition.deadline) - now) / 86_400_000)
+              ? Math.ceil((petition.deadline.getTime() - now) / 86_400_000)
               : null
             const remaining = goal > 0 ? Math.max(0, goal - signatures) : 0
             const open = petition.status === "open" && (daysLeft == null || daysLeft > 0)

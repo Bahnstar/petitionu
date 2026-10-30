@@ -2,7 +2,6 @@ import { type Actor, PetitionDto } from "@petitionu/domain"
 import { Effect, Schema } from "effect"
 import { type SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
-import { isoTimestamp } from "./Timestamps.ts"
 
 const actorId = (actor: Actor) => (actor._tag === "SignedIn" ? actor.id : null)
 
@@ -21,14 +20,14 @@ export const selectPetitions = (
   const orderBy = options.orderBy ?? sql`p.inserted_at DESC, p.id DESC`
   return SqlSchema.findAll({
     Request: Schema.Void,
-    Result: PetitionDto,
+    Result: Schema.toType(PetitionDto),
     execute: () => sql`
       SELECT p.id, p.title, p.description, coalesce(p.status, 'open') AS status,
         p.classroom_id, p.organization_id, p.category_id, p.goal::float8 AS goal,
         coalesce(p.allow_comments, true) AS allow_comments,
         coalesce(p.is_anonymous, false) AS is_anonymous,
-        to_char(p.deadline, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS deadline,
-        ${isoTimestamp(sql, "p.inserted_at")} AS inserted_at,
+        p.deadline,
+        p.inserted_at,
         s.count AS signatures_count,
         EXISTS (SELECT 1 FROM signature hs WHERE hs.petition_id = p.id AND hs.user_id = ${id})
           AS has_signed,

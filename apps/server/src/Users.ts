@@ -21,7 +21,6 @@ import {
   validateRequestedRole,
   visibleUsers,
 } from "./UsersPolicy.ts"
-import { isoTimestamp } from "./Timestamps.ts"
 
 const userNotFound = new NotFound({ message: "User not found" })
 
@@ -62,8 +61,8 @@ export const UsersHandlers = UsersRpcs.toLayer(
       const petitions = yield* selectPetitions(sql, actor, sql`p.user_id = ${actor.id}`, {
         limit: 4,
       })
-      const signed = yield* sql<{ id: string; insertedAt: string; petitionId: string }>`
-        SELECT s.id, ${isoTimestamp(sql, "s.inserted_at")} AS inserted_at, s.petition_id
+      const signed = yield* sql<{ id: string; insertedAt: Date; petitionId: string }>`
+        SELECT s.id, s.inserted_at, s.petition_id
         FROM signature s JOIN petition p ON p.id = s.petition_id
         WHERE s.user_id = ${actor.id} AND ${visible}
         ORDER BY s.inserted_at DESC LIMIT 4
@@ -121,9 +120,9 @@ export const UsersHandlers = UsersRpcs.toLayer(
 
     const findNotifications = SqlSchema.findAll({
       Request: Schema.String,
-      Result: Notification,
+      Result: Schema.toType(Notification),
       execute: (userId) => sql`
-        SELECT n.id, n.title, n.body, n.status, ${isoTimestamp(sql, "n.inserted_at")} AS inserted_at
+        SELECT n.id, n.title, n.body, n.status, n.inserted_at
         FROM notification n WHERE n.user_id = ${userId} ORDER BY n.inserted_at DESC, n.id DESC
       `,
     })

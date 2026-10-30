@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound } from "./Errors.ts"
 import { Note, Uuid } from "./Inputs.ts"
+import { Timestamp } from "./Timestamps.ts"
 
 export const SupportRequestKind = Schema.Literals(["support", "account_deletion"])
 export type SupportRequestKind = typeof SupportRequestKind.Type
@@ -17,10 +18,8 @@ export const SupportRequest = Schema.Struct({
   message: Schema.String,
   state: SupportRequestState,
   resolutionNote: Schema.NullOr(Schema.String),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
-  /** ISO 8601, UTC. */
-  resolvedAt: Schema.NullOr(Schema.String),
+  insertedAt: Timestamp,
+  resolvedAt: Schema.NullOr(Timestamp),
 })
 export type SupportRequest = typeof SupportRequest.Type
 

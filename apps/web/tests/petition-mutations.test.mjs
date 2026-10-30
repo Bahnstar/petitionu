@@ -13,7 +13,11 @@ afterEach(() => {
   globalThis.location = originalLocation
 })
 
-const petition = { id: "petition-1", classroomId: "classroom-1" }
+// The shared client checks payloads before the call, so ids are UUIDs and inputs complete.
+const petition = {
+  id: "00000000-0000-4000-8000-000000000001",
+  classroomId: "00000000-0000-4000-8000-000000000002",
+}
 const allKeys = [
   ["petition", petition.id, true],
   ["petition", petition.id, false],
@@ -26,7 +30,11 @@ const allKeys = [
   ["classroomPetitions", "other-classroom"],
   ["categories"],
 ]
-const input = { title: "A better campus", categoryId: "category-1" }
+const input = {
+  title: "A better campus",
+  description: "More benches",
+  categoryId: "00000000-0000-4000-8000-000000000004",
+}
 const cases = [
   { command: { kind: "create", input }, action: "createPetition", affected: [2, 3] },
   {
@@ -38,11 +46,16 @@ const cases = [
   { command: { kind: "sign", petition, reason: "  " }, action: "createSignature" },
   { command: { kind: "withdraw", petition }, action: "deleteSignature", returns: "nothing" },
   {
-    command: { kind: "editComment", petition, commentId: "comment-1", text: "Fixed" },
+    command: {
+      kind: "editComment",
+      petition,
+      commentId: "00000000-0000-4000-8000-000000000003",
+      text: "Fixed",
+    },
     action: "updateComment",
   },
   {
-    command: { kind: "deleteComment", petition, commentId: "comment-1" },
+    command: { kind: "deleteComment", petition, commentId: "00000000-0000-4000-8000-000000000003" },
     action: "deleteComment",
     returns: "nothing",
   },
@@ -55,7 +68,7 @@ const cases = [
   { command: { kind: "victory", petition }, action: "markPetitionVictory" },
 ]
 
-const insertedAt = "2026-10-01T12:00:00.000Z"
+const insertedAt = "2026-10-01T12:00:00.000000Z"
 const petitionDto = {
   id: "result-1",
   title: "A better campus",
@@ -74,8 +87,8 @@ const petitionDto = {
   isAnonymous: false,
   deadline: null,
   insertedAt,
-  categoryId: "category-1",
-  category: { id: "category-1", name: "Campus", color: null },
+  categoryId: "00000000-0000-4000-8000-000000000004",
+  category: { id: "00000000-0000-4000-8000-000000000004", name: "Campus", color: null },
 }
 const results = {
   deleteSignature: null,
@@ -174,7 +187,7 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
     if (command.classroomId) assert.equal(payload.classroomId, command.classroomId)
     if (command.kind === "sign") assert.equal(payload.reason, null)
     if (["editComment", "deleteComment"].includes(command.kind))
-      assert.equal(payload.id, "comment-1")
+      assert.equal(payload.id, "00000000-0000-4000-8000-000000000003")
     if (command.kind === "editComment") assert.equal(payload.text, "Fixed")
     allKeys.forEach((key, index) => {
       assert.equal(
@@ -256,7 +269,12 @@ for (const kind of ["close", "withdraw", "editComment", "deleteComment", "commen
     })
     const unsubscribe = observer.subscribe(() => {})
     let completed = false
-    const command = { kind, petition, text: "Yes", commentId: "comment-1" }
+    const command = {
+      kind,
+      petition,
+      text: "Yes",
+      commentId: "00000000-0000-4000-8000-000000000003",
+    }
     const mutation = mutatePetition(client, command).then(() => {
       completed = true
     })

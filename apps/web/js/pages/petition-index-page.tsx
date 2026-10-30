@@ -154,11 +154,10 @@ function PetitionContent({ petition }: { petition: Petition }) {
   const goal = petition.goal ?? 0
   const progress = goal > 0 ? Math.min(100, Math.max(0, (signatureCount / goal) * 100)) : 0
   const daysLeft = petition.deadline
-    ? Math.max(0, Math.ceil((new Date(petition.deadline).getTime() - now) / 86_400_000))
+    ? Math.max(0, Math.ceil((petition.deadline.getTime() - now) / 86_400_000))
     : null
   const closed =
-    petition.status !== "open" ||
-    !!(petition.deadline && new Date(petition.deadline).getTime() <= now)
+    petition.status !== "open" || !!(petition.deadline && petition.deadline.getTime() <= now)
   const canParticipate = !!(user?.emailVerified && user.profileComplete)
   const signed = signatureMutation.isSuccess || petition.hasSigned
 
@@ -178,7 +177,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
   function renderReasons() {
     const reasons = [...signatures]
       .filter((signature) => signature.reason?.trim())
-      .sort((a, b) => (b.insertedAt ?? "").localeCompare(a.insertedAt ?? ""))
+      .sort((a, b) => b.insertedAt.getTime() - a.insertedAt.getTime())
       .slice(0, 5)
     if (signatures.length === 0)
       return (
@@ -539,7 +538,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
               <ol className="petition-timeline">
                 {updates.map((update) => (
                   <li key={update.id}>
-                    <time dateTime={update.insertedAt ?? undefined}>
+                    <time dateTime={update.insertedAt.toISOString()}>
                       {formatDate(update.insertedAt)}
                     </time>
                     <div>

@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, Role } from "./Actor.ts"
 import { NotFound } from "./Errors.ts"
+import { Timestamp } from "./Timestamps.ts"
 
 export const OrganizationSummary = Schema.Struct({
   id: Schema.String,
@@ -15,8 +16,7 @@ export const MeDto = Schema.Struct({
   firstName: Schema.NullOr(Schema.String),
   lastName: Schema.NullOr(Schema.String),
   role: Role,
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
   graduationYear: Schema.NullOr(Schema.Number),
   emailVerified: Schema.Boolean,
   profileComplete: Schema.Boolean,

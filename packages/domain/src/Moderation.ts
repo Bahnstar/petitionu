@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
 import { Note, OptionalNote, Uuid } from "./Inputs.ts"
+import { Timestamp } from "./Timestamps.ts"
 
 export const ContentReportReason = Schema.Literals(["spam", "harassment", "privacy", "other"])
 export type ContentReportReason = typeof ContentReportReason.Type
@@ -27,10 +28,8 @@ export const ContentReport = Schema.Struct({
   details: Schema.NullOr(Schema.String),
   state: ContentReportState,
   resolutionNote: Schema.NullOr(Schema.String),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
-  /** ISO 8601, UTC. */
-  resolvedAt: Schema.NullOr(Schema.String),
+  insertedAt: Timestamp,
+  resolvedAt: Schema.NullOr(Timestamp),
 })
 export type ContentReport = typeof ContentReport.Type
 

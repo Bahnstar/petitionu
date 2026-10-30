@@ -25,6 +25,11 @@ export interface Browser {
   readonly reloadCsrf: Effect.Effect<string>
   /** Calls procedures through the shared client, with this browser's cookies and CSRF token. */
   rpc<A>(call: (api: ApiClient) => Promise<A>): Effect.Effect<A>
+  /**
+   * Calls a procedure past the shared client and returns the response's exit as sent, before
+   * any decoding: what a caller that skips the client sees.
+   */
+  rawRpc(tag: string, payload?: unknown): Effect.Effect<any>
 }
 
 const json = (response: Response) =>
@@ -130,6 +135,17 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       return undefined
     }
 
+    const rawRpc = (tag: string, payload: unknown = null) =>
+      Effect.gen(function* () {
+        const response = yield* request("/rpc", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
+          body: JSON.stringify({ _tag: "Request", id: "1", tag, payload, headers: [] }),
+        })
+        const [message] = (yield* json(response)) as Array<{ readonly exit: unknown }>
+        return message!.exit
+      })
+
     yield* reloadCsrf
     return {
       ip,
@@ -140,5 +156,6 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       cookieHeader,
       reloadCsrf,
       rpc: (call) => Effect.promise(() => call(api)),
+      rawRpc,
     } satisfies Browser
   })

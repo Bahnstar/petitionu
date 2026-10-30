@@ -25,8 +25,7 @@ type Mode = "idle" | "edit" | "update" | "close" | "victory"
 
 function localDeadline(value: Petition["deadline"]) {
   if (!value) return ""
-  const date = new Date(value)
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }
 
 export function PetitionOwnerControls({

@@ -14,10 +14,6 @@ import { checkCommentWrite, commentEditable, commentVisible } from "./CommentPol
 import { requireParticipant } from "./Participant.ts"
 import { checkPetition, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
-import { isoTimestamp } from "./Timestamps.ts"
-
-const insertedAt = (sql: SqlClient.SqlClient, alias: string) =>
-  sql`${isoTimestamp(sql, `${alias}.inserted_at`)} AS inserted_at`
 
 export const ParticipationHandlers = ParticipationRpcs.toLayer(
   Effect.gen(function* () {
@@ -37,10 +33,10 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
     const selectSignatures = (where: Statement.Fragment) =>
       SqlSchema.findAll({
         Request: Schema.Void,
-        Result: SignatureDto,
+        Result: Schema.toType(SignatureDto),
         execute: () => sql`
           SELECT t.id, t.petition_id, t.reason, coalesce(t.is_verified, false) AS is_verified,
-            ${insertedAt(sql, "t")}
+            t.inserted_at
           FROM signature t WHERE ${where}
           ORDER BY t.inserted_at, t.id
         `,
@@ -49,9 +45,9 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
     const selectComments = (actor: SignedIn, where: Statement.Fragment) =>
       SqlSchema.findAll({
         Request: Schema.Void,
-        Result: CommentDto,
+        Result: Schema.toType(CommentDto),
         execute: () => sql`
-          SELECT t.id, t.petition_id, t.parent_comment_id, t.text, ${insertedAt(sql, "t")},
+          SELECT t.id, t.petition_id, t.parent_comment_id, t.text, t.inserted_at,
             CASE WHEN u.id IS NULL THEN 'Student'
               ELSE concat_ws(' ', u.first_name, u.last_name) END AS author,
             ${commentEditable(sql, actor, "t")} AS can_edit
@@ -64,9 +60,9 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
     const selectUpdates = (where: Statement.Fragment, order: "oldest" | "newest" = "oldest") =>
       SqlSchema.findAll({
         Request: Schema.Void,
-        Result: UpdateDto,
+        Result: Schema.toType(UpdateDto),
         execute: () => sql`
-          SELECT t.id, t.petition_id, t.title, t.body, ${insertedAt(sql, "t")}
+          SELECT t.id, t.petition_id, t.title, t.body, t.inserted_at
           FROM update t WHERE ${where}
           ORDER BY ${
             order === "newest" ? sql`t.inserted_at DESC, t.id DESC` : sql`t.inserted_at, t.id`

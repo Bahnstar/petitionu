@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
 import { Note, OptionalNote, Uuid } from "./Inputs.ts"
+import { Timestamp } from "./Timestamps.ts"
 
 /** The public user shape: id and names. */
 export const ClassroomProfessor = Schema.Struct({
@@ -25,10 +26,8 @@ export const ClassroomDto = Schema.Struct({
   professorId: Schema.String,
   professor: ClassroomProfessor,
   organizationId: Schema.NullOr(Schema.String),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
-  /** ISO 8601, UTC. */
-  updatedAt: Schema.String,
+  insertedAt: Timestamp,
+  updatedAt: Timestamp,
 })
 export type ClassroomDto = typeof ClassroomDto.Type
 
@@ -56,10 +55,9 @@ export const MembershipDto = Schema.Struct({
   invitedById: Schema.NullOr(Schema.String),
   role: MembershipRole,
   status: MembershipStatus,
-  /** ISO 8601, UTC; set when the membership becomes active. */
-  joinedAt: Schema.NullOr(Schema.String),
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  /** Set when the membership becomes active. */
+  joinedAt: Schema.NullOr(Timestamp),
+  insertedAt: Timestamp,
   memberName: Schema.String,
   user: Schema.Struct({ id: Schema.String }),
   classroom: Schema.Struct({ id: Schema.String, name: Schema.String }),

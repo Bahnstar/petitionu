@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
 import { Note, OptionalNote, Uuid } from "./Inputs.ts"
+import { Timestamp } from "./Timestamps.ts"
 
 /** A signature. Who signed is never exposed; `hasSigned` on the petition tells the caller. */
 export const SignatureDto = Schema.Struct({
@@ -10,8 +11,7 @@ export const SignatureDto = Schema.Struct({
   petitionId: Schema.String,
   reason: Schema.NullOr(Schema.String),
   isVerified: Schema.Boolean,
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
 })
 export type SignatureDto = typeof SignatureDto.Type
 
@@ -22,8 +22,7 @@ export const CommentDto = Schema.Struct({
   text: Schema.NullOr(Schema.String),
   /** The commenter's name, or "Student" when it's unknown. */
   author: Schema.String,
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
   /** The caller wrote it and may still edit or delete it (not in an archived classroom). */
   canEdit: Schema.Boolean,
 })
@@ -34,8 +33,7 @@ export const UpdateDto = Schema.Struct({
   petitionId: Schema.String,
   title: Schema.String,
   body: Schema.String,
-  /** ISO 8601, UTC. */
-  insertedAt: Schema.String,
+  insertedAt: Timestamp,
 })
 export type UpdateDto = typeof UpdateDto.Type
 

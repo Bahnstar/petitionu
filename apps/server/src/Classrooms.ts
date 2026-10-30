@@ -30,7 +30,6 @@ import { AppConfig } from "./Config.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
 import { requireParticipant } from "./Participant.ts"
-import { isoTimestamp } from "./Timestamps.ts"
 
 const classroomNotFound = new NotFound({ message: "Classroom not found" })
 const membershipNotFound = new NotFound({ message: "Membership not found" })
@@ -81,13 +80,12 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       c.professor_id,
       json_build_object('id', pu.id, 'firstName', pu.first_name, 'lastName', pu.last_name)
         AS professor,
-      c.organization_id, ${isoTimestamp(sql, "c.inserted_at")} AS inserted_at,
-      ${isoTimestamp(sql, "c.updated_at")} AS updated_at
+      c.organization_id, c.inserted_at, c.updated_at
       FROM classrooms c JOIN users pu ON pu.id = c.professor_id`
 
     const membershipColumns = sql`
       m.id, m.classroom_id, m.user_id, m.invited_by_id, m.role, m.status,
-      ${isoTimestamp(sql, "m.joined_at")} AS joined_at, ${isoTimestamp(sql, "m.inserted_at")} AS inserted_at,
+      m.joined_at, m.inserted_at,
       concat_ws(' ', u.first_name, u.last_name) AS member_name,
       json_build_object('id', u.id) AS "user",
       json_build_object('id', c.id, 'name', c.name) AS classroom
@@ -95,8 +93,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       JOIN users u ON u.id = m.user_id
       JOIN classrooms c ON c.id = m.classroom_id`
 
-    const decodeClassrooms = Schema.decodeUnknownEffect(Schema.Array(ClassroomDto))
-    const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(MembershipDto))
+    const decodeClassrooms = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(ClassroomDto)))
+    const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(MembershipDto)))
 
     const listClassrooms = (
       where: Statement.Fragment,

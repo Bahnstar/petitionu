@@ -174,7 +174,7 @@ export default function ModerationPage() {
         </a>
         <p className="break-words whitespace-pre-wrap">{request.message}</p>
         <p className="text-xs text-muted-foreground">
-          Received {new Date(request.insertedAt).toLocaleString()}
+          Received {request.insertedAt.toLocaleString()}
         </p>
         {request.state === "open" ? (
           <SupportResolution id={request.id} onResolved={reviewed} />
@@ -228,7 +228,7 @@ export default function ModerationPage() {
         </details>
         {report.details && <p className="break-words whitespace-pre-wrap">{report.details}</p>}
         <p className="text-xs text-muted-foreground">
-          Reported {new Date(report.insertedAt).toLocaleString()}
+          Reported {report.insertedAt.toLocaleString()}
         </p>
         {report.state === "open" ? (
           <ReportResolution id={report.id} onResolved={reviewed} />

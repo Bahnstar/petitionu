@@ -155,10 +155,7 @@ function CategoryFilter({
 }
 
 function isClosed(petition: Petition, now: number) {
-  return (
-    petition.status !== "open" ||
-    (!!petition.deadline && new Date(petition.deadline).getTime() <= now)
-  )
+  return petition.status !== "open" || (!!petition.deadline && petition.deadline.getTime() <= now)
 }
 
 function PetitionSearch({
@@ -302,13 +299,11 @@ function AuthenticatedBrowsePetitionsPage() {
             case "most-signed":
               return (b.signaturesCount ?? 0) - (a.signaturesCount ?? 0)
             case "newest":
-              return (b.insertedAt ?? "").localeCompare(a.insertedAt ?? "")
+              return b.insertedAt.getTime() - a.insertedAt.getTime()
             case "ending-soon": {
               const deadline = (petition: Petition) =>
-                petition.status === "open" &&
-                petition.deadline &&
-                new Date(petition.deadline).getTime() > now
-                  ? new Date(petition.deadline).getTime()
+                petition.status === "open" && petition.deadline && petition.deadline.getTime() > now
+                  ? petition.deadline.getTime()
                   : Infinity
               return deadline(a) - deadline(b)
             }

@@ -134,9 +134,7 @@ export default function SupportPage() {
             Operator update: {request.resolutionNote}
           </p>
         )}
-        <p className="text-xs text-muted-foreground">
-          {new Date(request.insertedAt).toLocaleString()}
-        </p>
+        <p className="text-xs text-muted-foreground">{request.insertedAt.toLocaleString()}</p>
       </article>
     ))
   }

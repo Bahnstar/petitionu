@@ -298,10 +298,20 @@ describe("preferences and notifications", () => {
             title: "Newer",
             body: "Your petition won",
             status: "unread",
-            insertedAt: "2026-02-01T00:00:00.000000Z",
+            insertedAt: new Date("2026-02-01T00:00:00Z"),
           },
-          { title: "Older", body: null, status: "read", insertedAt: "2026-01-01T00:00:00.000000Z" },
+          {
+            title: "Older",
+            body: null,
+            status: "read",
+            insertedAt: new Date("2026-01-01T00:00:00Z"),
+          },
         ],
+      )
+      const sent = yield* owner.browser.rawRpc("getNotifications")
+      assert.deepStrictEqual(
+        sent.value.map((notification: { insertedAt: string }) => notification.insertedAt),
+        ["2026-02-01T00:00:00.000000Z", "2026-01-01T00:00:00.000000Z"],
       )
 
       for (const call of [
