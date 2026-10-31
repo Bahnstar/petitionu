@@ -7,11 +7,12 @@ import {
   Role,
   Unauthenticated,
 } from "@petitionu/domain"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Cause, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { Auth } from "./Auth.ts"
 import { Csrf } from "./Csrf.ts"
+import { internalError } from "./RpcDefects.ts"
 
 const guest: Actor = { _tag: "Guest" }
 
@@ -84,12 +85,24 @@ export const RpcRequestGuard = HttpRouter.middleware(
 /**
  * Hands the `CurrentActor` resolved by `RpcRequestGuard` to procedures. Fails closed: if the
  * guard didn't run, the procedure dies rather than run as anyone.
+ *
+ * Every procedure runs inside this middleware, so it also logs a procedure's defects with their
+ * stack and cause chain, while the procedure's name is known, and hands on `internalError`.
  */
-export const ActorMiddlewareLive = Layer.succeed(ActorMiddleware)((effect) =>
+export const ActorMiddlewareLive = Layer.succeed(ActorMiddleware)((effect, { rpc }) =>
   Effect.flatMap(Effect.serviceOption(CurrentActor), (actor) =>
     Option.isSome(actor)
       ? Effect.provideService(effect, CurrentActor, actor.value)
       : Effect.die(new Error("CurrentActor was not resolved for this request")),
+  ).pipe(
+    Effect.catchCause((cause) =>
+      Cause.hasDies(cause)
+        ? Effect.logError("RPC procedure died", cause).pipe(
+            Effect.annotateLogs({ rpc: rpc._tag }),
+            Effect.andThen(Effect.die(internalError)),
+          )
+        : Effect.failCause(cause),
+    ),
   ),
 )
 
