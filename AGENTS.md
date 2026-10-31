@@ -23,7 +23,7 @@ Add a feature area as its own modules plus one line at each composition point, f
 - Check input in the payload schema with the shared schemas in `packages/domain/src/Inputs.ts`: `Uuid` for ids, `Note` and `OptionalNote` for text, with the area's length limit and wording. The shared client checks each payload before the call and reports a rejection as `invalid` entries, one per field, worded by the schema; the server checks again when it decodes, so handlers get checked, trimmed values. Add `.annotateRpcs(Rpc.ParseOptions, { errors: "all" })` to the group so the server reports every field too.
   - A malformed id is therefore `Invalid`, not `NotFound`, guests included. A page that takes an id from the URL checks it with `isUuid` first and shows its not-found view.
   - Keep in the handler only the checks a schema can't make (the database, the clock), failing with `Invalid` naming the field. An id stays a plain string only when the handler must answer a malformed one like an unknown one (join codes, reported content).
-  - A caller that skips the shared client and sends a payload the schema rejects gets a defect, not a field error.
+  - A caller that skips the shared client and sends a payload the schema rejects gets a generic defect, not a field error; the server logs the detail.
 - `test/policy-matrix.test.ts` is the authorization contract: every procedure as every actor type. A new procedure, or a change to who may call one, gets a matrix row; the matrix fails when a procedure has none.
 
 ## Database
