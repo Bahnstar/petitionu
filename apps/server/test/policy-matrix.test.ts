@@ -658,6 +658,17 @@ const rows: ReadonlyArray<Row> = [
         call((api, world) => api.createComment({ petitionId: petitionId(world), text: "Yes" })),
       ],
       [
+        `createComment (a reply on the ${key} petition)`,
+        key === "campus" ? participants : classroomParticipants,
+        call((api, world) =>
+          api.createComment({
+            petitionId: petitionId(world),
+            text: "Yes",
+            parentCommentId: world.activity[key]!.comment!,
+          }),
+        ),
+      ],
+      [
         `createUpdate (the ${key} petition)`,
         key === "campus"
           ? signedIn("invalid", { sameCampus: "ok" })
