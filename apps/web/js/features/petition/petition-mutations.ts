@@ -1,7 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import type { CreatePetitionInput, PetitionInput } from "@petitionu/domain"
-import { api } from "@/lib/api"
-import { serverError } from "@/lib/api-errors"
+import { api, serverError } from "@/lib/api"
 
 type PetitionTarget = { id: string; classroomId?: string | null }
 export type PetitionOwnerCommand =

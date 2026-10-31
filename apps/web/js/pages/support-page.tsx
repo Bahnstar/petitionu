@@ -6,8 +6,8 @@ import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { SupportRequestKind } from "@petitionu/domain"
-import { api } from "@/lib/api"
-import { ApiError, formErrors, serverError } from "@/lib/api-errors"
+import { api, serverError } from "@/lib/api"
+import { formErrors } from "@/lib/form-errors"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
@@ -178,7 +178,7 @@ export default function SupportPage() {
     queryFn: async () => {
       const result = await api.supportContact()
       if (result.success === false)
-        throw new ApiError(result.errors, "The support address could not be loaded. Try again.")
+        throw new Error("The support address could not be loaded. Try again.")
       return result.data
     },
   })

@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ErrorBoundary } from "../components/ui/error-boundary"
 import { AuthProvider } from "./contexts/auth-context"
 import { DEFAULT_PATH } from "@/lib/routes"
-import { retryQuery } from "@/lib/api-errors"
+import { retryQuery } from "@/lib/api"
 import { authRoutes } from "./pages/auth/auth-routes"
 
 // Create a client instance with proper configuration

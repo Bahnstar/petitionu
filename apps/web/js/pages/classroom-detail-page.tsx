@@ -16,8 +16,7 @@ import { isUuid } from "@petitionu/domain"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { api } from "@/lib/api"
-import { ApiError, serverError } from "@/lib/api-errors"
+import { api, serverError } from "@/lib/api"
 import { MemberList } from "../features/classroom/member-list"
 import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
@@ -182,7 +181,7 @@ export default function ClassroomDetailPage() {
     mutationFn: async () => {
       const result = await api.regenerateJoinCode({ id: id! })
       if (result.success === false) {
-        throw serverError(result.errors, "Failed to regenerate join code")
+        throw new Error(result.errors[0]?.message || "Failed to regenerate join code")
       }
       return result.data
     },
@@ -199,7 +198,7 @@ export default function ClassroomDetailPage() {
     mutationFn: async () => {
       const result = await api.archiveClassroom({ id: id! })
       if (result.success === false) {
-        throw serverError(result.errors, "Failed to archive classroom")
+        throw new Error(result.errors[0]?.message || "Failed to archive classroom")
       }
       return result.data
     },
@@ -214,7 +213,7 @@ export default function ClassroomDetailPage() {
     mutationFn: async () => {
       const result = await api.unarchiveClassroom({ id: id! })
       if (result.success === false) {
-        throw serverError(result.errors, "Failed to unarchive classroom")
+        throw new Error(result.errors[0]?.message || "Failed to unarchive classroom")
       }
       return result.data
     },
@@ -228,8 +227,7 @@ export default function ClassroomDetailPage() {
   const leaveMutation = useMutation({
     mutationFn: async (membershipId: string) => {
       const result = await api.removeFromClassroom({ id: membershipId })
-      if (!result.success)
-        throw new ApiError(result.errors, "Couldn’t leave the classroom. Please try again.")
+      if (!result.success) throw new Error("Couldn’t leave the classroom. Please try again.")
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })

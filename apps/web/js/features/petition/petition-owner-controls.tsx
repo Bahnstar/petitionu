@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { SharedPetitionDto } from "@petitionu/domain"
-import { formErrors } from "@/lib/api-errors"
+import { formErrors } from "@/lib/form-errors"
 import { useFocusFirstInvalid } from "../../hooks/use-focus-first-invalid"
 import { mutatePetition, type PetitionOwnerCommand } from "./petition-mutations"
 

@@ -44,7 +44,7 @@ Tests never import policy modules, SQL helpers or DTO mappers. Use `it.live` for
 ## Web app
 
 - Call procedures only through the shared client in `apps/web/lib/api.ts`, which keeps CSRF headers on every call. After any sign-in or sign-out, call the auth context's `afterAuthChange()` (reloads the CSRF token, then invalidates queries).
-- Throw a failed result with `serverError` or `ApiError` from `apps/web/lib/api-errors.ts`, so the query retry rule can see what the server answered. Forms show it with `formErrors` and `FieldError`.
+- A query or form throws a failed result as `ApiError` (`serverError` keeps the server's words), both in `apps/web/lib/api.ts`, so the retry rule and `formErrors` can read it.
 - Reuse existing UI components and Lucide icons. Build new styling with Tailwind and custom CSS, without adding daisyUI components or CSS `@apply`. Preserve Tailwind's import and source declarations in `apps/web/css/app.css`.
 - For frontend changes, `bun run precommit` covers formatting, lint and the Vite build. See [docs/frontend-tooling.md](docs/frontend-tooling.md) for lint policy and vendored plugin maintenance.
 

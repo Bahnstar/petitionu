@@ -90,7 +90,7 @@ const { default: ProfilePage } = await import("../js/pages/profile-page.tsx")
 const { default: SupportPage } = await import("../js/pages/support-page.tsx")
 const { PetitionOwnerControls } =
   await import("../js/features/petition/petition-owner-controls.tsx")
-const { retryQuery, serverError } = await import("../lib/api-errors.ts")
+const { retryQuery, serverError } = await import("../lib/api.ts")
 const { readPetitionDraft, savePetitionDraft } = await import("../js/lib/petition-draft.ts")
 
 afterAll(async () => {

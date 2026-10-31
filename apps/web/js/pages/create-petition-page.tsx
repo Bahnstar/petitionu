@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { api } from "@/lib/api"
-import { ApiError, formErrors } from "@/lib/api-errors"
+import { api, ApiError } from "@/lib/api"
+import { formErrors } from "@/lib/form-errors"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { isUuid } from "@petitionu/domain"
 import { useDocumentTitle } from "../hooks/use-document-title"
@@ -91,7 +91,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     queryFn: async () => {
       const result = await api.getCategories()
       if (result.success === false)
-        throw new ApiError(result.errors, "We couldn't load the categories. Please try again.")
+        throw new Error("We couldn't load the categories. Please try again.")
       return result.data
     },
   })
