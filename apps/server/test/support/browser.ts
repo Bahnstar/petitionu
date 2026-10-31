@@ -15,7 +15,7 @@ export interface Browser {
   request(path: string, init?: RequestInit): Effect.Effect<Response>
   /** POSTs JSON to a Better Auth endpoint (`/api/auth` + `path`); returns status and body. */
   auth(path: string, body?: unknown): Effect.Effect<{ readonly status: number; readonly body: any }>
-  /** GETs a Better Auth endpoint (`/api/auth` + `path`); returns status and body. */
+  /** GETs a Better Auth endpoint like the app's own `fetch`; returns status and body. */
   authGet(path: string): Effect.Effect<{ readonly status: number; readonly body: any }>
   /** The cookie value named `name` (any prefix), if set. */
   cookie(name: string): string | undefined
@@ -110,7 +110,13 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
 
     const authGet = (path: string) =>
       Effect.gen(function* () {
-        const response = yield* request(`/api/auth${path}`)
+        const response = yield* request(`/api/auth${path}`, {
+          headers: {
+            "sec-fetch-site": "same-origin",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+          },
+        })
         return { status: response.status, body: yield* json(response) }
       })
 

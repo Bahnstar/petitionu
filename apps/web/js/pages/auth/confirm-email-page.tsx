@@ -13,7 +13,7 @@ const invalidLink = "This confirmation link is invalid or has expired."
 export default function ConfirmEmailPage() {
   const [params] = useSearchParams()
   const token = params.get("token")
-  const { afterAuthChange } = useAuth()
+  const { afterAuthChange, isAuthenticated, isLoading } = useAuth()
 
   const confirm = useMutation({
     mutationFn: async (token: string) => {
@@ -46,6 +46,13 @@ export default function ConfirmEmailPage() {
       }
     >
       <AuthError message={token ? (confirm.error?.message ?? null) : invalidLink} />
+      {token && !isLoading && !isAuthenticated && (
+        <AuthNotice>
+          Registered with a password? To keep it, sign in on this device and open this link again.
+          If you confirm without signing in, the password is removed and you can set a new one by
+          resetting it.
+        </AuthNotice>
+      )}
       {token && (
         <Button
           type="button"

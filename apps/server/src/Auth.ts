@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs"
 import { betterAuth } from "better-auth"
 import { APIError, createAuthMiddleware } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
+import { revokeUnprovenAccountAccess } from "better-auth/db"
 import { magicLink } from "better-auth/plugins/magic-link"
 import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { HttpEffect, HttpRouter, HttpServerRespondable } from "effect/http"
@@ -34,6 +35,17 @@ const passwordConfirmation = (path: string, body: PasswordBody) => {
   }
   return undefined
 }
+
+/** Endpoints a link's token signs in through; only the SPA's pages may call them. */
+const linkEndpoints = new Set(["/verify-email", "/magic-link/verify"])
+
+/**
+ * Whether a request is the app's own `fetch`. A crafted link, or one in user content, arrives as
+ * a navigation, an image or from another site, and could sign a browser into the attacker's
+ * account. A client that sends no fetch metadata is refused too, as nothing here needs one.
+ */
+const isAppFetch = (headers: Headers | undefined) =>
+  headers?.get("sec-fetch-site") === "same-origin" && headers.get("sec-fetch-dest") === "empty"
 
 /** Origin of the Vite dev server, trusted only when `NODE_ENV=development`. */
 export const devOrigin = "http://localhost:5173"
@@ -139,6 +151,31 @@ export class Auth extends Context.Service<
       const confirmed = (user: { id: string; emailVerified: boolean }) =>
         user.emailVerified ? run(finishConfirmation(user.id)) : Promise.resolve()
 
+      // Runs before a user's first verification. Sign-up needs no proof of the address, so a
+      // password and sessions may belong to someone else by now. A browser signed in as the user
+      // holds both the password and the emailed link, so it stays and the user keeps the
+      // password; other sessions go. Any other click is treated as Better Auth treats a magic
+      // link: the password and every session go, and the user sets a new password by reset.
+      const revokeUnprovenAccess = async (user: { id: string }, request?: Request) => {
+        const context = await auth.$context
+        const current =
+          request &&
+          (await auth.api.getSession({
+            headers: request.headers,
+            query: { disableRefresh: true },
+          }))
+        if (current?.user.id !== user.id) {
+          const ctx = { context } as Parameters<typeof revokeUnprovenAccountAccess>[0]
+          await revokeUnprovenAccountAccess(ctx, user.id)
+          return
+        }
+        const sessions = await context.internalAdapter.listSessions(user.id)
+        const others = sessions.filter((session) => session.token !== current.session.token)
+        if (others.length > 0) {
+          await context.internalAdapter.deleteSessions(others.map((session) => session.token))
+        }
+      }
+
       // The user whose password a `/reset-password` request just reset, keyed by request.
       const resetUsers = new WeakMap<Request, { id: string }>()
 
@@ -216,6 +253,8 @@ export class Auth extends Context.Service<
         emailAndPassword: {
           enabled: true,
           minPasswordLength: 8,
+          // Either of the next two settings would also change how sign-up answers for a
+          // registered address; `revokeUnprovenAccess` is what protects unproven sign-ups.
           autoSignIn: true,
           requireEmailVerification: false,
           password: {
@@ -246,6 +285,7 @@ export class Auth extends Context.Service<
           sendOnSignIn: false,
           autoSignInAfterVerification: true,
           expiresIn: 60 * 60,
+          beforeEmailVerification: revokeUnprovenAccess,
           // Link to the SPA's confirm page, which verifies only when the user clicks Confirm.
           sendVerificationEmail: ({ user, token }) =>
             send(
@@ -280,6 +320,9 @@ export class Auth extends Context.Service<
         },
         hooks: {
           before: createAuthMiddleware(async (ctx) => {
+            if (linkEndpoints.has(ctx.path) && !isAppFetch(ctx.headers)) {
+              throw new APIError("FORBIDDEN", { message: "Open the link from your email" })
+            }
             const confirmation = passwordConfirmation(ctx.path, (ctx.body ?? {}) as PasswordBody)
             if (confirmation && confirmation.password !== confirmation.confirmation) {
               throw new APIError("BAD_REQUEST", {

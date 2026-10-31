@@ -110,6 +110,13 @@ for (const page of [
   })
 }
 
+test("/auth/confirm warns a signed-out visitor that confirming removes their password", async () => {
+  const container = await render("/auth/confirm?token=tok-123")
+  expect(container.querySelector('[role="status"]')?.textContent).toContain(
+    "the password is removed",
+  )
+})
+
 test("/auth/magic explains a rejected link", async () => {
   const container = await render("/auth/magic?token=bad")
   await act(() => button(container, /^Sign in/).click())
