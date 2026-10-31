@@ -503,6 +503,55 @@ describe("petitions", () => {
     }),
   )
 
+  it.live("allowComments and isAnonymous are booleans; null never reaches the column", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const category = yield* insertCategory(app)
+      const petition = yield* insertPetition(app, { userId: owner.id, isAnonymous: true })
+      yield* updatePetitionRow(app, petition.id, { allow_comments: false })
+      const nulls = { allowComments: null, isAnonymous: null } as object
+      const rejected = [
+        { type: "invalid", field: "allowComments", message: "is invalid" },
+        { type: "invalid", field: "isAnonymous", message: "is invalid" },
+      ]
+
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.createPetition({
+              title: "A title",
+              description: "Better",
+              categoryId: category.id,
+              ...nulls,
+            }),
+          ),
+        ),
+        rejected,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) => api.updatePetition({ id: petition.id, ...nulls })),
+        ),
+        rejected,
+      )
+
+      // Without the shared client, `null` is `undefined` on the wire: an omitted field.
+      const sent = yield* owner.browser.rawRpc("updatePetition", {
+        id: petition.id,
+        allowComments: null,
+        isAnonymous: null,
+      })
+      assert.strictEqual(sent._tag, "Success")
+      const [row] = yield* app.sql<{
+        allow_comments: boolean | null
+        is_anonymous: boolean | null
+      }>`
+        SELECT allow_comments, is_anonymous FROM petition WHERE id = ${petition.id}`
+      assert.deepStrictEqual({ ...row }, { allow_comments: false, is_anonymous: true })
+    }),
+  )
+
   it.live("a petition's first deadline must be in the future, like any other change", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()

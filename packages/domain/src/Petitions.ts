@@ -92,13 +92,15 @@ export type PetitionDetailDto = typeof PetitionDetailDto.Type
 const Title = Note({ maxLength: 200, required: "must be present" })
 const Description = Note({ maxLength: 20000, required: "must be present" })
 
+const OptionalFlag = Schema.optional(Schema.Boolean).annotate({ message: "is invalid" })
+
 /** A petition's settings; omitted fields keep their value (or default on create). */
 const petitionSettings = {
   goal: Schema.optional(Schema.NullOr(Schema.Number)),
   /** ISO 8601. */
   deadline: Schema.optional(Schema.NullOr(Schema.String)),
-  allowComments: Schema.optional(Schema.NullOr(Schema.Boolean)),
-  isAnonymous: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  allowComments: OptionalFlag,
+  isAnonymous: OptionalFlag,
 }
 
 /** A new petition: a title of up to 200 characters, a description of up to 20000. */
@@ -125,8 +127,8 @@ export interface NormalizedPetitionInput {
   readonly description?: string
   readonly goal?: number | null
   readonly deadline?: Date | null
-  readonly allowComments?: boolean | null
-  readonly isAnonymous?: boolean | null
+  readonly allowComments?: boolean
+  readonly isAnonymous?: boolean
 }
 
 type Checked<A> = { readonly value: A; readonly error?: string }
