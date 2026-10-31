@@ -25,6 +25,7 @@ export function ClassroomCard({
   const [copyError, setCopyError] = useState(false)
 
   const copyJoinCode = async () => {
+    if (!classroom.joinCode) return
     try {
       await navigator.clipboard.writeText(classroom.joinCode)
       setCopied(true)

@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
+import type { ApiClient, RpcResult } from "@petitionu/domain"
 import { Effect } from "effect"
 import {
   createClassroom,
@@ -9,8 +10,24 @@ import {
   seedMembership,
 } from "./support/classrooms.ts"
 import { makeBrowser } from "./support/browser.ts"
-import { makeTestApp } from "./support/harness.ts"
-import { createUser } from "./support/users.ts"
+import { makeTestApp, type TestApp } from "./support/harness.ts"
+import { createUser, type TestUser } from "./support/users.ts"
+
+/** A signed-in campus admin, on a campus of their own. */
+const createAdmin = (app: TestApp) =>
+  createUser(app, {
+    role: "admin",
+    email: `admin@campus-${crypto.randomUUID().slice(0, 8)}.edu`,
+  })
+
+/** The classroom as `user` gets it from each procedure that reads classrooms. */
+const readings = (user: TestUser, id: string) =>
+  Effect.gen(function* () {
+    const byId = yield* ok(yield* user.browser.rpc((api) => api.getClassroomById({ id })))
+    const list = yield* ok(yield* user.browser.rpc((api) => api.getClassrooms()))
+    const page = yield* ok(yield* user.browser.rpc((api) => api.getMyClassrooms({})))
+    return [byId, list.find((c) => c.id === id)!, page.results.find((c) => c.id === id)!]
+  })
 
 describe("classrooms", () => {
   it.live("a professor creates a classroom on their campus and reads it back", () =>
@@ -230,7 +247,7 @@ describe("classrooms", () => {
       assert.strictEqual(oldCode[0]!.field, "joinCode")
       yield* ok(
         yield* late.browser.rpc((api) =>
-          api.joinClassroomByCode({ joinCode: regenerated.joinCode }),
+          api.joinClassroomByCode({ joinCode: regenerated.joinCode! }),
         ),
       )
     }),
@@ -261,6 +278,72 @@ describe("classrooms", () => {
       assert.strictEqual(pendingRead[0]!.type, "not_found")
       const mine = yield* ok(yield* member.browser.rpc((api) => api.getMyClassrooms({})))
       assert.strictEqual(mine.count, 1)
+    }),
+  )
+
+  it.live("only the classroom's own professor gets its join code", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app)
+      const classroom = yield* createClassroom(professor)
+      const id = classroom.id
+
+      const student = yield* createStudent(app)
+      yield* seedMembership(app, id, student.id, "active")
+      const ta = yield* createStudent(app)
+      yield* seedMembership(app, id, ta.id, "active", "ta")
+      // Their account roles don't count: they're members here.
+      const otherProfessor = yield* createProfessor(app)
+      yield* seedMembership(app, id, otherProfessor.id, "active")
+      const admin = yield* createAdmin(app)
+      yield* seedMembership(app, id, admin.id, "active", "ta")
+      const superadmin = yield* createUser(app, { role: "superadmin" })
+      yield* seedMembership(app, id, superadmin.id, "active")
+
+      for (const reading of yield* readings(professor, id)) {
+        assert.strictEqual(reading.joinCode, classroom.joinCode)
+      }
+      for (const user of [student, ta, otherProfessor, admin, superadmin]) {
+        for (const reading of yield* readings(user, id)) {
+          assert.strictEqual(reading.id, id)
+          assert.isNull(reading.joinCode)
+        }
+      }
+    }),
+  )
+
+  it.live("a campus admin who created a classroom gets its join code", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const admin = yield* createAdmin(app)
+      const classroom = yield* createClassroom(admin)
+      assert.match(classroom.joinCode, /^[0-9a-f-]{36}$/)
+      for (const reading of yield* readings(admin, classroom.id)) {
+        assert.strictEqual(reading.joinCode, classroom.joinCode)
+      }
+    }),
+  )
+
+  it.live("every write that returns a classroom gives the professor the join code", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app)
+      const classroom = yield* createClassroom(professor)
+      const id = classroom.id
+      const write = <A>(call: (api: ApiClient) => Promise<RpcResult<A>>) =>
+        Effect.flatMap(professor.browser.rpc(call), ok)
+
+      for (const written of [
+        yield* write((api) => api.updateClassroom({ id })),
+        yield* write((api) => api.updateClassroom({ id, name: "Civics II" })),
+        yield* write((api) => api.archiveClassroom({ id })),
+        yield* write((api) => api.unarchiveClassroom({ id })),
+      ]) {
+        assert.strictEqual(written.joinCode, classroom.joinCode)
+      }
+      const regenerated = yield* write((api) => api.regenerateJoinCode({ id }))
+      assert.match(regenerated.joinCode!, /^[0-9a-f-]{36}$/)
+      assert.notStrictEqual(regenerated.joinCode, classroom.joinCode)
     }),
   )
 

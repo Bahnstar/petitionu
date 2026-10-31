@@ -28,6 +28,14 @@ export const classroomVisible = (sql: SqlClient.SqlClient, actorId: string, alia
 }
 
 /**
+ * A SQL expression for the join code of the classroom aliased `c`: only its professor gets it,
+ * as `isProfessor` decides. TAs, members and site admins get null. A code admits anyone who
+ * has it, with no approval.
+ */
+export const visibleJoinCode = (sql: SqlClient.SqlClient, actorId: string) =>
+  sql`CASE WHEN c.professor_id = ${actorId} THEN c.join_code::text END`
+
+/**
  * The actor's own memberships, and those of classrooms they teach or are an active TA of, as a
  * filter on `classroom_memberships` aliased `m` joined to its `classrooms` aliased `c`.
  */
