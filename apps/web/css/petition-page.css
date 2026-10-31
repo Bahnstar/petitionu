@@ -168,6 +168,14 @@
   .petition-thread > div + div {
     margin-top: 6px;
   }
+  .petition-replies {
+    margin-top: 12px;
+    padding-left: 18px;
+    border-left: 2px solid var(--border);
+  }
+  .petition-replies > div + div {
+    margin-top: 16px;
+  }
   @media (max-width: 767px) {
     .petition-timeline li {
       grid-template-columns: 1fr;
