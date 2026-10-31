@@ -3,6 +3,7 @@ import { Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { findMeQuery } from "./Accounts.ts"
 import { UserConfirmed } from "./Confirmation.ts"
+import { maxListRows } from "./Database.ts"
 import { SchoolVerificationQueue } from "./SchoolVerification.ts"
 
 /*
@@ -149,7 +150,7 @@ export const CampusHandlers = CampusRpcs.toLayer(
             SELECT id, name, description, domain::text AS domain, logo_url,
               coalesce(allow_public_signatures, false) AS allow_public_signatures,
               verification_status
-            FROM organization ORDER BY name NULLS LAST, id
+            FROM organization ORDER BY name NULLS LAST, id LIMIT ${maxListRows}
           `,
         })(undefined).pipe(Effect.orDie),
     })

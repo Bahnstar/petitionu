@@ -13,6 +13,7 @@ import {
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema } from "effect/sql"
+import { maxListRows } from "./Database.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
 import {
@@ -114,7 +115,7 @@ export const UsersHandlers = UsersRpcs.toLayer(
         execute: () => sql`
           SELECT ${userColumns(sql)} FROM users u
           WHERE ${visibleUsers(sql, actor, "u")}
-          ORDER BY u.inserted_at, u.id
+          ORDER BY u.inserted_at, u.id LIMIT ${maxListRows}
         `,
       })(undefined)
 
@@ -122,7 +123,8 @@ export const UsersHandlers = UsersRpcs.toLayer(
       Request: Schema.String,
       Result: Preference,
       execute: (userId) => sql`
-        SELECT id, name, value FROM preference WHERE user_id = ${userId} ORDER BY inserted_at, id
+        SELECT id, name, value FROM preference WHERE user_id = ${userId}
+        ORDER BY inserted_at, id LIMIT ${maxListRows}
       `,
     })
 
@@ -131,7 +133,8 @@ export const UsersHandlers = UsersRpcs.toLayer(
       Result: Schema.toType(Notification),
       execute: (userId) => sql`
         SELECT n.id, n.title, n.body, n.status, n.inserted_at
-        FROM notification n WHERE n.user_id = ${userId} ORDER BY n.inserted_at DESC, n.id DESC
+        FROM notification n WHERE n.user_id = ${userId}
+        ORDER BY n.inserted_at DESC, n.id DESC LIMIT ${maxListRows}
       `,
     })
 

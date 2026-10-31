@@ -19,6 +19,7 @@ import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { classroomVisible } from "./ClassroomPolicy.ts"
 import { commentEditable, commentVisible } from "./CommentPolicy.ts"
+import { maxListRows } from "./Database.ts"
 import { requireParticipant } from "./Participant.ts"
 import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
@@ -78,7 +79,9 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const categories = SqlSchema.findAll({
       Request: Schema.Void,
       Result: CategoryDto,
-      execute: () => sql`SELECT id, name, description, color FROM category ORDER BY name, id`,
+      execute: () => sql`
+        SELECT id, name, description, color FROM category ORDER BY name, id LIMIT ${maxListRows}
+      `,
     })
 
     const categoryExists = (id: string) =>
@@ -177,7 +180,9 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
           petitions(user, organizationId ? sql`p.organization_id = ${organizationId}` : sql`true`),
         ),
       getPublicPetitions: () =>
-        Effect.flatMap(CurrentUser, (user) => petitions(user, sql`p.classroom_id IS NULL`)),
+        Effect.flatMap(CurrentUser, (user) =>
+          selectPetitions(sql, user, sql`p.classroom_id IS NULL`, { limit: maxListRows }),
+        ),
       getClassroomPetitions: ({ classroomId, sort }) =>
         Effect.flatMap(CurrentUser, (user) =>
           petitions(

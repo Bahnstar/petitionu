@@ -11,6 +11,7 @@ import {
 import { Effect, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import { checkCommentWrite, commentEditable, commentVisible } from "./CommentPolicy.ts"
+import { maxListRows } from "./Database.ts"
 import { requireParticipant } from "./Participant.ts"
 import { checkPetition, type ParticipationKind } from "./ParticipationPolicy.ts"
 import { petitionVisible } from "./PetitionPolicy.ts"
@@ -38,7 +39,7 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
           SELECT t.id, t.petition_id, t.reason, coalesce(t.is_verified, false) AS is_verified,
             t.inserted_at
           FROM signature t WHERE ${where}
-          ORDER BY t.inserted_at, t.id
+          ORDER BY t.inserted_at, t.id LIMIT ${maxListRows}
         `,
       })(undefined).pipe(Effect.orDie)
 
@@ -53,7 +54,7 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
             ${commentEditable(sql, actor, "t")} AS can_edit
           FROM comment t LEFT JOIN users u ON u.id = t.user_id
           WHERE ${where}
-          ORDER BY t.inserted_at, t.id
+          ORDER BY t.inserted_at, t.id LIMIT ${maxListRows}
         `,
       })(undefined).pipe(Effect.orDie)
 
@@ -66,7 +67,7 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
           FROM update t WHERE ${where}
           ORDER BY ${
             order === "newest" ? sql`t.inserted_at DESC, t.id DESC` : sql`t.inserted_at, t.id`
-          }
+          } LIMIT ${maxListRows}
         `,
       })(undefined).pipe(Effect.orDie)
 
