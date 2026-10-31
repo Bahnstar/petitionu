@@ -44,8 +44,14 @@ const invalid = (...fields: FieldProblem[]) =>
   fail({ _tag: "Invalid", message: fields[0]?.message ?? "is invalid", fields })
 
 let calls: string[] = []
+let sawSecondUser = false
 let failures = new Map<string, ReturnType<typeof fail>>()
 let signOut: () => Response | Promise<Response> = () => Response.json({ success: true })
+let csrfToken: () => Response = () => Response.json({ token: "fresh-token" })
+/** Procedures whose answers wait for `release`, as a slow or retrying refetch would. */
+let held = new Set<string>()
+let release = () => {}
+let released = Promise.resolve()
 const originalFetch = globalThis.fetch
 
 function answer(tag: string) {
@@ -58,12 +64,13 @@ function answer(tag: string) {
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
   const url = new URL(request.url)
-  if (url.pathname === "/rpc/csrf-token") return Response.json({ token: "fresh-token" })
+  if (url.pathname === "/rpc/csrf-token") return csrfToken()
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/sign-out") return signOut()
   if (url.pathname === "/rpc/") {
     const body = await request.json()
     calls.push(body.tag)
+    if (held.has(body.tag)) await released
     const failure = failures.get(body.tag)
     if (failure) {
       return Response.json([
@@ -79,9 +86,10 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 
 const { act } = await import("react")
 const { createRoot } = await import("react-dom/client")
-const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query")
+const { QueryClient, QueryClientProvider, useQuery } = await import("@tanstack/react-query")
 const { MemoryRouter, Route, Routes, useLocation } = await import("react-router-dom")
-const { AuthProvider } = await import("../js/contexts/auth-context.tsx")
+const { AuthProvider, useAuth } = await import("../js/contexts/auth-context.tsx")
+const { reloadCSRFToken } = await import("@petitionu/domain")
 const { Header } = await import("../js/components/header.tsx")
 const { default: ClassroomDetailPage } = await import("../js/pages/classroom-detail-page.tsx")
 const { default: CreateClassroomPage } = await import("../js/pages/create-classroom-page.tsx")
@@ -90,7 +98,7 @@ const { default: ProfilePage } = await import("../js/pages/profile-page.tsx")
 const { default: SupportPage } = await import("../js/pages/support-page.tsx")
 const { PetitionOwnerControls } =
   await import("../js/features/petition/petition-owner-controls.tsx")
-const { retryQuery, serverError } = await import("../lib/api.ts")
+const { api, retryQuery, serverError } = await import("../lib/api.ts")
 const { readPetitionDraft, savePetitionDraft } = await import("../js/lib/petition-draft.ts")
 
 afterAll(async () => {
@@ -100,8 +108,14 @@ afterAll(async () => {
 
 beforeEach(() => {
   calls = []
+  sawSecondUser = false
   failures = new Map()
   signOut = () => Response.json({ success: true })
+  csrfToken = () => Response.json({ token: "fresh-token" })
+  held = new Set()
+  released = new Promise((resolve) => {
+    release = () => resolve()
+  })
 })
 
 afterEach(() => {
@@ -373,6 +387,31 @@ function HeaderOnly() {
   return <Header />
 }
 
+/** A page of a user's data, cached under a key that doesn't name the user. */
+function AccountData() {
+  const { afterAuthChange } = useAuth()
+  const query = useQuery({
+    queryKey: ["supportRequests"],
+    queryFn: async () => {
+      const result = await api.getMySupportRequests()
+      if (result.success === false) throw serverError(result.errors)
+      return sawSecondUser ? "Second user's request" : "First user's request"
+    },
+  })
+  return (
+    <>
+      <Header />
+      <p id="data">{query.data ?? "empty"}</p>
+      <button type="button" onClick={() => afterAuthChange()}>
+        Signed in
+      </button>
+      <button type="button" onClick={() => afterAuthChange({ sameUser: true })}>
+        Password changed
+      </button>
+    </>
+  )
+}
+
 async function signOutClick() {
   const container = await render(HeaderOnly, "/somewhere")
   await act(() => button(container, /^Sign out/).click())
@@ -386,9 +425,81 @@ test("signing out reloads the CSRF token, refreshes the user and goes home", asy
   expect(document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")).toBe(
     "fresh-token",
   )
-  expect(calls.filter((tag) => tag === "getMe").length).toBe(2)
   expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
   expect(container.querySelector('[role="alert"]')).toBe(null)
+  expect(container.textContent).toContain("Sign in")
+})
+
+test("signing out doesn't wait for refetches", async () => {
+  const container = await render(AccountData, "/somewhere")
+  held = new Set(["getMe", "getMySupportRequests"])
+
+  await act(() => button(container, /^Sign out/).click())
+  await settle()
+
+  expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
+  expect(container.textContent).toContain("Sign in")
+  await act(async () => release())
+})
+
+for (const [name, reply] of [
+  ["text", () => new Response("upstream error", { status: 500 })],
+  ["JSON", () => Response.json({ error: "down" }, { status: 500 })],
+] as const) {
+  test(`a failed CSRF reload (${name}) doesn't undo a finished sign-out`, async () => {
+    const meta = document.createElement("meta")
+    meta.setAttribute("name", "csrf-token")
+    meta.setAttribute("content", "old-token")
+    document.head.append(meta)
+    csrfToken = reply
+    const container = await signOutClick()
+
+    expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
+    expect(container.textContent).toContain("Sign in")
+    expect(container.querySelector('[role="alert"]')).toBe(null)
+    expect(meta.getAttribute("content")).toBe("old-token")
+  })
+}
+
+test("reloadCSRFToken rejects a failed response instead of storing it", async () => {
+  const meta = document.createElement("meta")
+  meta.setAttribute("name", "csrf-token")
+  meta.setAttribute("content", "old-token")
+  document.head.append(meta)
+  csrfToken = () => Response.json({ error: "down" }, { status: 500 })
+
+  await expect(reloadCSRFToken()).rejects.toThrow("500")
+  expect(meta.getAttribute("content")).toBe("old-token")
+})
+
+test("the next user never sees the previous user's cached data", async () => {
+  const container = await render(AccountData, "/")
+  expect(container.querySelector("#data")?.textContent).toBe("First user's request")
+  held = new Set(["getMySupportRequests"])
+  sawSecondUser = true
+
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+
+  expect(container.querySelector("#data")?.textContent).toBe("empty")
+  await act(async () => release())
+  await settle()
+  expect(container.querySelector("#data")?.textContent).toBe("Second user's request")
+})
+
+test("a password change keeps the same user's data on screen while it refreshes", async () => {
+  const container = await render(AccountData, "/")
+  held = new Set(["getMySupportRequests"])
+
+  await act(() => button(container, /^Password changed/).click())
+  await settle()
+
+  expect(calls.filter((tag) => tag === "getMySupportRequests").length).toBe(2)
+  expect(container.querySelector("#data")?.textContent).toBe("First user's request")
+  expect(document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")).toBe(
+    "fresh-token",
+  )
+  await act(async () => release())
 })
 
 for (const [name, response] of [
@@ -408,7 +519,6 @@ for (const [name, response] of [
       "couldn’t sign you out",
     )
     expect(container.querySelector("#where")?.textContent).toBe("/somewhere")
-    expect(document.querySelector('meta[name="csrf-token"]')).toBe(null)
     expect(button(container, /^Sign out/)).toBeTruthy()
   })
 }

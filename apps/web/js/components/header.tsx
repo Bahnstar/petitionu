@@ -76,6 +76,16 @@ export function Header({ landing = false }: { landing?: boolean }) {
     navigate(ROUTES.home)
   }
 
+  function renderSignOutError() {
+    if (signOutFailedAt !== pathname) return null
+    return (
+      <p role="alert" className="site-sign-out-error">
+        We couldn’t sign you out. You’re still signed in here, so check your connection and try
+        again.
+      </p>
+    )
+  }
+
   function renderAccountLinks() {
     if (isAuthenticated && user) {
       return (
@@ -185,12 +195,7 @@ export function Header({ landing = false }: { landing?: boolean }) {
           </nav>
         )}
       </header>
-      {signOutFailedAt === pathname && (
-        <p role="alert" className="site-sign-out-error">
-          We couldn’t sign you out. You’re still signed in here, so check your connection and try
-          again.
-        </p>
-      )}
+      {renderSignOutError()}
     </>
   )
 }

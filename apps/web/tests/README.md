@@ -16,7 +16,8 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
 - `page-errors.test.tsx` (`bun run test:pages`): pages in happy-dom with a stubbed `fetch`, under
   the app's retry rule: failed queries aren't repeated once the server has answered, and each
   form shows every error against its field, a malformed `classroomId` shows the not-found view,
-  and a failed sign-out says so and stays on the page.
+  a failed sign-out says so and stays on the page, sign-out doesn't wait for refetches, and an
+  auth change clears the previous user's cached data.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 
