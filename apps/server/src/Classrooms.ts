@@ -31,6 +31,7 @@ import { AppConfig } from "./Config.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
 import { requireParticipant } from "./Participant.ts"
+import { petitionVisible } from "./PetitionPolicy.ts"
 
 const classroomNotFound = new NotFound({ message: "Classroom not found" })
 const membershipNotFound = new NotFound({ message: "Membership not found" })
@@ -77,7 +78,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       c.allow_student_petitions,
       (SELECT count(*)::int FROM classroom_memberships a
         WHERE a.classroom_id = c.id AND a.status = 'active') AS member_count,
-      (SELECT count(*)::int FROM petition p WHERE p.classroom_id = c.id) AS petition_count,
+      (SELECT count(*)::int FROM petition p
+        WHERE p.classroom_id = c.id AND ${petitionVisible(sql, actor, "p")}) AS petition_count,
       c.professor_id,
       json_build_object('id', pu.id, 'firstName', pu.first_name, 'lastName', pu.last_name)
         AS professor,

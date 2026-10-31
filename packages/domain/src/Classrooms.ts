@@ -23,6 +23,7 @@ export const ClassroomDto = Schema.Struct({
   allowStudentPetitions: Schema.Boolean,
   /** Active members, not counting the professor. */
   memberCount: Schema.Number,
+  /** The petitions the viewer can see, as `getClassroomPetitions` lists them. */
   petitionCount: Schema.Number,
   professorId: Schema.String,
   professor: ClassroomProfessor,

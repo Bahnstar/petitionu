@@ -11,6 +11,7 @@ import {
 } from "./support/classrooms.ts"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp, type TestApp } from "./support/harness.ts"
+import { insertPetition, updatePetitionRow } from "./support/petitions.ts"
 import { createUser, type TestUser } from "./support/users.ts"
 
 /** A signed-in campus admin, on a campus of their own. */
@@ -344,6 +345,46 @@ describe("classrooms", () => {
       const regenerated = yield* write((api) => api.regenerateJoinCode({ id }))
       assert.match(regenerated.joinCode!, /^[0-9a-f-]{36}$/)
       assert.notStrictEqual(regenerated.joinCode, classroom.joinCode)
+    }),
+  )
+
+  it.live("the petition count is the petitions the viewer can list", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app)
+      const classroom = yield* createClassroom(professor)
+      const id = classroom.id
+      const student = yield* createStudent(app)
+      yield* seedMembership(app, id, student.id, "active")
+      const ta = yield* createStudent(app)
+      yield* seedMembership(app, id, ta.id, "active", "ta")
+      const admin = yield* createAdmin(app)
+      yield* seedMembership(app, id, admin.id, "active")
+
+      const addPetition = (classroomId: string | null) =>
+        insertPetition(app, { userId: student.id, classroomId })
+      yield* addPetition(id)
+      yield* addPetition(id)
+      const hidden = yield* addPetition(id)
+      yield* updatePetitionRow(app, hidden.id, { hidden_at: new Date() })
+      // Neither of these is in the classroom's list.
+      yield* addPetition(null)
+      const elsewhere = yield* createClassroom(professor, { name: "Elsewhere" })
+      yield* addPetition(elsewhere.id)
+
+      for (const user of [professor, student, ta, admin]) {
+        const list = yield* ok(
+          yield* user.browser.rpc((api) => api.getClassroomPetitions({ classroomId: id })),
+        )
+        assert.strictEqual(list.length, 2)
+        for (const reading of yield* readings(user, id)) {
+          assert.strictEqual(reading.petitionCount, list.length)
+        }
+      }
+      const written = yield* ok(
+        yield* professor.browser.rpc((api) => api.updateClassroom({ id, name: "Civics II" })),
+      )
+      assert.strictEqual(written.petitionCount, 2)
     }),
   )
 
