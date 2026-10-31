@@ -350,3 +350,21 @@ test("a petition update shows a second field's error too", async () => {
   expect(fieldError(container, "petition-update-body")).toBe("is required")
   expect(document.activeElement?.id).toBe("petition-update-title")
 })
+
+for (const classroom of ["not-a-uuid", ""]) {
+  test(`create petition shows the not-found view for classroomId "${classroom}"`, async () => {
+    const container = await render(CreatePetitionPage, `/?classroomId=${classroom}`)
+
+    expect(container.querySelector("#not-found-page")).not.toBe(null)
+    expect(container.querySelector("#create-petition-form")).toBe(null)
+    expect(calls).not.toContain("getClassroomById")
+    expect(sessionStorage.length).toBe(0)
+  })
+}
+
+test("create petition still opens for a well-formed classroom id", async () => {
+  const container = await render(CreatePetitionPage, `/?classroomId=${classroomId}`)
+
+  expect(container.querySelector("#create-petition-form")).not.toBe(null)
+  expect(calls).toContain("getClassroomById")
+})

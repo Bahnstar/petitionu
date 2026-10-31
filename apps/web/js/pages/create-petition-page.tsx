@@ -23,14 +23,18 @@ import {
 import { api } from "@/lib/api"
 import { ApiError, formErrors } from "@/lib/api-errors"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { isUuid } from "@petitionu/domain"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useFocusFirstInvalid } from "../hooks/use-focus-first-invalid"
 import { ROUTES } from "@/lib/routes"
 import { useAuth } from "../contexts/auth-context"
+import { NotFoundPage } from "./not-found-page"
 
 export default function CreatePetitionPage() {
   const [searchParams] = useSearchParams()
   const classroomId = searchParams.get("classroomId")
+  // An id that isn't a UUID can't name a classroom: no form, no draft, and no call.
+  if (classroomId !== null && !isUuid(classroomId)) return <NotFoundPage />
   return <PetitionForm key={classroomId ?? "public"} classroomId={classroomId} />
 }
 
