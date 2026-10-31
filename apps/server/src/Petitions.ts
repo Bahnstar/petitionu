@@ -4,7 +4,6 @@ import {
   CurrentUser,
   Forbidden,
   invalidField,
-  invalidFields,
   NotFound,
   PetitionCommentDto,
   PetitionRpcs,
@@ -13,7 +12,6 @@ import {
   type SignedIn,
   CategoryDto,
   type CreatePetitionInput,
-  validatePetitionInput,
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
@@ -24,6 +22,19 @@ import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
 
 const petitionNotFound = new NotFound({ message: "Petition not found" })
+
+/** A checked deadline as it's stored: to the second, like Ash's `:utc_datetime`. */
+const storedDeadline = (deadline: string) => {
+  const value = new Date(deadline)
+  value.setUTCMilliseconds(0)
+  return value
+}
+
+/** Ash's `FutureDeadline`: a deadline must be in the future, unless it's the `stored` one. */
+const checkDeadline = (deadline: Date, stored?: Date | null) =>
+  deadline.getTime() !== stored?.getTime() && deadline.getTime() <= Date.now()
+    ? invalidField("deadline", "Choose a deadline in the future.")
+    : Effect.void
 
 export const PetitionsHandlers = PetitionRpcs.toLayer(
   Effect.gen(function* () {
@@ -116,21 +127,20 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const create = (input: CreatePetitionInput, classroomId: string | null) =>
       Effect.gen(function* () {
         const user = yield* requireParticipant
-        const checked = validatePetitionInput(input, { mode: "create", now: new Date() })
-        if (!checked.ok) return yield* invalidFields(checked.errors)
+        const deadline = input.deadline ? storedDeadline(input.deadline) : null
+        if (deadline) yield* checkDeadline(deadline)
         if (!(yield* categoryExists(input.categoryId).pipe(Effect.orDie))) {
           return yield* invalidField("categoryId", "is invalid")
         }
         const organizationId = yield* petitionCampus(user, classroomId)
-        const { value } = checked
         const [row] = yield* sql<{ id: string }>`
           INSERT INTO petition ${sql.insert({
-            title: value.title ?? null,
-            description: value.description ?? null,
-            goal: value.goal ?? 1000,
-            deadline: value.deadline ?? null,
-            allowComments: value.allowComments ?? true,
-            isAnonymous: value.isAnonymous ?? false,
+            title: input.title,
+            description: input.description,
+            goal: input.goal ?? 1000,
+            deadline,
+            allowComments: input.allowComments ?? true,
+            isAnonymous: input.isAnonymous ?? false,
             categoryId: input.categoryId,
             classroomId,
             organizationId,
@@ -212,13 +222,12 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       updatePetition: ({ id, ...input }) =>
         manage(id, (stored) =>
           Effect.gen(function* () {
-            const checked = validatePetitionInput(input, {
-              mode: "update",
-              now: new Date(),
-              stored,
-            })
-            if (!checked.ok) return yield* invalidFields(checked.errors)
-            const columns: Record<string, unknown> = { ...checked.value }
+            const deadline =
+              typeof input.deadline === "string" ? storedDeadline(input.deadline) : input.deadline
+            if (deadline) yield* checkDeadline(deadline, stored)
+            const columns = Object.fromEntries(
+              Object.entries({ ...input, deadline }).filter(([, value]) => value !== undefined),
+            )
             const set = Object.keys(columns).length > 0 ? sql`${sql.update(columns)},` : sql``
             yield* sql`
               UPDATE petition SET ${set} updated_at = now() AT TIME ZONE 'utc'

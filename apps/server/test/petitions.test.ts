@@ -133,7 +133,8 @@ describe("petitions", () => {
         [{ categoryId: "not-a-uuid" }, { field: "categoryId", message: "is invalid" }],
       ] as const) {
         const errors = expectErrors(
-          yield* author.browser.rpc((api) => api.createPetition({ ...input, ...change })),
+          // `goal: null` is outside the payload's type, for a caller that gets past it.
+          yield* author.browser.rpc((api) => api.createPetition({ ...input, ...change } as never)),
         )
         assert.deepStrictEqual(errors, [{ type: "invalid", ...expected }], JSON.stringify(change))
       }
@@ -503,6 +504,41 @@ describe("petitions", () => {
     }),
   )
 
+  it.live("a goal fails with one message, the same on create and update", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const category = yield* insertCategory(app)
+      const petition = yield* insertPetition(app, { userId: owner.id, goal: 7 })
+      const input = { title: "A title", description: "Better", categoryId: category.id }
+
+      for (const [goal, message] of [
+        [0, "must be more than or equal to 1"],
+        [-1, "must be more than or equal to 1"],
+        [0.5, "is invalid"],
+        [-1.5, "is invalid"],
+        [Number.NaN, "is invalid"],
+        [Number.POSITIVE_INFINITY, "is invalid"],
+        [2 ** 53, "is invalid"],
+        [null, "must be present"],
+      ] as const) {
+        const expected = [{ type: "invalid", field: "goal", message }]
+        // `null` is outside the payload's type, for a caller that gets past it.
+        const created = yield* owner.browser.rpc((api) =>
+          api.createPetition({ ...input, goal } as never),
+        )
+        assert.deepStrictEqual(expectErrors(created), expected, String(goal))
+        const updated = yield* owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, goal } as never),
+        )
+        assert.deepStrictEqual(expectErrors(updated), expected, String(goal))
+      }
+      const [row] = yield* app.sql<{ goal: string }>`
+        SELECT goal::text FROM petition WHERE id = ${petition.id}`
+      assert.strictEqual(row!.goal, "7")
+    }),
+  )
+
   it.live("allowComments and isAnonymous are booleans; null never reaches the column", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
@@ -549,6 +585,24 @@ describe("petitions", () => {
       }>`
         SELECT allow_comments, is_anonymous FROM petition WHERE id = ${petition.id}`
       assert.deepStrictEqual({ ...row }, { allow_comments: false, is_anonymous: true })
+    }),
+  )
+
+  it.live("a deadline that isn't a date fails on update too", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      for (const deadline of ["", "not a date", "2026-13-45"]) {
+        assert.deepStrictEqual(
+          expectErrors(
+            yield* owner.browser.rpc((api) => api.updatePetition({ id: petition.id, deadline })),
+          ),
+          [{ type: "invalid", field: "deadline", message: "is invalid" }],
+          deadline,
+        )
+      }
     }),
   )
 
