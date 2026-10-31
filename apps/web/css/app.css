@@ -7,8 +7,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap");
 
 @import "tailwindcss" source(none);
-@import "./home-prototype.css";
-@import "./landing-prototype.css";
 @import "./landing-page.css";
 @import "./application.css";
 @import "./petition-page.css";
