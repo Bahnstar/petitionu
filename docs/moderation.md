@@ -12,7 +12,7 @@ The report stores its reporter, campus, content snapshot, and target IDs. Report
 4. For a resolved report, select Hide reported content when removal from ordinary views is appropriate.
 5. Save the decision. Include reviewed shows earlier decisions.
 
-Hiding and report resolution share a transaction. Petition hiding blocks ordinary petition reads and child content and participation. Comment hiding removes that comment and blocks changes to it. This does not physically delete content. There is no restore action in this MVP. A reviewed report cannot be overwritten through the resolution action. The record keeps the resolver, time, and note.
+Hiding and report resolution share a transaction. Petition hiding blocks ordinary petition reads and child content and participation. Comment hiding removes that comment and blocks changes to it. Its replies stay, each reported and hidden on its own; the petition page shows "This comment is no longer available." above them, as it does for a comment its author deleted. This does not physically delete content. There is no restore action in this MVP. A reviewed report cannot be overwritten through the resolution action. The record keeps the resolver, time, and note.
 
 Moderators can inspect the submitted copy even when they are not classroom members. The ordinary petition link still follows classroom visibility. Copies of private content remain limited to the reporter and authorized moderators.
 
