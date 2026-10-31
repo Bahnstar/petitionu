@@ -1,8 +1,9 @@
 import { NodeHttpServer } from "@effect/platform-node"
 import { PgClient } from "@effect/sql-pg"
-import { ConfigProvider, Context, Effect, Layer, Redacted, type Scope } from "effect"
+import { Cause, ConfigProvider, Context, Effect, Layer, Logger, Redacted, type Scope } from "effect"
 import { HttpRouter } from "effect/http"
 import { SqlClient } from "effect/sql"
+import { createServer } from "node:http"
 import { fileURLToPath } from "node:url"
 import { type AppServiceTypes, type BaseServiceTypes, makeAppLayer } from "../../src/App.ts"
 import { runMigrations } from "../../src/Migrations.ts"
@@ -72,6 +73,22 @@ export const testEnv = {
   JOB_WORKERS: "false",
 }
 
+const appConfigProvider = (databaseUrl: string, env?: Record<string, string>) =>
+  ConfigProvider.fromUnknown({
+    DATABASE_URL: databaseUrl,
+    WEB_DIST_DIR: fixtureWebDist,
+    ...testEnv,
+    ...env,
+  })
+
+/** Appends each log's message and cause to `lines`. */
+const captureLogs = (lines: Array<string>) =>
+  Logger.layer([
+    Logger.make(({ cause, message }) => {
+      lines.push(`${JSON.stringify(message)} ${Cause.pretty(cause)}`)
+    }),
+  ])
+
 export interface TestApp {
   readonly database: { readonly name: string; readonly url: string }
   /** Sends one request to the app, as is. Use `makeBrowser` for cookies and CSRF. */
@@ -82,6 +99,8 @@ export interface TestApp {
   readonly registry: ScriptedSchoolRegistry["Service"]
   /** A connection to the app's database, for test setup. */
   readonly sql: SqlClient.SqlClient
+  /** What the app has logged, one string per line. */
+  readonly logs: ReadonlyArray<string>
 }
 
 /**
@@ -102,12 +121,8 @@ export const makeTestApp = (
 ) =>
   Effect.gen(function* () {
     const database = options.database ?? (yield* makeMigratedTestDatabase)
-    const config = ConfigProvider.fromUnknown({
-      DATABASE_URL: database.url,
-      WEB_DIST_DIR: fixtureWebDist,
-      ...testEnv,
-      ...options.env,
-    })
+    const config = appConfigProvider(database.url, options.env)
+    const logs: Array<string> = []
     const external = yield* Layer.build(ExternalServicesTest)
     const sql = Context.get(
       yield* Layer.build(PgClient.layer({ url: Redacted.make(database.url), maxConnections: 2 })),
@@ -125,13 +140,33 @@ export const makeTestApp = (
       Effect.sync(() => HttpRouter.toWebHandler(app, { disableLogger: true })),
       ({ dispose }) => Effect.promise(dispose),
     )
+    const logging = yield* Layer.build(captureLogs(logs))
     const request = (path: string, init?: RequestInit) =>
-      Effect.promise(() => handler(new Request(new URL(path, testOrigin), init)))
+      Effect.promise(() => handler(new Request(new URL(path, testOrigin), init), logging))
     return {
       database,
       request,
       mailer: Context.get(external, MemoryMailer),
       registry: Context.get(external, ScriptedSchoolRegistry),
       sql,
+      logs,
     } satisfies TestApp
+  })
+
+/**
+ * Serves the composed app on a real Node HTTP server, listening on the Unix socket at `path`,
+ * until the scope closes. For behaviour the in-process handler can't show: Node's request
+ * stream and connection handling. Send requests with `node:http` and `socketPath`.
+ */
+export const serveOnSocket = (path: string) =>
+  Effect.gen(function* () {
+    const database = yield* makeMigratedTestDatabase
+    yield* Layer.build(
+      HttpRouter.serve(makeAppLayer({ external: ExternalServicesTest }), {
+        disableLogger: true,
+      }).pipe(
+        Layer.provide(NodeHttpServer.layer(createServer, { path })),
+        Layer.provide(ConfigProvider.layer(appConfigProvider(database.url))),
+      ),
+    )
   })
