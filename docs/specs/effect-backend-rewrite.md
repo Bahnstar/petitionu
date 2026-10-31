@@ -75,7 +75,7 @@ The main choices:
 ### Petitions
 
 33. As a student with a complete profile, I want to create a campus petition with a title, description, category, goal, optional deadline, comment setting and anonymity setting, so that I can rally support.
-34. As a student, I want a petition's deadline to have to be in the future, so that I don't publish something already expired.
+34. As a student, I want a petition's deadline to have to be in the future, so that I don't publish something already expired. Editing a petition past its deadline without changing the deadline is allowed.
 35. As a student, I want unconfirmed or incomplete accounts to get a clear message instead of being allowed to create or sign petitions, so that I understand what's required.
 36. As a student, I want my petition tied to my campus automatically, so that the right community sees it.
 37. As a signed-in student, I want to browse public petitions with signature counts, days left, whether they're trending, and whether I've signed, so that I can find causes to support.

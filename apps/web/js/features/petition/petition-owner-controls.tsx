@@ -28,6 +28,14 @@ function localDeadline(value: Petition["deadline"]) {
   return new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }
 
+// The input holds minutes, so a stored deadline with seconds only survives an unedited form by
+// being left out of the edit. The key has to go too: `undefined` would be sent as `null`, which
+// clears the deadline.
+function deadlineChange(input: string, stored: Petition["deadline"]) {
+  if (input === localDeadline(stored)) return {}
+  return { deadline: input ? new Date(input).toISOString() : null }
+}
+
 export function PetitionOwnerControls({
   petition,
   canPublishUpdate,
@@ -292,7 +300,7 @@ export function PetitionOwnerControls({
                   title: edit.title.trim(),
                   description: edit.description.trim(),
                   goal: Number(edit.goal),
-                  deadline: edit.deadline ? new Date(edit.deadline).toISOString() : null,
+                  ...deadlineChange(edit.deadline, petition.deadline),
                   allowComments: edit.allowComments,
                   isAnonymous: edit.isAnonymous,
                 },

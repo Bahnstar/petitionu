@@ -133,7 +133,8 @@ describe("petitions", () => {
         [{ categoryId: "not-a-uuid" }, { field: "categoryId", message: "is invalid" }],
       ] as const) {
         const errors = expectErrors(
-          yield* author.browser.rpc((api) => api.createPetition({ ...input, ...change })),
+          // `goal: null` is outside the payload's type, for a caller that gets past it.
+          yield* author.browser.rpc((api) => api.createPetition({ ...input, ...change } as never)),
         )
         assert.deepStrictEqual(errors, [{ type: "invalid", ...expected }], JSON.stringify(change))
       }
@@ -468,6 +469,162 @@ describe("petitions", () => {
       assert.deepStrictEqual(
         expectData(yield* owner.browser.rpc((api) => api.getPublicPetitions())),
         [],
+      )
+    }),
+  )
+
+  it.live("an owner edits a petition past its deadline without changing the deadline", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const stored = "2026-01-02T03:04:05Z"
+      yield* updatePetitionRow(app, petition.id, { deadline: new Date(stored) })
+      const edit = (deadline: string) =>
+        owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, title: "Edited", deadline }),
+        )
+
+      // Deadlines are stored to the second, so anything in that second is the same deadline.
+      for (const unchanged of [stored, "2026-01-02T03:04:05.000Z", "2026-01-02T03:04:05.999Z"]) {
+        const edited = expectData(yield* edit(unchanged))
+        assert.strictEqual(edited.title, "Edited")
+        assert.deepStrictEqual(edited.deadline, new Date(stored))
+      }
+
+      for (const changed of ["2026-01-02T03:04:04.999Z", "2026-01-02T03:04:06Z"]) {
+        assert.deepStrictEqual(expectErrors(yield* edit(changed)), [
+          { type: "invalid", field: "deadline", message: "Choose a deadline in the future." },
+        ])
+      }
+      const later = new Date(Date.now() + 86_400_000)
+      later.setUTCMilliseconds(0)
+      const moved = expectData(yield* edit(later.toISOString()))
+      assert.deepStrictEqual(moved.deadline, later)
+    }),
+  )
+
+  it.live("a goal fails with one message, the same on create and update", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const category = yield* insertCategory(app)
+      const petition = yield* insertPetition(app, { userId: owner.id, goal: 7 })
+      const input = { title: "A title", description: "Better", categoryId: category.id }
+
+      for (const [goal, message] of [
+        [0, "must be more than or equal to 1"],
+        [-1, "must be more than or equal to 1"],
+        [0.5, "is invalid"],
+        [-1.5, "is invalid"],
+        [Number.NaN, "is invalid"],
+        [Number.POSITIVE_INFINITY, "is invalid"],
+        [2 ** 53, "is invalid"],
+        [null, "must be present"],
+      ] as const) {
+        const expected = [{ type: "invalid", field: "goal", message }]
+        // `null` is outside the payload's type, for a caller that gets past it.
+        const created = yield* owner.browser.rpc((api) =>
+          api.createPetition({ ...input, goal } as never),
+        )
+        assert.deepStrictEqual(expectErrors(created), expected, String(goal))
+        const updated = yield* owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, goal } as never),
+        )
+        assert.deepStrictEqual(expectErrors(updated), expected, String(goal))
+      }
+      const [row] = yield* app.sql<{ goal: string }>`
+        SELECT goal::text FROM petition WHERE id = ${petition.id}`
+      assert.strictEqual(row!.goal, "7")
+    }),
+  )
+
+  it.live("allowComments and isAnonymous are booleans; null never reaches the column", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const category = yield* insertCategory(app)
+      const petition = yield* insertPetition(app, { userId: owner.id, isAnonymous: true })
+      yield* updatePetitionRow(app, petition.id, { allow_comments: false })
+      const nulls = { allowComments: null, isAnonymous: null } as object
+      const rejected = [
+        { type: "invalid", field: "allowComments", message: "is invalid" },
+        { type: "invalid", field: "isAnonymous", message: "is invalid" },
+      ]
+
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.createPetition({
+              title: "A title",
+              description: "Better",
+              categoryId: category.id,
+              ...nulls,
+            }),
+          ),
+        ),
+        rejected,
+      )
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) => api.updatePetition({ id: petition.id, ...nulls })),
+        ),
+        rejected,
+      )
+
+      // Without the shared client, `null` is `undefined` on the wire: an omitted field.
+      const sent = yield* owner.browser.rawRpc("updatePetition", {
+        id: petition.id,
+        allowComments: null,
+        isAnonymous: null,
+      })
+      assert.strictEqual(sent._tag, "Success")
+      const [row] = yield* app.sql<{
+        allow_comments: boolean | null
+        is_anonymous: boolean | null
+      }>`
+        SELECT allow_comments, is_anonymous FROM petition WHERE id = ${petition.id}`
+      assert.deepStrictEqual({ ...row }, { allow_comments: false, is_anonymous: true })
+    }),
+  )
+
+  it.live("a deadline that isn't a date fails on update too", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      for (const deadline of ["", "not a date", "2026-13-45"]) {
+        assert.deepStrictEqual(
+          expectErrors(
+            yield* owner.browser.rpc((api) => api.updatePetition({ id: petition.id, deadline })),
+          ),
+          [{ type: "invalid", field: "deadline", message: "is invalid" }],
+          deadline,
+        )
+      }
+    }),
+  )
+
+  it.live("a petition's first deadline must be in the future, like any other change", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      const cleared = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, title: "Edited", deadline: null }),
+        ),
+      )
+      assert.strictEqual(cleared.deadline, null)
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.updatePetition({ id: petition.id, deadline: "2026-01-02T03:04:05Z" }),
+          ),
+        ),
+        [{ type: "invalid", field: "deadline", message: "Choose a deadline in the future." }],
       )
     }),
   )
