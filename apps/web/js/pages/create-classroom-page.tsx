@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { api } from "@/lib/api"
+import { serverError } from "@/lib/api-errors"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useAuth } from "../contexts/auth-context"
@@ -46,7 +47,7 @@ export default function CreateClassroomPage() {
       })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to create classroom")
+        throw serverError(result.errors, "Failed to create classroom")
       }
 
       return result.data

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import type { MembershipDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { serverError } from "@/lib/api-errors"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -33,7 +34,7 @@ export function MemberList({
     mutationFn: async (membershipId: string) => {
       const result = await api.approveMembership({ id: membershipId })
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to approve membership")
+        throw serverError(result.errors, "Failed to approve membership")
       }
       return result.data
     },
@@ -50,7 +51,7 @@ export function MemberList({
     mutationFn: async (membershipId: string) => {
       const result = await api.removeFromClassroom({ id: membershipId })
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to remove member")
+        throw serverError(result.errors, "Failed to remove member")
       }
       return result.data
     },
@@ -66,7 +67,7 @@ export function MemberList({
     mutationFn: async (membershipId: string) => {
       const result = await api.promoteToTa({ id: membershipId })
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to promote to TA")
+        throw serverError(result.errors, "Failed to promote to TA")
       }
       return result.data
     },
@@ -82,7 +83,7 @@ export function MemberList({
     mutationFn: async (membershipId: string) => {
       const result = await api.demoteToStudent({ id: membershipId })
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to demote to student")
+        throw serverError(result.errors, "Failed to demote to student")
       }
       return result.data
     },

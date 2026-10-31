@@ -6,6 +6,7 @@ import { Link } from "react-router-dom"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
+import { ApiError, serverError } from "@/lib/api-errors"
 import { ClassroomList } from "../features/classroom/classroom-list"
 import { JoinClassroomForm } from "../features/classroom/join-classroom-form"
 import { useAuth } from "../contexts/auth-context"
@@ -69,7 +70,7 @@ export default function ClassroomsPage() {
       const result = await api.getMyClassrooms(showArchived ? range : { ...range, archived: false })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to fetch classrooms")
+        throw serverError(result.errors, "Failed to fetch classrooms")
       }
 
       return result.data
@@ -82,7 +83,7 @@ export default function ClassroomsPage() {
     enabled: !!currentUserId && classroomsQuery.data?.count === 0 && !showArchived,
     queryFn: async () => {
       const result = await api.getMyClassrooms({ limit: 1 })
-      if (!result.success) throw new Error("Couldn’t check your classrooms")
+      if (!result.success) throw new ApiError(result.errors, "Couldn’t check your classrooms")
       return result.data.count
     },
   })

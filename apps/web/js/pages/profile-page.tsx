@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
+import { serverError } from "@/lib/api-errors"
 import { useAuth, type CurrentUser } from "../contexts/auth-context"
 import { AuthLink } from "../components/auth-link"
 import { useDocumentTitle } from "../hooks/use-document-title"
@@ -64,10 +65,7 @@ function ProfileForm({ user }: { user: CurrentUser }) {
         graduationYear: graduationYear ? Number(graduationYear) : null,
       })
       if (result.success === false) {
-        throw new Error(
-          result.errors.map((error) => error.message).join(" ") ||
-            "Your profile could not be saved. Try again.",
-        )
+        throw serverError(result.errors, "Your profile could not be saved. Try again.")
       }
       return result.data
     },

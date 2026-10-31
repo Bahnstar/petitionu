@@ -15,6 +15,7 @@ import {
 import { PetitionCard } from "../features/petition/petition-card"
 import type { PetitionDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { ApiError } from "@/lib/api-errors"
 import { useQuery, type UseQueryResult } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ROUTES } from "@/lib/routes"
@@ -265,7 +266,7 @@ function AuthenticatedBrowsePetitionsPage() {
     queryFn: async () => {
       const result = await api.getPetitions({ organizationId: organizationId || null })
       if (result.success === false)
-        throw new Error("We couldn't load the petitions. Please try again.")
+        throw new ApiError(result.errors, "We couldn't load the petitions. Please try again.")
       return result.data
     },
   })
@@ -274,7 +275,8 @@ function AuthenticatedBrowsePetitionsPage() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const result = await api.getCategories()
-      if (result.success === false) throw new Error("We couldn't load the categories.")
+      if (result.success === false)
+        throw new ApiError(result.errors, "We couldn't load the categories.")
       return result.data
     },
   })

@@ -7,6 +7,7 @@ import { MyClassrooms } from "../features/classroom/my-classrooms"
 import { Button } from "@/components/ui/button"
 import type { UserWithActivity } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { ApiError } from "@/lib/api-errors"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "../contexts/auth-context"
@@ -57,7 +58,10 @@ export default function Dashboard() {
         result.errors.forEach((error) => {
           console.error("API Error:", error.message, error.field, error.type)
         })
-        throw new Error(`Failed to fetch user: ${result.errors.map((e) => e.message).join(", ")}`)
+        throw new ApiError(
+          result.errors,
+          `Failed to fetch user: ${result.errors.map((e) => e.message).join(", ")}`,
+        )
       }
 
       // Only the caller's own record carries activity, so anything else is unexpected.

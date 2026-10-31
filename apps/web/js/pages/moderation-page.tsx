@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { ContentReportOutcome } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { serverError } from "@/lib/api-errors"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
@@ -22,8 +23,7 @@ function ReportResolution({ id, onResolved }: { id: string; onResolved: () => vo
         hideContent: outcome === "resolved" && hideContent,
         resolutionNote,
       })
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
     onSuccess: onResolved,
@@ -101,8 +101,7 @@ function SupportResolution({ id, onResolved }: { id: string; onResolved: () => v
   const resolve = useMutation({
     mutationFn: async () => {
       const result = await api.resolveSupportRequest({ id, resolutionNote })
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
     onSuccess: onResolved,
@@ -253,8 +252,7 @@ export default function ModerationPage() {
     enabled: isOperator && tab === "reports",
     queryFn: async () => {
       const result = await api.getContentReports(showReviewed ? {} : { state: "open" })
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
   })
@@ -263,8 +261,7 @@ export default function ModerationPage() {
     enabled: isOperator && tab === "support",
     queryFn: async () => {
       const result = await api.getSupportRequests(showReviewed ? {} : { state: "open" })
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
   })

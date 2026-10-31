@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { ContentReportReason } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { serverError } from "@/lib/api-errors"
 import { useAuth } from "../../contexts/auth-context"
 
 const reasons: { value: ContentReportReason; label: string }[] = [
@@ -30,8 +31,7 @@ export function ReportContent({
   const report = useMutation({
     mutationFn: async () => {
       const result = await api.createContentReport({ petitionId, commentId, reason, details })
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
   })

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { api } from "@/lib/api"
+import { ApiError } from "@/lib/api-errors"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { ROUTES } from "@/lib/routes"
@@ -57,7 +58,8 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     queryFn: async () => {
       const result = await api.getClassroomById({ id: classroomId! })
       if (result.success === false)
-        throw new Error(
+        throw new ApiError(
+          result.errors,
           "This classroom could not be loaded. Return to the classroom and try again.",
         )
       return result.data
@@ -80,7 +82,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     queryFn: async () => {
       const result = await api.getCategories()
       if (result.success === false)
-        throw new Error("We couldn't load the categories. Please try again.")
+        throw new ApiError(result.errors, "We couldn't load the categories. Please try again.")
       return result.data
     },
   })

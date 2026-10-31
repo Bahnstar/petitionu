@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { SupportRequestKind } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { ApiError, serverError } from "@/lib/api-errors"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
@@ -174,7 +175,7 @@ export default function SupportPage() {
     queryFn: async () => {
       const result = await api.supportContact()
       if (result.success === false)
-        throw new Error("The support address could not be loaded. Try again.")
+        throw new ApiError(result.errors, "The support address could not be loaded. Try again.")
       return result.data
     },
   })
@@ -183,16 +184,14 @@ export default function SupportPage() {
     enabled: !!user,
     queryFn: async () => {
       const result = await api.getMySupportRequests()
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
   })
   const submit = useMutation({
     mutationFn: async () => {
       const result = await api.createSupportRequest({ kind, message })
-      if (result.success === false)
-        throw new Error(result.errors.map((error) => error.message).join(" "))
+      if (result.success === false) throw serverError(result.errors)
       return result.data
     },
     onSuccess: async () => {

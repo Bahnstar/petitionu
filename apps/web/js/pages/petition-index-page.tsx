@@ -7,6 +7,7 @@ import { formatDate, plural } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
 import { isUuid, type PetitionDetailDto, type SharedPetitionDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { ApiError } from "@/lib/api-errors"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { PetitionComment } from "../features/petition/petition-comment"
 import { Button } from "@/components/ui/button"
@@ -28,7 +29,7 @@ async function loadPetition(id: string): Promise<Petition | null> {
   const result = await api.getPetitionById({ id })
   if (result.success === false) {
     if (result.errors.some((error) => error.type === "not_found")) return null
-    throw new Error("This petition couldn't be loaded. Please try again.")
+    throw new ApiError(result.errors, "This petition couldn't be loaded. Please try again.")
   }
   return result.data
 }

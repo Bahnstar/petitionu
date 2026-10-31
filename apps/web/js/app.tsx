@@ -19,36 +19,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ErrorBoundary } from "../components/ui/error-boundary"
 import { AuthProvider } from "./contexts/auth-context"
 import { DEFAULT_PATH } from "@/lib/routes"
+import { retryQuery } from "@/lib/api-errors"
 import { authRoutes } from "./pages/auth/auth-routes"
-
-function hasHttpStatus(error: Error): error is Error & { status: number } {
-  return error instanceof Error && "status" in error && typeof error.status === "number"
-}
-
-function hasHttpResponse(error: Error): error is Error & { response: { status: number } } {
-  return (
-    error instanceof Error &&
-    "response" in error &&
-    error.response !== null &&
-    typeof error.response === "object" &&
-    "status" in error.response &&
-    typeof error.response.status === "number"
-  )
-}
 
 // Create a client instance with proper configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: (failureCount, error) => {
-        // Don't retry on 4xx client errors
-        let status: number | undefined
-        if (hasHttpStatus(error)) status = error.status
-        else if (hasHttpResponse(error)) status = error.response.status
-        if (status !== undefined && status >= 400 && status < 500) return false
-        return failureCount < 3
-      },
+      retry: retryQuery,
       refetchOnWindowFocus: false,
     },
     mutations: {
