@@ -11,6 +11,7 @@ import { Cause, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { SqlClient, SqlSchema } from "effect/sql"
 import { Auth } from "./Auth.ts"
+import { limitBody } from "./BodyLimit.ts"
 import { Csrf } from "./Csrf.ts"
 import { internalError } from "./RpcDefects.ts"
 
@@ -31,6 +32,7 @@ const ActorRow = Schema.Struct({
  * Guards `POST /rpc` and resolves the caller. Runs on the real HTTP request, before the body
  * is decoded, so headers a client puts in RPC messages can't affect it:
  * - rejects the request with 403 unless it passes the CSRF checks;
+ * - rejects it with 413 if its body is too large (see `limitBody`);
  * - provides `CurrentActor`: the user of the Better Auth session in the request's cookie, or
  *   a guest.
  */
@@ -77,7 +79,7 @@ export const RpcRequestGuard = HttpRouter.middleware(
           return HttpServerResponse.jsonUnsafe({ error: "Forbidden" }, { status: 403 })
         }
         const actor = Option.isNone(session) ? guest : yield* loadActor(session.value.userId)
-        return yield* Effect.provideService(httpEffect, CurrentActor, actor)
+        return yield* Effect.provideService(limitBody(httpEffect), CurrentActor, actor)
       })
   }),
 ).layer
