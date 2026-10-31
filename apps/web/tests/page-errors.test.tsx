@@ -368,3 +368,59 @@ test("create petition still opens for a well-formed classroom id", async () => {
   expect(container.querySelector("#create-petition-form")).not.toBe(null)
   expect(calls).toContain("getClassroomById")
 })
+
+function HeaderOnly() {
+  return <Header />
+}
+
+async function signOutClick() {
+  const container = await render(HeaderOnly, "/somewhere")
+  await act(() => button(container, /^Sign out/).click())
+  await settle()
+  return container
+}
+
+test("signing out reloads the CSRF token, refreshes the user and goes home", async () => {
+  const container = await signOutClick()
+
+  expect(document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")).toBe(
+    "fresh-token",
+  )
+  expect(calls.filter((tag) => tag === "getMe").length).toBe(2)
+  expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
+  expect(container.querySelector('[role="alert"]')).toBe(null)
+})
+
+for (const [name, response] of [
+  ["the server refuses", () => Response.json({ message: "No" }, { status: 500 })],
+  [
+    "the network fails",
+    () => {
+      throw new TypeError("Failed to fetch")
+    },
+  ],
+] as const) {
+  test(`a failed sign-out says so and stays put when ${name}`, async () => {
+    signOut = response
+    const container = await signOutClick()
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "couldn’t sign you out",
+    )
+    expect(container.querySelector("#where")?.textContent).toBe("/somewhere")
+    expect(document.querySelector('meta[name="csrf-token"]')).toBe(null)
+    expect(button(container, /^Sign out/)).toBeTruthy()
+  })
+}
+
+test("signing out again after a failure works", async () => {
+  signOut = () => Response.json({ message: "No" }, { status: 500 })
+  const container = await signOutClick()
+
+  signOut = () => Response.json({ success: true })
+  await act(() => button(container, /^Sign out/).click())
+  await settle()
+
+  expect(container.querySelector('[role="alert"]')).toBe(null)
+  expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
+})

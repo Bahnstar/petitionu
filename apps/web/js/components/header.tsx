@@ -11,6 +11,7 @@ export function Header({ landing = false }: { landing?: boolean }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [menuPath, setMenuPath] = useState<string | null>(null)
+  const [signOutFailedAt, setSignOutFailedAt] = useState<string | null>(null)
   const mobileOpen = menuPath === pathname
   if (menuPath !== null && menuPath !== pathname) setMenuPath(null)
   const menuButton = useRef<HTMLButtonElement>(null)
@@ -65,7 +66,13 @@ export function Header({ landing = false }: { landing?: boolean }) {
 
   const handleSignOut = async () => {
     setMenuPath(null)
-    await signOut()
+    setSignOutFailedAt(null)
+    try {
+      await signOut()
+    } catch {
+      setSignOutFailedAt(pathname)
+      return
+    }
     navigate(ROUTES.home)
   }
 
@@ -93,89 +100,97 @@ export function Header({ landing = false }: { landing?: boolean }) {
   }
 
   return (
-    <header id={landing ? "landing-header" : "app-header"} className="site-header">
-      <div className="site-header-row">
-        <Link to={ROUTES.home} className="site-brand" aria-label="PetitionU home">
-          PetitionU<span aria-hidden="true">✳</span>
-        </Link>
-        <nav
-          id="main-navigation"
-          aria-label="Main navigation"
-          className="site-navigation"
-          data-open={mobileOpen}
-        >
-          {navigation}
-        </nav>
-        <div className="site-header-actions">
-          <div className="site-header-account">{renderAccountLinks()}</div>
-          <Button asChild className="site-header-cta">
+    <>
+      <header id={landing ? "landing-header" : "app-header"} className="site-header">
+        <div className="site-header-row">
+          <Link to={ROUTES.home} className="site-brand" aria-label="PetitionU home">
+            PetitionU<span aria-hidden="true">✳</span>
+          </Link>
+          <nav
+            id="main-navigation"
+            aria-label="Main navigation"
+            className="site-navigation"
+            data-open={mobileOpen}
+          >
+            {navigation}
+          </nav>
+          <div className="site-header-actions">
+            <div className="site-header-account">{renderAccountLinks()}</div>
+            <Button asChild className="site-header-cta">
+              <Link
+                id={landing ? "landing-header-create" : "header-create-petition"}
+                to={ROUTES.createPetition}
+              >
+                Start a petition
+              </Link>
+            </Button>
+            <button
+              id="navigation-toggle"
+              ref={menuButton}
+              type="button"
+              onClick={() => setMenuPath(mobileOpen ? null : pathname)}
+              aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+              aria-expanded={mobileOpen}
+              aria-controls="main-navigation mobile-menu"
+              className="site-menu-toggle"
+            >
+              {mobileOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+            </button>
+          </div>
+        </div>
+        {mobileOpen && (
+          <nav id="mobile-menu" aria-label="Account navigation" className="site-mobile-account">
             <Link
-              id={landing ? "landing-header-create" : "header-create-petition"}
               to={ROUTES.createPetition}
+              className="site-nav-link"
+              onClick={() => setMenuPath(null)}
             >
               Start a petition
             </Link>
-          </Button>
-          <button
-            id="navigation-toggle"
-            ref={menuButton}
-            type="button"
-            onClick={() => setMenuPath(mobileOpen ? null : pathname)}
-            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-            aria-expanded={mobileOpen}
-            aria-controls="main-navigation mobile-menu"
-            className="site-menu-toggle"
-          >
-            {mobileOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
-          </button>
-        </div>
-      </div>
-      {mobileOpen && (
-        <nav id="mobile-menu" aria-label="Account navigation" className="site-mobile-account">
-          <Link
-            to={ROUTES.createPetition}
-            className="site-nav-link"
-            onClick={() => setMenuPath(null)}
-          >
-            Start a petition
-          </Link>
-          {!isLoading &&
-            (isAuthenticated && user ? (
-              <>
-                <Link
-                  to={ROUTES.dashboard}
-                  className="site-nav-link"
-                  onClick={() => setMenuPath(null)}
-                >
-                  My dashboard
-                </Link>
-                {landing && (
+            {!isLoading &&
+              (isAuthenticated && user ? (
+                <>
                   <Link
-                    to={ROUTES.profile}
+                    to={ROUTES.dashboard}
                     className="site-nav-link"
                     onClick={() => setMenuPath(null)}
                   >
-                    Your profile
+                    My dashboard
                   </Link>
-                )}
-                <button
-                  type="button"
-                  className="site-nav-link cursor-pointer"
-                  onClick={handleSignOut}
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <>
-                <AuthLink className="site-nav-link">Sign in</AuthLink>
-                <AuthLink page="/register" className="site-nav-link">
-                  Create an account
-                </AuthLink>
-              </>
-            ))}
-        </nav>
+                  {landing && (
+                    <Link
+                      to={ROUTES.profile}
+                      className="site-nav-link"
+                      onClick={() => setMenuPath(null)}
+                    >
+                      Your profile
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    className="site-nav-link cursor-pointer"
+                    onClick={handleSignOut}
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <AuthLink className="site-nav-link">Sign in</AuthLink>
+                  <AuthLink page="/register" className="site-nav-link">
+                    Create an account
+                  </AuthLink>
+                </>
+              ))}
+          </nav>
+        )}
+      </header>
+      {signOutFailedAt === pathname && (
+        <p role="alert" className="site-sign-out-error">
+          We couldn’t sign you out. You’re still signed in here, so check your connection and try
+          again.
+        </p>
       )}
-    </header>
+    </>
   )
 }

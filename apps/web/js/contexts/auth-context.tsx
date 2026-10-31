@@ -14,6 +14,7 @@ interface AuthContextType {
   refetch: () => void
   /** Call after any sign-in, sign-out or account change: reloads the CSRF token and the user. */
   afterAuthChange: () => Promise<void>
+  /** Rejects if the session may still be live or this page couldn't catch up. Safe to repeat. */
   signOut: () => Promise<void>
 }
 
@@ -52,8 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await queryClient.invalidateQueries()
   }
 
+  // Better Auth resolves a refused sign-out with `error`, so a failure has to be thrown here.
   const signOut = async () => {
-    await authClient.signOut()
+    const { error } = await authClient.signOut()
+    if (error) throw new Error(error.message || "Sign-out failed")
     await afterAuthChange()
   }
 
