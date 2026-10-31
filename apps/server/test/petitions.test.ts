@@ -472,6 +472,60 @@ describe("petitions", () => {
     }),
   )
 
+  it.live("an owner edits a petition past its deadline without changing the deadline", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      const stored = "2026-01-02T03:04:05Z"
+      yield* updatePetitionRow(app, petition.id, { deadline: new Date(stored) })
+      const edit = (deadline: string) =>
+        owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, title: "Edited", deadline }),
+        )
+
+      // Deadlines are stored to the second, so anything in that second is the same deadline.
+      for (const unchanged of [stored, "2026-01-02T03:04:05.000Z", "2026-01-02T03:04:05.999Z"]) {
+        const edited = expectData(yield* edit(unchanged))
+        assert.strictEqual(edited.title, "Edited")
+        assert.deepStrictEqual(edited.deadline, new Date(stored))
+      }
+
+      for (const changed of ["2026-01-02T03:04:04.999Z", "2026-01-02T03:04:06Z"]) {
+        assert.deepStrictEqual(expectErrors(yield* edit(changed)), [
+          { type: "invalid", field: "deadline", message: "Choose a deadline in the future." },
+        ])
+      }
+      const later = new Date(Date.now() + 86_400_000)
+      later.setUTCMilliseconds(0)
+      const moved = expectData(yield* edit(later.toISOString()))
+      assert.deepStrictEqual(moved.deadline, later)
+    }),
+  )
+
+  it.live("a petition's first deadline must be in the future, like any other change", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+
+      const cleared = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.updatePetition({ id: petition.id, title: "Edited", deadline: null }),
+        ),
+      )
+      assert.strictEqual(cleared.deadline, null)
+      assert.deepStrictEqual(
+        expectErrors(
+          yield* owner.browser.rpc((api) =>
+            api.updatePetition({ id: petition.id, deadline: "2026-01-02T03:04:05Z" }),
+          ),
+        ),
+        [{ type: "invalid", field: "deadline", message: "Choose a deadline in the future." }],
+      )
+    }),
+  )
+
   it.live("classroom petitions need active membership and take the classroom's campus", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()

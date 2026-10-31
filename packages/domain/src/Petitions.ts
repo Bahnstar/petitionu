@@ -143,13 +143,14 @@ const checkGoal = (goal: number | null | undefined, required: boolean): Checked<
 const checkDeadline = (
   raw: string | null | undefined,
   now: Date,
+  stored: Date | null | undefined,
 ): Checked<Date | null | undefined> => {
   if (raw === null || raw === undefined) return { value: raw }
   const deadline = new Date(raw)
   if (Number.isNaN(deadline.getTime())) return { value: undefined, error: "is invalid" }
   // Deadlines are stored to the second, like Ash's `:utc_datetime`.
   deadline.setUTCMilliseconds(0)
-  if (deadline.getTime() <= now.getTime()) {
+  if (deadline.getTime() !== stored?.getTime() && deadline.getTime() <= now.getTime()) {
     return { value: deadline, error: "Choose a deadline in the future." }
   }
   return { value: deadline }
@@ -157,12 +158,17 @@ const checkDeadline = (
 
 /**
  * Checks what the payload schema can't: the goal (which defaults to 1000 on create) and the
- * deadline, which must be in the future. The title and description arrive checked and trimmed.
- * Omitted fields stay omitted in `value`.
+ * deadline, which must be in the future unless it's the `stored` one, as Ash only checked a
+ * changing deadline. The title and description arrive checked and trimmed. Omitted fields stay
+ * omitted in `value`.
  */
 export const validatePetitionInput = (
   input: PetitionInput,
-  options: { readonly mode: "create" | "update"; readonly now: Date },
+  options: {
+    readonly mode: "create" | "update"
+    readonly now: Date
+    readonly stored?: Date | null
+  },
 ):
   | { readonly ok: true; readonly value: NormalizedPetitionInput }
   | { readonly ok: false; readonly errors: ReadonlyArray<FieldError> } => {
@@ -174,7 +180,7 @@ export const validatePetitionInput = (
       creating && input.goal === undefined ? 1000 : input.goal,
       creating || input.goal !== undefined,
     ),
-    deadline: checkDeadline(input.deadline, options.now),
+    deadline: checkDeadline(input.deadline, options.now, options.stored),
     allowComments: { value: input.allowComments },
     isAnonymous: { value: input.isAnonymous },
   } satisfies Record<keyof NormalizedPetitionInput, Checked<unknown>>

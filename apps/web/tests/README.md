@@ -11,6 +11,8 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
 - `profile-password.test.tsx` (`bun run test:profile`): the profile page's password card in
   happy-dom with a stubbed `fetch`: the change form's own checks, Better Auth's wrong-password
   error, the CSRF reload after a change, and the reset link offered to accounts without one.
+- `petition-owner-controls.test.tsx` (`bun run test:owner-controls`): what the owner's edit form
+  sends in happy-dom: an unedited deadline stays out of the edit, even with seconds in it.
 - `ui-wording.test.tsx` (`bun run test:wording`): singular counts, and the petition card's
   status wording, with a victory never also reading as closed.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against

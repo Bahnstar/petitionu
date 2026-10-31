@@ -143,13 +143,13 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
 
     /**
      * Loads a petition the user may manage, locking it: `NotFound` unless the user can see it,
-     * `Forbidden` unless they wrote it or teach its classroom.
+     * `Forbidden` unless they wrote it or teach its classroom. `change` gets the stored deadline.
      */
-    const manage = <A, E, R>(id: string, change: (user: SignedIn) => Effect.Effect<A, E, R>) =>
+    const manage = <A, E, R>(id: string, change: (stored: Date | null) => Effect.Effect<A, E, R>) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        const [row] = yield* sql<{ canManage: boolean }>`
-          SELECT ${petitionManageable(sql, user, "p")} AS can_manage
+        const [row] = yield* sql<{ canManage: boolean; deadline: Date | null }>`
+          SELECT ${petitionManageable(sql, user, "p")} AS can_manage, p.deadline
           FROM petition p
           WHERE p.id = ${id} AND ${petitionVisible(sql, user, "p")}
           FOR UPDATE OF p
@@ -158,7 +158,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         if (!row.canManage) {
           return yield* new Forbidden({ message: "You can't manage this petition." })
         }
-        yield* change(user)
+        yield* change(row.deadline)
         return yield* getPetition(user, id).pipe(Effect.orDie)
       }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die))
 
@@ -210,9 +210,13 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       createClassroomPetition: ({ categoryId, classroomId, ...input }) =>
         create({ ...input, categoryId }, classroomId),
       updatePetition: ({ id, ...input }) =>
-        manage(id, () =>
+        manage(id, (stored) =>
           Effect.gen(function* () {
-            const checked = validatePetitionInput(input, { mode: "update", now: new Date() })
+            const checked = validatePetitionInput(input, {
+              mode: "update",
+              now: new Date(),
+              stored,
+            })
             if (!checked.ok) return yield* invalidFields(checked.errors)
             const columns: Record<string, unknown> = { ...checked.value }
             const set = Object.keys(columns).length > 0 ? sql`${sql.update(columns)},` : sql``
