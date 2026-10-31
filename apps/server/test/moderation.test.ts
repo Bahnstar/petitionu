@@ -37,6 +37,47 @@ const makeModeration = Effect.gen(function* () {
 })
 
 describe("content reports", () => {
+  it.live("a petition or comment with missing text can still be reported", () =>
+    Effect.gen(function* () {
+      const { app, reporter, admin, petition } = yield* makeModeration
+      yield* updatePetitionRow(app, petition.id, { title: null, description: null })
+
+      const report = expectData(
+        yield* reporter.browser.rpc((api) =>
+          api.createContentReport({ petitionId: petition.id, reason: "other" }),
+        ),
+      )
+      assert.deepInclude(report, {
+        petitionId: petition.id,
+        targetTitle: "Untitled petition",
+        targetText: "",
+      })
+
+      const [comment] = yield* app.sql<{ id: string }>`
+        INSERT INTO comment (petition_id, user_id, text)
+        VALUES (${petition.id}, ${reporter.id}, NULL)
+        RETURNING id
+      `.pipe(Effect.orDie)
+      const commentReport = expectData(
+        yield* reporter.browser.rpc((api) =>
+          api.createContentReport({ commentId: comment!.id, reason: "other" }),
+        ),
+      )
+      assert.deepInclude(commentReport, {
+        commentId: comment!.id,
+        targetTitle: "Untitled petition",
+        targetText: "",
+      })
+
+      // Both reach the moderation queue like any other report.
+      const queue = expectData(yield* admin.browser.rpc((api) => api.getContentReports({})))
+      assert.sameMembers(
+        queue.map((row) => row.id),
+        [report.id, commentReport.id],
+      )
+    }),
+  )
+
   it.live("report campus is derived, and only scoped operators resolve, once", () =>
     Effect.gen(function* () {
       const { app, school, reporter, admin, outsider, petition } = yield* makeModeration
