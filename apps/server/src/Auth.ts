@@ -35,6 +35,17 @@ const passwordConfirmation = (path: string, body: PasswordBody) => {
   return undefined
 }
 
+/** Endpoints a link's token signs in through; only the SPA's pages may call them. */
+const linkEndpoints = new Set(["/verify-email", "/magic-link/verify"])
+
+/**
+ * Whether a request is the app's own `fetch`. A crafted link, or one in user content, arrives as
+ * a navigation, an image or from another site, and could sign a browser into the attacker's
+ * account. A client that sends no fetch metadata is refused too, as nothing here needs one.
+ */
+const isAppFetch = (headers: Headers | undefined) =>
+  headers?.get("sec-fetch-site") === "same-origin" && headers.get("sec-fetch-dest") === "empty"
+
 /** Origin of the Vite dev server, trusted only when `NODE_ENV=development`. */
 export const devOrigin = "http://localhost:5173"
 
@@ -280,6 +291,9 @@ export class Auth extends Context.Service<
         },
         hooks: {
           before: createAuthMiddleware(async (ctx) => {
+            if (linkEndpoints.has(ctx.path) && !isAppFetch(ctx.headers)) {
+              throw new APIError("FORBIDDEN", { message: "Open the link from your email" })
+            }
             const confirmation = passwordConfirmation(ctx.path, (ctx.body ?? {}) as PasswordBody)
             if (confirmation && confirmation.password !== confirmation.confirmation) {
               throw new APIError("BAD_REQUEST", {
