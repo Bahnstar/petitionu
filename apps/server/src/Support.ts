@@ -8,9 +8,8 @@ import {
   SupportRequestState,
 } from "@petitionu/domain"
 import { Effect, Option, Schema } from "effect"
-import { SqlClient, SqlSchema, type Statement } from "effect/sql"
+import { SqlClient, SqlSchema } from "effect/sql"
 import { AppConfig } from "./Config.ts"
-import { maxListRows } from "./Database.ts"
 import { authorizeResolve, visibleSupportRequests } from "./SupportPolicy.ts"
 
 /** Used outside production when `SUPPORT_EMAIL` isn't set, as the Phoenix app did. */
@@ -40,18 +39,14 @@ export const SupportHandlers = SupportRpcs.toLayer(
       execute: (id) => sql`SELECT ${columns} FROM support_requests r WHERE r.id = ${id}`,
     })
 
-    const list = (
-      actor: SignedIn,
-      filter: ReturnType<typeof visibleSupportRequests>,
-      page: Statement.Fragment = sql``,
-    ) =>
+    const list = (actor: SignedIn, filter: ReturnType<typeof visibleSupportRequests>) =>
       SqlSchema.findAll({
         Request: Schema.Void,
         Result: Schema.toType(SupportRequest),
         execute: () => sql`
           SELECT ${columns} FROM support_requests r
           WHERE ${visibleSupportRequests(sql, actor, "r")} AND ${filter}
-          ORDER BY r.inserted_at DESC, r.id DESC ${page}
+          ORDER BY r.inserted_at DESC, r.id DESC
         `,
       })(undefined)
 
@@ -79,7 +74,7 @@ export const SupportHandlers = SupportRpcs.toLayer(
         }),
       getMySupportRequests: () =>
         Effect.flatMap(CurrentUser, (actor) =>
-          list(actor, sql`r.user_id = ${actor.id}`, sql`LIMIT ${maxListRows}`).pipe(Effect.orDie),
+          list(actor, sql`r.user_id = ${actor.id}`).pipe(Effect.orDie),
         ),
       getSupportRequests: ({ state }) =>
         Effect.flatMap(CurrentUser, (actor) =>

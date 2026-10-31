@@ -35,10 +35,16 @@ const makeWorld = Effect.gen(function* () {
       SELECT ${petition.id}, ${user.id}, 'c' || n FROM ${series}`,
     app.sql`INSERT INTO update (petition_id, title, body)
       SELECT ${petition.id}, 'u' || n, 'b' FROM ${series}`,
+    app.sql`INSERT INTO content_reports (target_title, target_text, reason, petition_id,
+        reporter_id)
+      SELECT 't', 't', 'other', ${petition.id}, ${user.id} FROM ${series}`,
     app.sql`INSERT INTO support_requests (requester_email, kind, message, user_id)
       SELECT ${user.email}, 'support', 'm' || n, ${user.id} FROM ${series}`,
     app.sql`INSERT INTO petition (title, description, user_id, organization_id)
       SELECT 'Petition ' || n, 'd', ${user.id}, ${school.id} FROM ${series}`,
+    app.sql`INSERT INTO petition (title, description, user_id, organization_id, classroom_id)
+      SELECT 'Class petition ' || n, 'd', ${user.id}, ${school.id}, ${classroom.id}
+      FROM ${series}`,
     app.sql`INSERT INTO users (email, confirmed_at, email_verified, organization_id)
       SELECT 'member' || n || '@school.edu', now(), true, ${school.id} FROM ${series}`,
   ]
@@ -55,7 +61,7 @@ const makeWorld = Effect.gen(function* () {
 })
 
 describe("list limits", () => {
-  it.live("lists the UI doesn't need whole stop at the cap", () =>
+  it.live("lists the web app doesn't call stop at the cap", () =>
     Effect.gen(function* () {
       const { user, petition, classroom } = yield* makeWorld
       const count = <A>(call: (api: ApiClient) => Promise<RpcResult<ReadonlyArray<A>>>) =>
@@ -67,7 +73,6 @@ describe("list limits", () => {
       const petitionId = petition.id
       const classroomId = classroom.id
       const lengths = {
-        getCategories: yield* count((api) => api.getCategories()),
         getOrganizations: yield* count((api) => api.getOrganizations()),
         getUsers: yield* count((api) => api.getUsers()),
         getPreferences: yield* count((api) => api.getPreferences()),
@@ -80,7 +85,6 @@ describe("list limits", () => {
         getUpdates: yield* count((api) => api.getUpdates({ petitionId })),
         getUpdatesForPetition: yield* count((api) => api.getUpdatesForPetition({ petitionId })),
         getPublicPetitions: yield* count((api) => api.getPublicPetitions()),
-        getMySupportRequests: yield* count((api) => api.getMySupportRequests()),
       }
       for (const [procedure, length] of Object.entries(lengths)) {
         assert.strictEqual(length, cap, procedure)
@@ -88,32 +92,61 @@ describe("list limits", () => {
     }),
   )
 
-  it.live("getMyClassrooms caps a request with no limit and says what it held back", () =>
-    Effect.gen(function* () {
-      const { user } = yield* makeWorld
-      const page = yield* user.browser
-        .rpc((api) => api.getMyClassrooms({}))
-        .pipe(Effect.flatMap(ok))
-      assert.lengthOf(page.results, cap)
-      assert.deepStrictEqual(
-        { count: page.count, limit: page.limit, hasMore: page.hasMore },
-        { count: cap + 2, limit: cap, hasMore: true },
-      )
-    }),
-  )
-
-  it.live("lists the UI shows whole stay complete", () =>
+  it.live("lists the web app treats as complete stay complete", () =>
     Effect.gen(function* () {
       const { user, classroom } = yield* makeWorld
       const classroomId = classroom.id
-      const petitions = yield* user.browser
-        .rpc((api) => api.getPetitions({}))
-        .pipe(Effect.flatMap(ok))
-      const roster = yield* user.browser
-        .rpc((api) => api.getMembershipsForClassroom({ classroomId }))
-        .pipe(Effect.flatMap(ok))
-      assert.lengthOf(petitions, cap + 2)
-      assert.lengthOf(roster, cap + 1)
+      const count = <A>(call: (api: ApiClient) => Promise<RpcResult<ReadonlyArray<A>>>) =>
+        user.browser.rpc(call).pipe(
+          Effect.flatMap(ok),
+          Effect.map((rows) => rows.length),
+        )
+
+      const lengths = {
+        getPetitions: yield* count((api) => api.getPetitions({})),
+        getCategories: yield* count((api) => api.getCategories()),
+        getClassroomPetitions: yield* count((api) => api.getClassroomPetitions({ classroomId })),
+        getMembershipsForClassroom: yield* count((api) =>
+          api.getMembershipsForClassroom({ classroomId }),
+        ),
+        getContentReports: yield* count((api) => api.getContentReports({})),
+        getSupportRequests: yield* count((api) => api.getSupportRequests({})),
+        getMySupportRequests: yield* count((api) => api.getMySupportRequests()),
+      }
+      for (const [procedure, length] of Object.entries(lengths)) {
+        assert.isAbove(length, cap, procedure)
+      }
+    }),
+  )
+
+  it.live("getMyClassrooms is complete unless the caller asks for a page, which is capped", () =>
+    Effect.gen(function* () {
+      const { user } = yield* makeWorld
+      const page = (input: { readonly limit?: number }) =>
+        user.browser
+          .rpc((api) => api.getMyClassrooms(input))
+          .pipe(
+            Effect.flatMap(ok),
+            Effect.map(({ results, count, limit, hasMore }) => ({
+              rows: results.length,
+              count,
+              limit,
+              hasMore,
+            })),
+          )
+
+      assert.deepStrictEqual(yield* page({}), {
+        rows: cap + 2,
+        count: cap + 2,
+        limit: null,
+        hasMore: false,
+      })
+      assert.deepStrictEqual(yield* page({ limit: cap * 2 }), {
+        rows: cap,
+        count: cap + 2,
+        limit: cap,
+        hasMore: true,
+      })
     }),
   )
 })

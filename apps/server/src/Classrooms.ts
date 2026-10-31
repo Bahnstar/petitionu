@@ -342,9 +342,14 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             classroomVisible(sql, user.id),
             archived === undefined ? sql`TRUE` : sql`c.archived = ${archived}`,
           ])
-          const pageLimit = Math.min(Math.max(Math.trunc(limit ?? maxListRows), 1), maxListRows)
+          const pageLimit =
+            limit === undefined ? null : Math.min(Math.max(Math.trunc(limit), 1), maxListRows)
           const pageOffset = Math.max(Math.trunc(offset ?? 0), 0)
-          const results = yield* listClassrooms(where, sql`LIMIT ${pageLimit} OFFSET ${pageOffset}`)
+          const page =
+            pageLimit === null
+              ? sql`OFFSET ${pageOffset}`
+              : sql`LIMIT ${pageLimit} OFFSET ${pageOffset}`
+          const results = yield* listClassrooms(where, page)
           const [total] = yield* sql<{ count: number }>`
             SELECT count(*)::int AS count FROM classrooms c WHERE ${where}`.pipe(Effect.orDie)
           const count = total!.count

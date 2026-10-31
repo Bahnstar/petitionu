@@ -79,9 +79,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
     const categories = SqlSchema.findAll({
       Request: Schema.Void,
       Result: CategoryDto,
-      execute: () => sql`
-        SELECT id, name, description, color FROM category ORDER BY name, id LIMIT ${maxListRows}
-      `,
+      execute: () => sql`SELECT id, name, description, color FROM category ORDER BY name, id`,
     })
 
     const categoryExists = (id: string) =>
