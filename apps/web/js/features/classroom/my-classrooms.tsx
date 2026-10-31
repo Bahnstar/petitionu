@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { ClassroomDto } from "@petitionu/domain"
-import { api } from "@/lib/api"
+import { api, serverError } from "@/lib/api"
 import { ROUTES } from "@/lib/routes"
 import { plural } from "@/lib/utils"
 
@@ -23,7 +23,7 @@ export function MyClassrooms({ limit = 3, currentUserId }: MyClassroomsProps) {
       const result = await api.getMyClassrooms({})
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to fetch classrooms")
+        throw serverError(result.errors, "Failed to fetch classrooms")
       }
 
       return result.data.results

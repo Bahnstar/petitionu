@@ -4,13 +4,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, Link } from "react-router-dom"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { api } from "@/lib/api"
+import { api, serverError } from "@/lib/api"
+import { formErrors } from "@/lib/form-errors"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { useFocusFirstInvalid } from "../hooks/use-focus-first-invalid"
 import { useAuth } from "../contexts/auth-context"
 
 export default function CreateClassroomPage() {
@@ -25,13 +28,12 @@ export default function CreateClassroomPage() {
     description: "",
     allowStudentPetitions: true,
   })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [errors, setErrors] = useState<Partial<Record<"name" | "description" | "general", string>>>(
+    {},
+  )
+  const form = useRef<HTMLFormElement>(null)
   const nameInput = useRef<HTMLInputElement>(null)
   const errorSummary = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (errors.name) nameInput.current?.focus()
-  }, [errors.name])
 
   useEffect(() => {
     if (errors.general) errorSummary.current?.focus()
@@ -46,7 +48,7 @@ export default function CreateClassroomPage() {
       })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to create classroom")
+        throw serverError(result.errors, "Failed to create classroom")
       }
 
       return result.data
@@ -56,22 +58,18 @@ export default function CreateClassroomPage() {
       navigate(ROUTES.classroom(data.id))
     },
     onError: (err: Error) => {
-      setErrors({ general: err.message })
+      const { fields, summary } = formErrors(err, ["name", "description"])
+      setErrors({ ...fields, general: summary ?? "" })
     },
   })
+  useFocusFirstInvalid(form, createMutation.error)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentUser?.emailVerified || !currentUser.profileComplete || createMutation.isPending)
       return
-    const newErrors: Record<string, string> = {}
-
     if (!formData.name.trim()) {
-      newErrors.name = "Classroom name is required"
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
+      setErrors({ name: "Classroom name is required" })
       nameInput.current?.focus()
       return
     }
@@ -161,7 +159,7 @@ export default function CreateClassroomPage() {
 
         {/* Form */}
         <Card className="gap-0 rounded-2xl p-6 shadow-none">
-          <form id="create-classroom-form" onSubmit={handleSubmit} className="space-y-7">
+          <form id="create-classroom-form" ref={form} onSubmit={handleSubmit} className="space-y-7">
             {errors.general && (
               <div
                 ref={errorSummary}
@@ -183,8 +181,7 @@ export default function CreateClassroomPage() {
                 aria-required="true"
                 type="text"
                 placeholder="e.g., Introduction to Political Science"
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "classroom-name-error" : undefined}
+                {...fieldErrorProps("classroom-name-error", errors.name)}
                 value={formData.name}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value })
@@ -192,11 +189,7 @@ export default function CreateClassroomPage() {
                 }}
                 disabled={createMutation.isPending}
               />
-              {errors.name && (
-                <p id="classroom-name-error" role="alert" className="text-sm text-destructive">
-                  {errors.name}
-                </p>
-              )}
+              <FieldError id="classroom-name-error" message={errors.name} />
             </div>
 
             <div className="space-y-2">
@@ -207,10 +200,15 @@ export default function CreateClassroomPage() {
                 id="description"
                 placeholder="What will your class explore together?"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value })
+                  setErrors((current) => ({ ...current, description: "" }))
+                }}
                 rows={4}
                 disabled={createMutation.isPending}
+                {...fieldErrorProps("classroom-description-error", errors.description)}
               />
+              <FieldError id="classroom-description-error" message={errors.description} />
               <p className="text-xs text-muted-foreground">
                 Students will see this when they join your classroom.
               </p>
