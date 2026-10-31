@@ -193,7 +193,7 @@ function PetitionComment({
       )
     }
     return (
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-start gap-1">
         {canReply ? (
           <Button
             ref={replyButton}
