@@ -82,6 +82,24 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
         return yield* write(user)
       }).pipe(sql.withTransaction)
 
+    /**
+     * Ash's `CommentParent`: the parent must be a comment the user can read on the same petition.
+     * Replies are one level deep, so a reply to a reply joins that reply's top-level comment, even
+     * one that has since been hidden or deleted.
+     */
+    const replyParent = (user: SignedIn, petitionId: string, commentId: string) =>
+      Effect.gen(function* () {
+        const [comment] = yield* selectComments(
+          user,
+          sql`t.id = ${commentId} AND t.petition_id = ${petitionId}
+              AND ${commentVisible(sql, user, "t")}`,
+        )
+        if (!comment) {
+          return yield* invalidField("parentCommentId", "Reply to a comment in this petition.")
+        }
+        return comment.parentCommentId ?? comment.id
+      })
+
     /** The one row a write just inserted, read back as its DTO. */
     const single = <A>(rows: ReadonlyArray<A>) => Effect.succeed(rows[0]!)
 
@@ -120,22 +138,9 @@ export const ParticipationHandlers = ParticipationRpcs.toLayer(
       createComment: ({ petitionId, text, parentCommentId }) =>
         participate("comment", petitionId, (user) =>
           Effect.gen(function* () {
-            const parent = parentCommentId ?? null
-            if (parent !== null) {
-              // Ash's `CommentParent`: the parent must be a comment the user can read on
-              // the same petition.
-              const found = yield* selectComments(
-                user,
-                sql`t.id = ${parent} AND t.petition_id = ${petitionId}
-                    AND ${commentVisible(sql, user, "t")}`,
-              )
-              if (found.length === 0) {
-                return yield* invalidField(
-                  "parentCommentId",
-                  "Reply to a comment in this petition.",
-                )
-              }
-            }
+            const parent = parentCommentId
+              ? yield* replyParent(user, petitionId, parentCommentId)
+              : null
             const [row] = yield* sql<{ id: string }>`
                 INSERT INTO comment (petition_id, user_id, text, parent_comment_id)
                 VALUES (${petitionId}, ${user.id}, ${text}, ${parent})

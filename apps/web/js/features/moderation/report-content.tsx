@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { ContentReportReason } from "@petitionu/domain"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { useAuth } from "../../contexts/auth-context"
 
 const reasons: { value: ContentReportReason; label: string }[] = [
@@ -18,9 +19,11 @@ const reasons: { value: ContentReportReason; label: string }[] = [
 export function ReportContent({
   petitionId,
   commentId,
+  className,
 }: {
   petitionId: string
   commentId?: string
+  className?: string
 }) {
   const { user } = useAuth()
   const id = useId()
@@ -45,7 +48,7 @@ export function ReportContent({
     )
 
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", className)}>
       <Button
         type="button"
         variant="ghost"
@@ -60,7 +63,7 @@ export function ReportContent({
       {expanded && (
         <form
           id={id}
-          className="space-y-4 rounded-xl border p-4"
+          className="w-full space-y-4 rounded-xl border p-4"
           onSubmit={(event) => {
             event.preventDefault()
             report.mutate()

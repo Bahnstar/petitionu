@@ -45,7 +45,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         Request: Schema.String,
         Result: Schema.toType(PetitionCommentDto),
         execute: (id) => sql`
-          SELECT c.id, c.text,
+          SELECT c.id, c.parent_comment_id, c.text,
             c.inserted_at,
             CASE WHEN u.id IS NULL THEN 'Student'
               ELSE concat_ws(' ', u.first_name, u.last_name) END AS author,

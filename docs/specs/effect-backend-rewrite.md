@@ -218,6 +218,7 @@ The main choices:
   - `set_role` (superadmin for anything; admin only for non-superadmins in their own organization, and never granting superadmin);
   - support request and report read and resolve (owner, superadmin, or admin of the same organization);
   - comment edit and delete (the author only; the comment and its petition visible to them and not hidden; a comment they can't see is `NotFound`, someone else's `Forbidden`). Archived classrooms are read-only, so comments there can't be changed either. Edits are checked like new comments; closed petitions don't block them;
+  - comment replies (checked like new comments; the parent must be a comment the caller can read on the same petition, or the reply fails on `parentCommentId`). Replies are one level deep: a reply to a reply attaches to its top-level comment and shows flat beneath it. Hiding or deleting a comment removes only that comment. Its replies stay readable, and each can still be reported and hidden on its own. Their `parentCommentId` keeps naming the removed comment, but no read returns its text or author. The petition page shows the same notice for both cases, "This comment is no longer available.", above the replies, and a reply to one of those replies still joins the thread. Hiding or deleting a reply leaves its parent and the other replies;
   - the participation validation messages, which are kept word for word.
 - Field policies on `User` become separate response schemas, chosen by policy:
   - a public user shape (id, names);

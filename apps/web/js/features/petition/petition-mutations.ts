@@ -13,6 +13,7 @@ type PetitionCommand =
   | ({ petition: PetitionTarget } & (
       | PetitionOwnerCommand
       | { kind: "comment"; text: string }
+      | { kind: "reply"; commentId: string; text: string }
       | { kind: "sign"; reason: string }
       | { kind: "withdraw" }
       | { kind: "editComment"; commentId: string; text: string }
@@ -23,6 +24,7 @@ function failureMessage(command: PetitionCommand) {
   if (command.kind === "create")
     return "Your petition couldn't be created. Check your connection and try again."
   if (command.kind === "comment") return "Your comment couldn't be posted. Please try again."
+  if (command.kind === "reply") return "Your reply couldn't be posted. Please try again."
   if (command.kind === "sign") return "Your signature couldn't be added. Please try again."
   if (command.kind === "withdraw") return "Your signature couldn't be withdrawn. Please try again."
   return "Your change couldn't be saved. Please try again."
@@ -36,6 +38,8 @@ function execute(command: PetitionCommand) {
   }
   const petitionId = command.petition.id
   if (command.kind === "comment") return api.createComment({ petitionId, text: command.text })
+  if (command.kind === "reply")
+    return api.createComment({ petitionId, text: command.text, parentCommentId: command.commentId })
   if (command.kind === "sign")
     return api.createSignature({ petitionId, reason: command.reason.trim() || null })
   if (command.kind === "withdraw") return api.deleteSignature({ petitionId })
@@ -51,6 +55,7 @@ function execute(command: PetitionCommand) {
 // Participation shows one message: the first reason the server gave.
 const singleMessage = new Set<PetitionCommand["kind"]>([
   "comment",
+  "reply",
   "editComment",
   "deleteComment",
   "sign",
@@ -58,8 +63,8 @@ const singleMessage = new Set<PetitionCommand["kind"]>([
 ])
 
 // Callers own form state and participation hints; the server remains authoritative.
-// Successful writes refresh their projections only. Owner commands, withdrawals and comment
-// edits wait for refreshed detail (the page would otherwise show the stale signature or
+// Successful writes refresh their projections only. Owner commands, withdrawals, replies and
+// comment edits wait for refreshed detail (the page would otherwise show the stale signature or
 // comment); creation, signing and commenting confirm immediately.
 export function mutatePetition(
   queryClient: QueryClient,

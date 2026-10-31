@@ -225,6 +225,131 @@ describe("content reports", () => {
       }),
   )
 
+  describe("replies", () => {
+    /** A comment by the reporter with a reply from a classmate, and their report helpers. */
+    const replied = Effect.gen(function* () {
+      const moderation = yield* makeModeration
+      const { app, school, reporter, admin, petition } = moderation
+      const classmate = yield* createUser(app, {
+        organizationId: school.id,
+        firstName: "Grace",
+        lastName: "Hopper",
+      })
+      const comment = expectData(
+        yield* classmate.browser.rpc((api) =>
+          api.createComment({ petitionId: petition.id, text: "Parent's secret text" }),
+        ),
+      )
+      const reply = expectData(
+        yield* reporter.browser.rpc((api) =>
+          api.createComment({
+            petitionId: petition.id,
+            text: "A reply",
+            parentCommentId: comment.id,
+          }),
+        ),
+      )
+      const hide = (commentId: string) =>
+        Effect.gen(function* () {
+          const report = expectData(
+            yield* reporter.browser.rpc((api) =>
+              api.createContentReport({ commentId, reason: "harassment" }),
+            ),
+          )
+          expectData(
+            yield* admin.browser.rpc((api) =>
+              api.resolveContentReport({
+                id: report.id,
+                outcome: "resolved",
+                resolutionNote: "Removed",
+                hideContent: true,
+              }),
+            ),
+          )
+          return report
+        })
+      const page = Effect.map(
+        reporter.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+        (result) => {
+          const detail = expectData(result)
+          return "comments" in detail ? detail.comments : assert.fail("no comments for a user")
+        },
+      )
+      return { ...moderation, classmate, comment, reply, hide, page }
+    })
+
+    it.live("a report on a reply snapshots the reply, and hiding it leaves the parent", () =>
+      Effect.gen(function* () {
+        const { reporter, petition, comment, reply, hide, page } = yield* replied
+        const report = yield* hide(reply.id)
+        assert.deepInclude(report, {
+          petitionId: petition.id,
+          commentId: reply.id,
+          targetText: "A reply",
+        })
+        assert.deepStrictEqual(
+          (yield* page).map((c) => c.id),
+          [comment.id],
+        )
+        assert.deepStrictEqual(
+          errorTypes(
+            yield* reporter.browser.rpc((api) =>
+              api.createComment({
+                petitionId: petition.id,
+                text: "Again",
+                parentCommentId: reply.id,
+              }),
+            ),
+          ),
+          ["invalid"],
+        )
+      }),
+    )
+
+    it.live("hiding a comment keeps its replies, and nothing of it reaches a reader", () =>
+      Effect.gen(function* () {
+        const { reporter, classmate, petition, comment, reply, hide, page } = yield* replied
+        yield* hide(comment.id)
+
+        const replies = yield* page
+        assert.deepStrictEqual(
+          replies.map((c) => [c.id, c.parentCommentId]),
+          [[reply.id, comment.id]],
+        )
+        const listed = expectData(
+          yield* reporter.browser.rpc((api) => api.getComments({ petitionId: petition.id })),
+        )
+        for (const read of [replies, listed]) {
+          assert.notInclude(JSON.stringify(read), "Parent's secret text")
+          assert.notInclude(JSON.stringify(read), "Grace Hopper")
+        }
+
+        // Replying in the thread stays open and returns none of the hidden comment either.
+        const later = expectData(
+          yield* classmate.browser.rpc((api) =>
+            api.createComment({
+              petitionId: petition.id,
+              text: "Later",
+              parentCommentId: reply.id,
+            }),
+          ),
+        )
+        assert.strictEqual(later.parentCommentId, comment.id)
+        assert.notInclude(JSON.stringify(later), "Parent's secret text")
+      }),
+    )
+
+    it.live("a reply under a hidden comment can still be reported and hidden", () =>
+      Effect.gen(function* () {
+        const { comment, reply, hide, page } = yield* replied
+        yield* hide(comment.id)
+        const report = yield* hide(reply.id)
+        assert.deepInclude(report, { commentId: reply.id, targetText: "A reply" })
+        assert.deepStrictEqual(yield* page, [])
+      }),
+    )
+  })
+
   it.live("an invalid or dismissed resolution can't hide content, and dismissing keeps it", () =>
     Effect.gen(function* () {
       const { reporter, admin, petition } = yield* makeModeration

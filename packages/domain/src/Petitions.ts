@@ -62,6 +62,8 @@ export type PetitionDto = typeof PetitionDto.Type
 
 export const PetitionCommentDto = Schema.Struct({
   id: Schema.String,
+  /** The top-level comment this replies to. It may be hidden or deleted, and so not on the page. */
+  parentCommentId: Schema.NullOr(Schema.String),
   text: Schema.NullOr(Schema.String),
   insertedAt: Timestamp,
   author: Schema.String,
