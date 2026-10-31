@@ -7,10 +7,11 @@ import { formatDate, plural } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
 import { isUuid, type PetitionDetailDto, type SharedPetitionDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
-import { ApiError } from "@/lib/api-errors"
+import { ApiError, formErrors } from "@/lib/api-errors"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { PetitionComment } from "../features/petition/petition-comment"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -132,6 +133,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
     // The refreshed petition says whether the reader has signed from here on.
     onSuccess: () => signatureMutation.reset(),
   })
+  const commentErrors = formErrors(commentMutation.error, ["text"])
+  const signatureErrors = formErrors(signatureMutation.error, ["reason"])
   const sharePetition = async () => {
     setShareMessage("")
     setSharePending(true)
@@ -284,10 +287,12 @@ function PetitionContent({ petition }: { petition: Petition }) {
               onChange={(event) => setCommentText(event.target.value)}
               required
               className="resize-y"
+              {...fieldErrorProps("petition-comment-error", commentErrors.fields.text)}
             />
-            {commentMutation.isError ? (
+            <FieldError id="petition-comment-error" message={commentErrors.fields.text} />
+            {commentErrors.summary ? (
               <p role="alert" className="text-sm text-destructive">
-                {commentMutation.error.message}
+                {commentErrors.summary}
               </p>
             ) : null}
             {commentMutation.isSuccess ? (
@@ -427,10 +432,12 @@ function PetitionContent({ petition }: { petition: Petition }) {
             value={signatureReason}
             onChange={(event) => setSignatureReason(event.target.value)}
             placeholder="Tell your community why this matters."
+            {...fieldErrorProps("signature-reason-error", signatureErrors.fields.reason)}
           />
-          {signatureMutation.isError ? (
+          <FieldError id="signature-reason-error" message={signatureErrors.fields.reason} />
+          {signatureErrors.summary ? (
             <p role="alert" className="text-sm text-destructive">
-              {signatureMutation.error.message}
+              {signatureErrors.summary}
             </p>
           ) : null}
           <Button

@@ -2,11 +2,12 @@ import { useState } from "react"
 import { AuthLink } from "../components/auth-link"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { SupportRequestKind } from "@petitionu/domain"
 import { api } from "@/lib/api"
-import { ApiError, serverError } from "@/lib/api-errors"
+import { ApiError, formErrors, serverError } from "@/lib/api-errors"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
@@ -78,14 +79,16 @@ export default function SupportPage() {
                 setMessage(event.target.value)
                 submit.reset()
               }}
+              {...fieldErrorProps("support-message-error", errors.fields.message)}
             />
+            <FieldError id="support-message-error" message={errors.fields.message} />
             <p className="text-xs text-muted-foreground">
               Your request and email address are shared with authorized operators. Do not include
               passwords.
             </p>
-            {submit.error && (
+            {errors.summary && (
               <p role="alert" className="text-sm text-destructive">
-                {submit.error.message}
+                {errors.summary}
               </p>
             )}
             {submit.isSuccess && (
@@ -199,6 +202,8 @@ export default function SupportPage() {
       await client.invalidateQueries({ queryKey: ["supportRequests"] })
     },
   })
+
+  const errors = formErrors(submit.error, ["message"])
 
   return (
     <main className="app-page max-w-3xl space-y-8">

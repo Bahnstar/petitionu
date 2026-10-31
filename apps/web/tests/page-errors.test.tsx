@@ -26,16 +26,33 @@ const student: typeof MeDto.Encoded = {
   hasPassword: true,
 }
 
+interface FieldProblem {
+  readonly field: string
+  readonly message: string
+}
+
+interface ServerError {
+  readonly _tag: string
+  readonly message: string
+  readonly fields?: ReadonlyArray<FieldProblem>
+}
+
 /** Answers one RPC with the server's failure. */
-const fail = (error: Record<string, unknown>) => ({ _tag: "Fail", error })
+const fail = (error: ServerError) => ({ _tag: "Fail", error })
 const notFound = fail({ _tag: "NotFound", message: "Classroom not found" })
-const invalid = (...fields: { field: string; message: string }[]) =>
+const invalid = (...fields: FieldProblem[]) =>
   fail({ _tag: "Invalid", message: fields[0]?.message ?? "is invalid", fields })
 
 let calls: string[] = []
-let failures: Record<string, ReturnType<typeof fail>> = {}
+let failures = new Map<string, ReturnType<typeof fail>>()
 let signOut: () => Response | Promise<Response> = () => Response.json({ success: true })
 const originalFetch = globalThis.fetch
+
+function answer(tag: string) {
+  if (tag === "getMe") return student
+  if (tag === "getCategories") return [{ id: categoryId, name: "Campus life", description: null }]
+  return []
+}
 
 // SAFETY: the stub takes fetch's arguments and returns a Response; only `preconnect` is missing.
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -47,19 +64,18 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/rpc/") {
     const body = await request.json()
     calls.push(body.tag)
-    const failure = failures[body.tag]
+    const failure = failures.get(body.tag)
     if (failure) {
       return Response.json([
         { _tag: "Exit", requestId: body.id, exit: { _tag: "Failure", cause: [failure] } },
       ])
     }
-    const value = body.tag === "getMe" ? student : body.tag === "getCategories" ? categories : []
-    return Response.json([{ _tag: "Exit", requestId: body.id, exit: { _tag: "Success", value } }])
+    return Response.json([
+      { _tag: "Exit", requestId: body.id, exit: { _tag: "Success", value: answer(body.tag) } },
+    ])
   }
   return new Response("not found", { status: 404 })
 }) as typeof fetch
-
-const categories = [{ id: categoryId, name: "Campus life", description: null }]
 
 const { act } = await import("react")
 const { createRoot } = await import("react-dom/client")
@@ -71,6 +87,9 @@ const { default: ClassroomDetailPage } = await import("../js/pages/classroom-det
 const { default: CreateClassroomPage } = await import("../js/pages/create-classroom-page.tsx")
 const { default: CreatePetitionPage } = await import("../js/pages/create-petition-page.tsx")
 const { default: ProfilePage } = await import("../js/pages/profile-page.tsx")
+const { default: SupportPage } = await import("../js/pages/support-page.tsx")
+const { PetitionOwnerControls } =
+  await import("../js/features/petition/petition-owner-controls.tsx")
 const { retryQuery, serverError } = await import("../lib/api-errors.ts")
 const { readPetitionDraft, savePetitionDraft } = await import("../js/lib/petition-draft.ts")
 
@@ -81,7 +100,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   calls = []
-  failures = {}
+  failures = new Map()
   signOut = () => Response.json({ success: true })
 })
 
@@ -164,7 +183,7 @@ for (const [name, error] of [
   ["a guest", fail({ _tag: "Unauthenticated", message: "Sign in first." })],
 ] as const) {
   test(`a classroom that answers ${name} isn't asked again`, async () => {
-    failures = { getClassroomById: error }
+    failures = new Map([["getClassroomById", error]])
     const container = await render(ClassroomDetailPage, classroomPath, "/classrooms/:id")
     await settle()
 
@@ -192,4 +211,142 @@ test("a classroom id that isn't a UUID shows the error at once, without retries"
 
   expect(container.textContent).toContain("Classroom not found")
   expect(calls).not.toContain("getClassroomById")
+})
+
+test("create classroom shows each field's error against its field", async () => {
+  const container = await render(CreateClassroomPage, "/")
+  type(container.querySelector("#name"), "n".repeat(256))
+  type(container.querySelector("#description"), "d".repeat(2001))
+  await settle()
+
+  await submit(container.querySelector("#create-classroom-form"))
+
+  expect(calls).not.toContain("createClassroom")
+  expect(fieldError(container, "name")).toBe("length must be less than or equal to 255")
+  expect(fieldError(container, "description")).toBe("length must be less than or equal to 2000")
+  expect(document.activeElement?.id).toBe("name")
+})
+
+test("a field's error clears on its own while another stays", async () => {
+  const container = await render(CreateClassroomPage, "/")
+  type(container.querySelector("#name"), "n".repeat(256))
+  type(container.querySelector("#description"), "d".repeat(2001))
+  await settle()
+  await submit(container.querySelector("#create-classroom-form"))
+
+  type(container.querySelector("#name"), "Short")
+  await settle()
+
+  expect(container.querySelector("#name")?.getAttribute("aria-invalid")).toBe(null)
+  expect(fieldError(container, "description")).toBe("length must be less than or equal to 2000")
+})
+
+test("the profile form shows the server's field errors against each field", async () => {
+  failures = new Map([
+    [
+      "updateMyProfile",
+      invalid(
+        { field: "firstName", message: "is required" },
+        { field: "graduationYear", message: "must be a year" },
+      ),
+    ],
+  ])
+  const container = await render(ProfilePage, "/")
+  await submit(container.querySelector("#profile-form"))
+
+  expect(fieldError(container, "profile-first-name")).toBe("is required")
+  expect(fieldError(container, "profile-graduation-year")).toBe("must be a year")
+  expect(container.querySelector("#profile-last-name")?.getAttribute("aria-invalid")).toBe(null)
+  expect(document.activeElement?.id).toBe("profile-first-name")
+})
+
+test("an error about no field on the form still shows, once", async () => {
+  failures = new Map([
+    ["updateMyProfile", invalid({ field: "email", message: "Confirm your email first." })],
+  ])
+  const container = await render(ProfilePage, "/")
+  await submit(container.querySelector("#profile-form"))
+
+  const alerts = [...container.querySelectorAll('[role="alert"]')].map((a) => a.textContent)
+  expect(alerts).toEqual(["Confirm your email first."])
+})
+
+test("create petition keeps help text and adds the error to each field", async () => {
+  failures = new Map([
+    [
+      "createPetition",
+      invalid(
+        { field: "title", message: "is taken" },
+        { field: "deadline", message: "must be in the future" },
+        { field: "goal", message: "must be more than 0" },
+      ),
+    ],
+  ])
+  savePetitionDraft(null, {
+    ...readPetitionDraft(null),
+    title: "A title",
+    description: "A description",
+    categoryId,
+  })
+  const container = await render(CreatePetitionPage, "/")
+
+  await submit(container.querySelector("#create-petition-form"))
+
+  expect(fieldError(container, "title")).toBe("is taken")
+  expect(container.querySelector("#title")?.getAttribute("aria-describedby")).toContain(
+    "title-help",
+  )
+  expect(fieldError(container, "petition-deadline")).toBe("must be in the future")
+  expect(fieldError(container, "goal")).toBe("must be more than 0")
+  expect(container.querySelector("#petition-submit-error")).toBe(null)
+  expect(document.activeElement?.id).toBe("title")
+})
+
+test("the support form shows its length error against the message", async () => {
+  const container = await render(SupportPage, "/")
+  type(container.querySelector("#support-message"), "m".repeat(5001))
+  await settle()
+
+  await submit(container.querySelector("form"))
+
+  expect(calls).not.toContain("createSupportRequest")
+  expect(fieldError(container, "support-message")).toBe("length must be less than or equal to 5000")
+})
+
+test("a petition update shows a second field's error too", async () => {
+  failures = new Map([
+    [
+      "createUpdate",
+      invalid(
+        { field: "title", message: "is too long" },
+        { field: "body", message: "is required" },
+      ),
+    ],
+  ])
+  const petition = {
+    id: classroomId,
+    title: "A title",
+    description: "A description",
+    goal: 100,
+    deadline: null,
+    allowComments: true,
+    isAnonymous: false,
+    status: "open",
+    classroomId: null,
+  } as const
+  const container = await render(
+    () => <PetitionOwnerControls petition={petition} canPublishUpdate />,
+    "/",
+  )
+  await act(() => button(container, /^Post an update/).click())
+  await settle()
+  type(container.querySelector("#petition-update-title"), "News")
+  type(container.querySelector("#petition-update-body"), "Body")
+  await settle()
+
+  await submit(container.querySelector("#petition-owner-update-form"))
+
+  expect(fieldError(container, "petition-update-title")).toBe("is too long")
+  expect(fieldError(container, "petition-update-body")).toBe("is required")
+  expect(document.activeElement?.id).toBe("petition-update-title")
 })

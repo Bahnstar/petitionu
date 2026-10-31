@@ -1,15 +1,17 @@
-import { useState, type FormEvent } from "react"
+import { useRef, useState, type FormEvent } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
-import { serverError } from "@/lib/api-errors"
+import { formErrors, serverError } from "@/lib/api-errors"
 import { useAuth, type CurrentUser } from "../contexts/auth-context"
 import { AuthLink } from "../components/auth-link"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { useFocusFirstInvalid } from "../hooks/use-focus-first-invalid"
 import { ProfileConnection } from "../features/profile/profile-connection"
 import { PasswordSettings } from "../features/profile/password-settings"
 
@@ -77,6 +79,10 @@ function ProfileForm({ user }: { user: CurrentUser }) {
     },
   })
 
+  const form = useRef<HTMLFormElement>(null)
+  useFocusFirstInvalid(form, save.error)
+  const errors = formErrors(save.error, ["firstName", "lastName", "graduationYear"])
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     save.mutate()
@@ -94,7 +100,7 @@ function ProfileForm({ user }: { user: CurrentUser }) {
         <p className="mt-1 mb-6 text-sm text-muted-foreground">
           The name your campus community will see.
         </p>
-        <form id="profile-form" onSubmit={submit} className="space-y-5">
+        <form id="profile-form" ref={form} onSubmit={submit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="profile-first-name">First name</Label>
             <Input
@@ -109,7 +115,9 @@ function ProfileForm({ user }: { user: CurrentUser }) {
                 save.reset()
               }}
               disabled={save.isPending}
+              {...fieldErrorProps("profile-first-name-error", errors.fields.firstName)}
             />
+            <FieldError id="profile-first-name-error" message={errors.fields.firstName} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="profile-last-name">Last name</Label>
@@ -125,7 +133,9 @@ function ProfileForm({ user }: { user: CurrentUser }) {
                 save.reset()
               }}
               disabled={save.isPending}
+              {...fieldErrorProps("profile-last-name-error", errors.fields.lastName)}
             />
+            <FieldError id="profile-last-name-error" message={errors.fields.lastName} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="profile-graduation-year">
@@ -145,11 +155,13 @@ function ProfileForm({ user }: { user: CurrentUser }) {
                 save.reset()
               }}
               disabled={save.isPending}
+              {...fieldErrorProps("profile-graduation-year-error", errors.fields.graduationYear)}
             />
+            <FieldError id="profile-graduation-year-error" message={errors.fields.graduationYear} />
           </div>
-          {save.isError && (
+          {errors.summary && (
             <p role="alert" className="text-sm text-destructive">
-              {save.error.message}
+              {errors.summary}
             </p>
           )}
           {save.isSuccess && (

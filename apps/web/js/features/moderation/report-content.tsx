@@ -2,11 +2,12 @@ import { useId, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Flag } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { ContentReportReason } from "@petitionu/domain"
 import { api } from "@/lib/api"
-import { serverError } from "@/lib/api-errors"
+import { formErrors, serverError } from "@/lib/api-errors"
 import { useAuth } from "../../contexts/auth-context"
 
 const reasons: { value: ContentReportReason; label: string }[] = [
@@ -35,6 +36,8 @@ export function ReportContent({
       return result.data
     },
   })
+
+  const errors = formErrors(report.error, ["details"])
 
   if (!user) return null
   if (report.isSuccess)
@@ -88,13 +91,15 @@ export function ReportContent({
               onChange={(event) => setDetails(event.target.value)}
               maxLength={5000}
               placeholder="Explain what a moderator should review."
+              {...fieldErrorProps(`${id}-details-error`, errors.fields.details)}
             />
+            <FieldError id={`${id}-details-error`} message={errors.fields.details} />
             <p className="text-xs text-muted-foreground">
               Your report and a copy of the content are available to you and authorized moderators.
             </p>
-            {report.error && (
+            {errors.summary && (
               <p role="alert" className="text-sm text-destructive">
-                {report.error.message}
+                {errors.summary}
               </p>
             )}
             <Button type="submit" disabled={report.isPending}>

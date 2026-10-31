@@ -1,12 +1,15 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Pencil, Megaphone, LockKeyhole, Trophy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { SharedPetitionDto } from "@petitionu/domain"
+import { formErrors } from "@/lib/api-errors"
+import { useFocusFirstInvalid } from "../../hooks/use-focus-first-invalid"
 import { mutatePetition, type PetitionOwnerCommand } from "./petition-mutations"
 
 type Petition = Pick<
@@ -63,7 +66,9 @@ export function PetitionOwnerControls({
               required
               maxLength={100}
               onChange={(event) => setEdit({ ...edit, title: event.target.value })}
+              {...fieldErrorProps("edit-petition-title-error", errors.fields.title)}
             />
+            <FieldError id="edit-petition-title-error" message={errors.fields.title} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-petition-description">Petition description</Label>
@@ -74,7 +79,9 @@ export function PetitionOwnerControls({
               required
               maxLength={2000}
               onChange={(event) => setEdit({ ...edit, description: event.target.value })}
+              {...fieldErrorProps("edit-petition-description-error", errors.fields.description)}
             />
+            <FieldError id="edit-petition-description-error" message={errors.fields.description} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-petition-goal">Signature goal</Label>
@@ -86,7 +93,9 @@ export function PetitionOwnerControls({
               required
               value={edit.goal}
               onChange={(event) => setEdit({ ...edit, goal: event.target.value })}
+              {...fieldErrorProps("edit-petition-goal-error", errors.fields.goal)}
             />
+            <FieldError id="edit-petition-goal-error" message={errors.fields.goal} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-petition-deadline">Deadline (optional)</Label>
@@ -95,7 +104,9 @@ export function PetitionOwnerControls({
               type="datetime-local"
               value={edit.deadline}
               onChange={(event) => setEdit({ ...edit, deadline: event.target.value })}
+              {...fieldErrorProps("edit-petition-deadline-error", errors.fields.deadline)}
             />
+            <FieldError id="edit-petition-deadline-error" message={errors.fields.deadline} />
             <p className="text-xs text-muted-foreground">
               Your local timezone. Signing and comments close at this time.
             </p>
@@ -137,7 +148,9 @@ export function PetitionOwnerControls({
               value={update.title}
               required
               onChange={(event) => setUpdate({ ...update, title: event.target.value })}
+              {...fieldErrorProps("petition-update-title-error", errors.fields.title)}
             />
+            <FieldError id="petition-update-title-error" message={errors.fields.title} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="petition-update-body">What has changed?</Label>
@@ -147,7 +160,9 @@ export function PetitionOwnerControls({
               rows={5}
               required
               onChange={(event) => setUpdate({ ...update, body: event.target.value })}
+              {...fieldErrorProps("petition-update-body-error", errors.fields.body)}
             />
+            <FieldError id="petition-update-body-error" message={errors.fields.body} />
           </div>
           <p className="text-xs text-muted-foreground">
             Your update will appear on the petition for everyone who can view it.
@@ -213,6 +228,12 @@ export function PetitionOwnerControls({
       setSuccess(successMessage())
     },
   })
+  const form = useRef<HTMLFormElement>(null)
+  useFocusFirstInvalid(form, mutation.error)
+  const errors = formErrors(
+    mutation.error,
+    mode === "edit" ? ["title", "description", "goal", "deadline"] : ["title", "body"],
+  )
   const open = (next: Mode) => {
     mutation.reset()
     setSuccess("")
@@ -282,6 +303,7 @@ export function PetitionOwnerControls({
       ) : (
         <form
           id={`petition-owner-${mode}-form`}
+          ref={form}
           onSubmit={(event) => {
             event.preventDefault()
             if (mutation.isPending) return
@@ -312,9 +334,9 @@ export function PetitionOwnerControls({
           <fieldset disabled={mutation.isPending} className="space-y-5">
             <legend className="sr-only">{formLegend()}</legend>
             {renderFields()}
-            {mutation.isError ? (
+            {errors.summary ? (
               <p role="alert" className="text-sm text-destructive">
-                {mutation.error.message}
+                {errors.summary}
               </p>
             ) : null}
             <div className="flex flex-wrap gap-3">

@@ -3,11 +3,12 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { ContentReportOutcome } from "@petitionu/domain"
 import { api } from "@/lib/api"
-import { serverError } from "@/lib/api-errors"
+import { formErrors, serverError } from "@/lib/api-errors"
 import { useAuth } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
@@ -28,6 +29,7 @@ function ReportResolution({ id, onResolved }: { id: string; onResolved: () => vo
     },
     onSuccess: onResolved,
   })
+  const errors = formErrors(resolve.error, ["resolutionNote"])
   return (
     <form
       className="space-y-4 border-t pt-4"
@@ -82,10 +84,12 @@ function ReportResolution({ id, onResolved }: { id: string; onResolved: () => vo
           maxLength={5000}
           value={resolutionNote}
           onChange={(event) => setResolutionNote(event.target.value)}
+          {...fieldErrorProps(`report-note-${id}-error`, errors.fields.resolutionNote)}
         />
-        {resolve.error && (
+        <FieldError id={`report-note-${id}-error`} message={errors.fields.resolutionNote} />
+        {errors.summary && (
           <p role="alert" className="text-sm text-destructive">
-            {resolve.error.message}
+            {errors.summary}
           </p>
         )}
         <Button type="submit" disabled={resolve.isPending || !resolutionNote.trim()}>
@@ -106,6 +110,7 @@ function SupportResolution({ id, onResolved }: { id: string; onResolved: () => v
     },
     onSuccess: onResolved,
   })
+  const errors = formErrors(resolve.error, ["resolutionNote"])
   return (
     <form
       className="space-y-3 border-t pt-4"
@@ -122,13 +127,15 @@ function SupportResolution({ id, onResolved }: { id: string; onResolved: () => v
         disabled={resolve.isPending}
         value={resolutionNote}
         onChange={(event) => setResolutionNote(event.target.value)}
+        {...fieldErrorProps(`support-note-${id}-error`, errors.fields.resolutionNote)}
       />
+      <FieldError id={`support-note-${id}-error`} message={errors.fields.resolutionNote} />
       <p className="text-xs text-muted-foreground">
         Record the action you took. Resolving a request does not delete an account or send an email.
       </p>
-      {resolve.error && (
+      {errors.summary && (
         <p role="alert" className="text-sm text-destructive">
-          {resolve.error.message}
+          {errors.summary}
         </p>
       )}
       <Button type="submit" disabled={resolve.isPending || !resolutionNote.trim()}>

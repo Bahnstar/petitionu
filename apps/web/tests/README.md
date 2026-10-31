@@ -14,7 +14,8 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
 - `ui-wording.test.tsx` (`bun run test:wording`): singular counts, and the petition card's
   status wording, with a victory never also reading as closed.
 - `page-errors.test.tsx` (`bun run test:pages`): pages in happy-dom with a stubbed `fetch`, under
-  the app's retry rule: failed queries aren't repeated once the server has answered.
+  the app's retry rule: failed queries aren't repeated once the server has answered, and each
+  form shows every error against its field.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 
