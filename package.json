@@ -1,0 +1,20 @@
+{
+  "name": "petitionu",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "check": "bun run --filter './packages/*' --filter './apps/*' check",
+    "precommit": "bun run format && bun run check && bun run build",
+    "dev": "bun run --filter '@petitionu/server' --filter '@petitionu/web' dev",
+    "build": "bun run --filter '@petitionu/web' build && bun run --filter '@petitionu/server' build",
+    "format": "bun run --filter './packages/*' --filter './apps/*' format",
+    "test-db": "scripts/test-db.sh",
+    "seed": "bun run --filter '@petitionu/server' seed",
+    "migrate": "node apps/server/src/migrate.ts",
+    "operator": "node apps/server/src/operator.ts"
+  }
+}

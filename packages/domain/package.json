@@ -1,0 +1,23 @@
+{
+  "name": "@petitionu/domain",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint --deny-warnings .",
+    "typecheck": "tsc --noEmit -p .",
+    "check": "bun run format:check && bun run lint && bun run typecheck"
+  },
+  "dependencies": {
+    "effect": "4.0.6"
+  },
+  "devDependencies": {
+    "oxfmt": "0.66.0",
+    "oxlint": "1.81.0",
+    "typescript": "^5.9"
+  }
+}

@@ -1,74 +1,32 @@
-ARG ELIXIR_VERSION=1.18.4
-ARG OTP_VERSION=27.3.4.16
-ARG DEBIAN_VERSION=trixie-20260824-slim
+# One image, three entry points:
+#   serve (default): node apps/server/dist/serve.js
+#   migrate:         node apps/server/dist/migrate.js
+#   operator:        node apps/server/dist/operator.js <command>
+ARG BUN_IMAGE=docker.io/oven/bun:1.4.2
+ARG NODE_IMAGE=docker.io/library/node:24-slim
 
-ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
-
-FROM oven/bun:1.4.0 AS frontend
-WORKDIR /app/assets
-COPY assets/package.json assets/bun.lock ./
-RUN bun install --frozen-lockfile
-
-FROM ${BUILDER_IMAGE} AS builder
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential git \
-  && rm -rf /var/lib/apt/lists/*
-
+FROM ${BUN_IMAGE} AS build
 WORKDIR /app
 
-RUN mix local.hex --force \
-  && mix local.rebar --force
+COPY package.json bun.lock ./
+COPY packages/domain/package.json packages/domain/
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+RUN bun install --frozen-lockfile
 
-ENV MIX_ENV="prod"
+COPY tsconfig.base.json ./
+COPY packages packages
+COPY apps apps
+RUN bun run build
 
-COPY mix.exs mix.lock ./
-RUN mix deps.get --only $MIX_ENV
-RUN mkdir config
+FROM ${NODE_IMAGE} AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
 
-COPY config/config.exs config/${MIX_ENV}.exs config/
-RUN mix deps.compile
+# The server bundle includes its dependencies, so the runtime needs no node_modules.
+COPY --from=build --chown=root:root /app/apps/server/dist apps/server/dist
+COPY --from=build --chown=root:root /app/apps/web/dist apps/web/dist
 
-RUN mix assets.setup
-
-COPY priv priv
-
-COPY lib lib
-
-RUN mix compile
-
-COPY assets assets
-COPY --from=frontend /app/assets/node_modules assets/node_modules
-
-RUN mix assets.deploy
-
-COPY config/runtime.exs config/
-
-RUN mix release
-
-FROM ${RUNNER_IMAGE} AS final
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
-  && locale-gen
-
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
-
-WORKDIR "/app"
-RUN chown nobody /app
-
-ENV MIX_ENV="prod"
-
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/petitionu ./
-
-USER nobody
-
-
-ENV PHX_SERVER=true
-CMD ["/app/bin/petitionu", "start"]
+USER node
+EXPOSE 4000
+CMD ["node", "apps/server/dist/serve.js"]

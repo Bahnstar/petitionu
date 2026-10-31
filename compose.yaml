@@ -1,0 +1,84 @@
+# Production stack: Postgres, a one-shot migration, the app and a Cloudflare Tunnel, plus
+# operator commands on demand: `docker compose run --rm operator <command>`.
+# Secrets come from `.env` (copy `.env.example`; never commit the filled file).
+# See docs/deployment.md.
+name: petitionu
+
+x-app: &app
+  build: .
+  image: ${PETITIONU_IMAGE:-petitionu:latest}
+  env_file: ${ENV_FILE:-.env}
+  environment:
+    DATABASE_URL: postgresql://petitionu:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/petitionu
+    DATABASE_SSL: "false"
+    PORT: "4000"
+    # Every request arrives through the Cloudflare tunnel, so rate limits key on Cloudflare's
+    # client address header. Override it in the shell or the project's `.env`.
+    CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-cf-connecting-ip}
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: petitionu
+      POSTGRES_DB: petitionu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "petitionu", "-d", "petitionu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["node", "apps/server/dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    <<: *app
+    # Internal network only; the tunnel is the way in.
+    expose:
+      - "4000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  operator:
+    <<: *app
+    # Only for `docker compose run`; `up` skips it.
+    profiles: ["operator"]
+    entrypoint: ["node", "apps/server/dist/operator.js"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
