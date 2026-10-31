@@ -25,11 +25,13 @@ import {
   type MembershipTarget,
   membershipVisible,
   requireConfirmed,
+  visibleJoinCode,
 } from "./ClassroomPolicy.ts"
 import { AppConfig } from "./Config.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
 import { requireParticipant } from "./Participant.ts"
+import { petitionVisible } from "./PetitionPolicy.ts"
 
 const classroomNotFound = new NotFound({ message: "Classroom not found" })
 const membershipNotFound = new NotFound({ message: "Membership not found" })
@@ -71,12 +73,13 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const mailer = yield* Mailer
     const { publicHost } = yield* AppConfig
 
-    const classroomColumns = sql`
-      c.id, c.name, c.description, c.join_code::text AS join_code, c.archived,
+    const classroomColumns = (actor: SignedIn) => sql`
+      c.id, c.name, c.description, ${visibleJoinCode(sql, actor.id)} AS join_code, c.archived,
       c.allow_student_petitions,
       (SELECT count(*)::int FROM classroom_memberships a
         WHERE a.classroom_id = c.id AND a.status = 'active') AS member_count,
-      (SELECT count(*)::int FROM petition p WHERE p.classroom_id = c.id) AS petition_count,
+      (SELECT count(*)::int FROM petition p
+        WHERE p.classroom_id = c.id AND ${petitionVisible(sql, actor, "p")}) AS petition_count,
       c.professor_id,
       json_build_object('id', pu.id, 'firstName', pu.first_name, 'lastName', pu.last_name)
         AS professor,
@@ -97,10 +100,11 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(MembershipDto)))
 
     const listClassrooms = (
+      actor: SignedIn,
       where: Statement.Fragment,
       page: Statement.Fragment = sql.literal(""),
     ) =>
-      sql`SELECT ${classroomColumns} WHERE ${where} ORDER BY c.name, c.id ${page}`.pipe(
+      sql`SELECT ${classroomColumns(actor)} WHERE ${where} ORDER BY c.name, c.id ${page}`.pipe(
         Effect.flatMap(decodeClassrooms),
         Effect.orDie,
       )
@@ -111,8 +115,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.orDie,
       )
 
-    const classroomById = (id: string) =>
-      listClassrooms(sql`c.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
+    const classroomById = (actor: SignedIn, id: string) =>
+      listClassrooms(actor, sql`c.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
 
     const membershipById = (id: string) =>
       listMemberships(sql`m.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
@@ -133,6 +137,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const professorsClassroom = (user: SignedIn, id: string) =>
       Effect.gen(function* () {
         const visible = yield* listClassrooms(
+          user,
           sql`c.id = ${id} AND ${classroomVisible(sql, user.id)}`,
         )
         if (visible.length === 0) return yield* classroomNotFound
@@ -285,7 +290,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             yield* sql`
               UPDATE classrooms SET ${set}, updated_at = (now() AT TIME ZONE 'utc')
               WHERE id = ${target.id}`.pipe(Effect.orDie)
-            return yield* classroomById(target.id)
+            return yield* classroomById(user, target.id)
           }),
         )
       })
@@ -317,13 +322,14 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassrooms: () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* listClassrooms(classroomVisible(sql, user.id))
+          return yield* listClassrooms(user, classroomVisible(sql, user.id))
         }),
 
       getClassroomById: ({ id }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const [classroom] = yield* listClassrooms(
+            user,
             sql`c.id = ${id} AND ${classroomVisible(sql, user.id)}`,
           )
           return classroom ?? (yield* classroomNotFound)
@@ -343,7 +349,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             pageLimit === null
               ? sql`OFFSET ${pageOffset}`
               : sql`LIMIT ${pageLimit} OFFSET ${pageOffset}`
-          const results = yield* listClassrooms(where, page)
+          const results = yield* listClassrooms(user, where, page)
           const [total] = yield* sql<{ count: number }>`
             SELECT count(*)::int AS count FROM classrooms c WHERE ${where}`.pipe(Effect.orDie)
           const count = total!.count
@@ -370,7 +376,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
               gen_random_uuid(), ${user.id}, ${user.organizationId})
             RETURNING id
           `.pipe(Effect.orDie)
-          return yield* classroomById(row!.id)
+          return yield* classroomById(user, row!.id)
         }),
 
       updateClassroom: ({ id, ...input }) =>
@@ -384,7 +390,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           if (Object.keys(changes).length === 0) {
             const user = yield* CurrentUser
             const target = yield* transaction(professorsClassroom(user, id))
-            return yield* classroomById(target.id)
+            return yield* classroomById(user, target.id)
           }
           return yield* updateOwnClassroom(id, sql`${sql.update(changes)}`)
         }),

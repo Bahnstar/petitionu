@@ -97,7 +97,7 @@ The main choices:
 ### Classrooms
 
 49. As a professor or admin, I want to create a classroom on my campus with a join code, so that my students can take part privately.
-50. As a professor, I want to edit, archive, unarchive and regenerate the join code of my own classroom, so that I control who gets in.
+50. As a professor, I want to edit, archive, unarchive and regenerate the join code of my own classroom, and to be the only one who gets the code, so that I control who gets in.
 51. As a confirmed student, I want to join a classroom with its join code and become an active member right away, so that I can start quickly.
 52. As a student, I want an archived classroom's join code to be rejected, so that closed classes stay closed.
 53. As a student, I want to request to join a classroom and wait for approval, so that the professor can vet members.
@@ -106,7 +106,7 @@ The main choices:
 56. As an approved member, I want an approval email, so that I know I've been let in.
 57. As a professor, I want to promote a student to TA and demote a TA to student, so that I can delegate work.
 58. As a professor or TA, I want to remove members, and as a student I want to leave a classroom I'm in, so that membership stays accurate.
-59. As a classroom member, I want to see the classrooms I belong to or teach, paginated, so that I can get to them quickly.
+59. As a classroom member, I want to see the classrooms I belong to or teach, paginated, with counts that match the members and petitions I can see, so that I can get to them quickly.
 60. As a professor or TA, I want to see a classroom's members and its pending requests, so that I can manage admissions.
 61. As a classroom member, I want to create and see classroom petitions that only the professor and active members can see, so that class discussions stay private.
 62. As a professor, I want to choose whether students may create classroom petitions, so that I control what gets posted in my class.
@@ -212,6 +212,7 @@ The main choices:
 - Every rule in today's Ash policies is ported one for one, including:
   - moderation hide (superadmin, or admin of the content's organization);
   - classroom management (professor only);
+  - the join code (a decision of the rewrite, not an Ash rule): every procedure that returns a classroom gives the code only to the classroom's professor, its `professor_id`. Everyone else gets null, TAs and members who are admins or superadmins included, because a code admits anyone with no approval;
   - membership invite and approve (professor or active TA; TAs invite students only; approve only pending requests in non-archived classrooms);
   - promote, demote and delete (professor only);
   - remove (professor, active TA, or a student leaving);
@@ -219,6 +220,7 @@ The main choices:
   - support request and report read and resolve (owner, superadmin, or admin of the same organization);
   - comment edit and delete (the author only; the comment and its petition visible to them and not hidden; a comment they can't see is `NotFound`, someone else's `Forbidden`). Archived classrooms are read-only, so comments there can't be changed either. Edits are checked like new comments; closed petitions don't block them;
   - the participation validation messages, which are kept word for word.
+- A classroom's petition count uses the same read scoping as its petition list, so hidden petitions aren't counted.
 - Field policies on `User` become separate response schemas, chosen by policy:
   - a public user shape (id, names);
   - a self or admin shape that adds email, role, graduation year, organization, email verified and profile complete;
