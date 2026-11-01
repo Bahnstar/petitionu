@@ -325,6 +325,23 @@ describe("classrooms", () => {
     }),
   )
 
+  it.live("an owner demoted to student keeps the join code", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const owner = yield* createProfessor(app)
+      const classroom = yield* createClassroom(owner)
+      const superadmin = yield* createUser(app, { role: "superadmin" })
+      const demoted = yield* ok(
+        yield* superadmin.browser.rpc((api) => api.setUserRole({ id: owner.id, role: "student" })),
+      )
+      assert.strictEqual(demoted.role, "student")
+
+      for (const reading of yield* readings(owner, classroom.id)) {
+        assert.strictEqual(reading.joinCode, classroom.joinCode)
+      }
+    }),
+  )
+
   it.live("every write that returns a classroom gives the professor the join code", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
