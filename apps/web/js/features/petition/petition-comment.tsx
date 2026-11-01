@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Pencil, Reply, Trash2 } from "lucide-react"
 import type { PetitionDetailDto } from "@petitionu/domain"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { formatDate } from "@/lib/utils"
 import { ReportContent } from "../moderation/report-content"
 import { PetitionCommentForm } from "./petition-comment-form"
-import { mutatePetition } from "./petition-mutations"
+import { mutatePetition, replyMutationKey } from "./petition-mutations"
 
 type Mode = "view" | "edit" | "delete" | "reply"
 type Comment = PetitionDetailDto["comments"][number]
@@ -91,6 +91,7 @@ function PetitionComment({
     mutationFn: () =>
       mutatePetition(queryClient, { kind: "deleteComment", petition, commentId: comment.id }),
   })
+  const posting = useIsMutating({ mutationKey: replyMutationKey(comment.id) }) > 0
   const editId = `comment-${comment.id}-edit`
   const authorName = comment.author || "A campus community member"
 
@@ -153,6 +154,13 @@ function PetitionComment({
     replyButton.current?.focus()
   }
 
+  // The form holds the post's text and result, so it stays open until the post settles.
+  function toggleReply() {
+    if (posting) return
+    if (mode === "reply") closeReply()
+    else open("reply")
+  }
+
   function renderActions() {
     if (mode === "edit") return null
     if (mode === "delete") {
@@ -200,8 +208,10 @@ function PetitionComment({
             type="button"
             variant="ghost"
             size="sm"
+            className="aria-disabled:opacity-50"
             aria-expanded={mode === "reply"}
-            onClick={() => (mode === "reply" ? closeReply() : open("reply"))}
+            aria-disabled={posting}
+            onClick={toggleReply}
           >
             <Reply aria-hidden="true" />
             Reply

@@ -20,6 +20,9 @@ type PetitionCommand =
       | { kind: "deleteComment"; commentId: string }
     ))
 
+/** Marks a reply's pending post, so the comment it answers can tell while the form is open. */
+export const replyMutationKey = (commentId: string) => ["reply", commentId]
+
 function failureMessage(command: PetitionCommand) {
   if (command.kind === "create")
     return "Your petition couldn't be created. Check your connection and try again."

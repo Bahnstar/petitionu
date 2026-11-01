@@ -62,7 +62,8 @@ const user: typeof MeDto.Encoded = {
 
 let comments = conversation()
 let petitionOverrides: Partial<Petition> = {}
-let refusal: string | null = null
+let refusal: { field: string; message: string; removes?: string } | null = null
+let heldPosts: Promise<void> | null = null
 let replies: Array<CreateCommentPayload> = []
 
 const petition = (): Petition => ({
@@ -115,12 +116,11 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/rpc/csrf-token") return Response.json({ token: "fresh-token" })
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   const { id, tag, payload } = JSON.parse(await request.text())
+  if (tag === "createComment" && heldPosts) await heldPosts
   if (tag === "createComment" && refusal) {
-    const error = {
-      _tag: "Invalid",
-      message: "Invalid",
-      fields: [{ field: "parentCommentId", message: refusal }],
-    }
+    const { field, message, removes } = refusal
+    comments = comments.filter((c) => c.id !== removes)
+    const error = { _tag: "Invalid", message: "Invalid", fields: [{ field, message }] }
     const exit = { _tag: "Failure", cause: [{ _tag: "Fail", error }] }
     return Response.json([{ _tag: "Exit", requestId: id, exit }])
   }
@@ -144,6 +144,7 @@ afterEach(() => {
   comments = conversation()
   petitionOverrides = {}
   refusal = null
+  heldPosts = null
   replies = []
   document.body.innerHTML = ""
 })
@@ -203,6 +204,18 @@ function typeReply(form: HTMLFormElement, value: string) {
   textarea.dispatchEvent(new Event("input", { bubbles: true }))
 }
 
+/** Holds posts back until the returned function is called. */
+function holdPosts() {
+  let release = () => {}
+  heldPosts = new Promise((resolve) => {
+    release = resolve
+  })
+  return async () => {
+    release()
+    await settle()
+  }
+}
+
 async function reply(element: Element, text: string) {
   await click(buttonIn(element, "Reply"))
   const form = element.querySelector("form")!
@@ -234,7 +247,9 @@ test("a reply to a comment names it, closes the form and appears in the thread",
 
   await reply(commentWith(container, "The second comment"), "Agreed")
   expect(replies).toEqual([{ petitionId, text: "Agreed", parentCommentId: secondId }])
-  expect(commentWith(container, "The second comment").querySelector("form")).toBeNull()
+  const second = commentWith(container, "The second comment")
+  expect(second.querySelector("form")).toBeNull()
+  expect(document.activeElement).toBe(buttonIn(second, "Reply")!)
   expect(threads(container)[0]).toContain("Agreed")
 })
 
@@ -255,11 +270,46 @@ test("Cancel closes the form without posting and returns to the Reply button", a
 })
 
 test("a refused reply keeps the form and the text, and shows the server's message", async () => {
-  refusal = "Reply to a comment in this petition."
+  refusal = { field: "petitionId", message: "This petition is closed." }
   const container = await render()
   const form = await reply(commentWith(container, "The first comment"), "Too late")
-  expect(form.querySelector("[role=alert]")?.textContent).toBe(refusal)
+  expect(form.querySelector("[role=alert]")?.textContent).toBe(refusal.message)
   expect(form.querySelector("textarea")?.value).toBe("Too late")
+})
+
+test("the Reply toggle can't close a pending post, whose failure keeps the text", async () => {
+  refusal = { field: "petitionId", message: "This petition is closed." }
+  const release = holdPosts()
+  const container = await render()
+  const first = commentWith(container, "The first comment")
+  const form = await reply(first, "Keep me")
+
+  const toggle = buttonIn(first, "Reply")!
+  expect(toggle.getAttribute("aria-disabled")).toBe("true")
+  await click(toggle)
+  expect(first.querySelector("form")).toBe(form)
+  expect(form.querySelector("textarea")?.readOnly).toBe(true)
+
+  await release()
+  expect(form.querySelector("[role=alert]")?.textContent).toBe(refusal.message)
+  expect(form.querySelector("textarea")?.value).toBe("Keep me")
+  expect(form.querySelector("textarea")?.readOnly).toBe(false)
+  expect(toggle.getAttribute("aria-disabled")).toBe("false")
+})
+
+test("a post's success leaves a newer draft alone", async () => {
+  const release = holdPosts()
+  const container = await render()
+  const first = commentWith(container, "The first comment")
+  await reply(first, "One")
+  const second = commentWith(container, "The second comment")
+  await click(buttonIn(second, "Reply"))
+  await act(() => typeReply(second.querySelector("form")!, "Second draft"))
+
+  await release()
+  expect(replies).toEqual([{ petitionId, text: "One", parentCommentId: firstId }])
+  expect(first.querySelector("form")).toBeNull()
+  expect(second.querySelector("textarea")?.value).toBe("Second draft")
 })
 
 test("replies offer what comments do: edit for their author, report for everyone else", async () => {

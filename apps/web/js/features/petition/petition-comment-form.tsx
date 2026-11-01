@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "../../contexts/auth-context"
-import { mutatePetition } from "./petition-mutations"
+import { mutatePetition, replyMutationKey } from "./petition-mutations"
 
 /**
  * Writes to a petition's conversation: a new comment, or with `reply` an inline reply to one.
- * A reply form takes focus when it opens and calls `onClose` when posted or cancelled.
+ * A reply form takes focus when it opens and calls `onClose` when posted or cancelled. The text
+ * can't change during a post, because a successful post clears it.
  */
 export function PetitionCommentForm({
   petition,
@@ -23,6 +24,7 @@ export function PetitionCommentForm({
   const textarea = useRef<HTMLTextAreaElement>(null)
   const isReply = !!reply
   const mutation = useMutation({
+    mutationKey: reply ? replyMutationKey(reply.commentId) : undefined,
     mutationFn: async (posted: string) => {
       if (!user?.emailVerified || !user.profileComplete)
         throw new Error("Complete your profile before commenting.")
@@ -66,6 +68,7 @@ export function PetitionCommentForm({
         maxLength={5000}
         value={text}
         onChange={(event) => setText(event.target.value)}
+        readOnly={mutation.isPending}
         required
         className="resize-y"
       />
