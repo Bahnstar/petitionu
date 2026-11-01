@@ -660,6 +660,34 @@ describe("replies", () => {
     }),
   )
 
+  it.live("the page shows a conversation past the list cap, and any comment takes a reply", () =>
+    Effect.gen(function* () {
+      const { app, author, replier, petition } = yield* replied
+      yield* app.sql`
+        INSERT INTO comment (petition_id, user_id, text, inserted_at)
+        SELECT ${petition.id}, ${author.id}, 'Comment ' || n,
+          now() AT TIME ZONE 'utc' + n * interval '1 second'
+        FROM generate_series(1, 260) AS n
+      `
+      const [last] = yield* app.sql<{ id: string }>`
+        SELECT id FROM comment WHERE petition_id = ${petition.id} AND text = 'Comment 260'
+      `
+      const late = expectData(yield* replyTo(replier.browser, petition.id, last!.id))
+      assert.strictEqual(late.parentCommentId, last!.id)
+
+      const page = yield* pageComments(replier.browser, petition.id)
+      assert.strictEqual(page.length, 263)
+      const ids = new Set(page.map((c) => c.id))
+      assert.isTrue(page.every((c) => c.parentCommentId === null || ids.has(c.parentCommentId)))
+      assert.lengthOf(
+        expectData(
+          yield* replier.browser.rpc((api) => api.getComments({ petitionId: petition.id })),
+        ),
+        250,
+      )
+    }),
+  )
+
   it.live("a passed deadline refuses replies", () =>
     Effect.gen(function* () {
       const { app, author, petition, comment, reply } = yield* replied

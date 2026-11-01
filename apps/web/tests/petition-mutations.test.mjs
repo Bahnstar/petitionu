@@ -250,6 +250,23 @@ test("a reply refused for its parent refreshes the petition only", async () => {
   client.clear()
 })
 
+test("a reply's parent refusal is found behind another error", async () => {
+  const { client } = setup(() => ({
+    _tag: "Invalid",
+    message: "Invalid",
+    fields: [
+      { field: "text", message: "must be present" },
+      { field: "parentCommentId", message: "Reply to a comment in this petition." },
+    ],
+  }))
+  const commentId = "00000000-0000-4000-8000-000000000003"
+  await assert.rejects(mutatePetition(client, { kind: "reply", petition, commentId, text: "Hi" }), {
+    message: "must be present",
+  })
+  assert.equal(client.getQueryState(allKeys[0]).isInvalidated, true)
+  client.clear()
+})
+
 for (const command of [
   { kind: "editComment", commentId: "00000000-0000-4000-8000-000000000003", text: "Fixed" },
   { kind: "deleteComment", commentId: "00000000-0000-4000-8000-000000000003" },

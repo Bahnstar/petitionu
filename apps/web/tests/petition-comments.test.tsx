@@ -281,6 +281,18 @@ test("a refused reply keeps the form and the text, and shows the server's messag
   expect(form.querySelector("textarea")?.value).toBe("Too late")
 })
 
+test("a refused reply shows a text error under the field, and the form keeps it", async () => {
+  refusal = { field: "text", message: "must be present" }
+  const container = await render()
+  const form = await reply(commentWith(container, "The first comment"), "Too blank")
+  const textarea = form.querySelector("textarea")!
+  const error = form.querySelector(`#${CSS.escape(textarea.getAttribute("aria-describedby")!)}`)
+  expect(error?.textContent).toBe("must be present")
+  expect(textarea.getAttribute("aria-invalid")).toBe("true")
+  expect(textarea.value).toBe("Too blank")
+  expect(form.querySelectorAll("[role=alert]").length).toBe(1)
+})
+
 test("the Reply toggle can't close a pending post, whose failure keeps the text", async () => {
   refusal = { field: "petitionId", message: "This petition is closed." }
   const release = holdPosts()
