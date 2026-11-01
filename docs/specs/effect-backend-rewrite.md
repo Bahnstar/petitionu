@@ -106,7 +106,7 @@ The main choices:
 56. As an approved member, I want an approval email, so that I know I've been let in.
 57. As a professor, I want to promote a student to TA and demote a TA to student, so that I can delegate work.
 58. As a professor or TA, I want to remove members, and as a student I want to leave a classroom I'm in, so that membership stays accurate.
-59. As a classroom member, I want to see the classrooms I belong to or teach, paginated, with counts that match the members and petitions I can see, so that I can get to them quickly.
+59. As a classroom member, I want to see the classrooms I belong to or teach, paginated, with a petition count that matches the petitions I can see, so that I can get to them quickly.
 60. As a professor or TA, I want to see a classroom's members and its pending requests, so that I can manage admissions.
 61. As a classroom member, I want to create and see classroom petitions that only the professor and active members can see, so that class discussions stay private.
 62. As a professor, I want to choose whether students may create classroom petitions, so that I control what gets posted in my class.
