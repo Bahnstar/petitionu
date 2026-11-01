@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest"
 import type { ApiClient } from "@petitionu/domain"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
-import { makeTestApp } from "./support/harness.ts"
+import { makeMigratedTestDatabaseIn, makeTestApp } from "./support/harness.ts"
 import { insertClassroom, setClassroomArchived, upsertMembership } from "./support/classrooms.ts"
 import {
   insertCategory,
@@ -501,6 +501,30 @@ describe("petitions", () => {
       later.setUTCMilliseconds(0)
       const moved = expectData(yield* edit(later.toISOString()))
       assert.deepStrictEqual(moved.deadline, later)
+    }),
+  )
+
+  it.live("an unchanged deadline isn't written, so a session's time zone can't move it", () =>
+    Effect.gen(function* () {
+      const database = yield* makeMigratedTestDatabaseIn("Asia/Tokyo")
+      const app = yield* makeTestApp({ database })
+      const owner = yield* createUser(app)
+      const petition = yield* insertPetition(app, { userId: owner.id })
+      yield* app.sql`
+        UPDATE petition SET deadline = '2026-01-02 03:04:05' WHERE id = ${petition.id}`
+
+      const edited = expectData(
+        yield* owner.browser.rpc((api) =>
+          api.updatePetition({
+            id: petition.id,
+            title: "Edited",
+            deadline: "2026-01-02T03:04:05Z",
+          }),
+        ),
+      )
+
+      assert.strictEqual(edited.title, "Edited")
+      assert.deepStrictEqual(edited.deadline, new Date("2026-01-02T03:04:05Z"))
     }),
   )
 

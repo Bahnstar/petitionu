@@ -30,9 +30,9 @@ const storedDeadline = (deadline: string) => {
   return value
 }
 
-/** Ash's `FutureDeadline`: a deadline must be in the future, unless it's the `stored` one. */
-const checkDeadline = (deadline: Date, stored?: Date | null) =>
-  deadline.getTime() !== stored?.getTime() && deadline.getTime() <= Date.now()
+/** Ash's `FutureDeadline`, for a new or changing deadline. */
+const checkDeadline = (deadline: Date) =>
+  deadline.getTime() <= Date.now()
     ? invalidField("deadline", "Choose a deadline in the future.")
     : Effect.void
 
@@ -224,9 +224,14 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
           Effect.gen(function* () {
             const deadline =
               typeof input.deadline === "string" ? storedDeadline(input.deadline) : input.deadline
-            if (deadline) yield* checkDeadline(deadline, stored)
+            const changed = deadline?.getTime() !== stored?.getTime()
+            if (deadline && changed) yield* checkDeadline(deadline)
+            // Date parameters take the session's time zone, so rewriting an unchanged deadline
+            // could move it.
             const columns = Object.fromEntries(
-              Object.entries({ ...input, deadline }).filter(([, value]) => value !== undefined),
+              Object.entries({ ...input, deadline: changed ? deadline : undefined }).filter(
+                ([, value]) => value !== undefined,
+              ),
             )
             const set = Object.keys(columns).length > 0 ? sql`${sql.update(columns)},` : sql``
             yield* sql`
