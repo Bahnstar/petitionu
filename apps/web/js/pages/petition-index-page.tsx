@@ -6,11 +6,13 @@ import { useEffect, useRef, useState } from "react"
 import { formatDate, plural } from "@/lib/utils"
 import { Link, useParams } from "react-router-dom"
 import { isUuid, type PetitionDetailDto, type SharedPetitionDto } from "@petitionu/domain"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
+import { formErrors } from "@/lib/form-errors"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
 import { PetitionThreads } from "../features/petition/petition-comment"
 import { PetitionCommentForm } from "../features/petition/petition-comment-form"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -29,7 +31,7 @@ async function loadPetition(id: string): Promise<Petition | null> {
   const result = await api.getPetitionById({ id })
   if (result.success === false) {
     if (result.errors.some((error) => error.type === "not_found")) return null
-    throw new Error("This petition couldn't be loaded. Please try again.")
+    throw new ApiError(result.errors, "This petition couldn't be loaded. Please try again.")
   }
   return result.data
 }
@@ -121,6 +123,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
     // The refreshed petition says whether the reader has signed from here on.
     onSuccess: () => signatureMutation.reset(),
   })
+  const signatureErrors = formErrors(signatureMutation.error, ["reason"])
   const sharePetition = async () => {
     setShareMessage("")
     setSharePending(true)
@@ -373,10 +376,12 @@ function PetitionContent({ petition }: { petition: Petition }) {
             value={signatureReason}
             onChange={(event) => setSignatureReason(event.target.value)}
             placeholder="Tell your community why this matters."
+            {...fieldErrorProps("signature-reason-error", signatureErrors.fields.reason)}
           />
-          {signatureMutation.isError ? (
+          <FieldError id="signature-reason-error" message={signatureErrors.fields.reason} />
+          {signatureErrors.summary ? (
             <p role="alert" className="text-sm text-destructive">
-              {signatureMutation.error.message}
+              {signatureErrors.summary}
             </p>
           ) : null}
           <Button

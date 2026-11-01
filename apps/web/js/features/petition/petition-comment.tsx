@@ -3,8 +3,10 @@ import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-quer
 import { Loader2, Pencil, Reply, Trash2 } from "lucide-react"
 import type { PetitionDetailDto } from "@petitionu/domain"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { formErrors } from "@/lib/form-errors"
 import { formatDate } from "@/lib/utils"
 import { ReportContent } from "../moderation/report-content"
 import { PetitionCommentForm } from "./petition-comment-form"
@@ -137,6 +139,7 @@ function PetitionComment({
   const posting = useIsMutating({ mutationKey: replyMutationKey(comment.id) }) > 0
   const editId = `comment-${comment.id}-edit`
   const authorName = comment.author || "A campus community member"
+  const editErrors = formErrors(edit.error, ["text"])
 
   function open(next: Mode) {
     edit.reset()
@@ -167,10 +170,12 @@ function PetitionComment({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           disabled={edit.isPending}
+          {...fieldErrorProps(`${editId}-error`, editErrors.fields.text)}
         />
-        {edit.isError ? (
+        <FieldError id={`${editId}-error`} message={editErrors.fields.text} />
+        {editErrors.summary ? (
           <p role="alert" className="text-sm text-destructive">
-            {edit.error.message}
+            {editErrors.summary}
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">

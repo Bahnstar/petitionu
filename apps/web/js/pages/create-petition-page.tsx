@@ -9,6 +9,7 @@ import { AuthLink } from "../components/auth-link"
 import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -19,15 +20,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
+import { formErrors } from "@/lib/form-errors"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { isUuid } from "@petitionu/domain"
 import { useDocumentTitle } from "../hooks/use-document-title"
+import { useFocusFirstInvalid } from "../hooks/use-focus-first-invalid"
 import { ROUTES } from "@/lib/routes"
 import { useAuth } from "../contexts/auth-context"
+import { NotFoundPage } from "./not-found-page"
 
 export default function CreatePetitionPage() {
   const [searchParams] = useSearchParams()
   const classroomId = searchParams.get("classroomId")
+  // An id that isn't a UUID can't name a classroom: no form, no draft, and no call.
+  if (classroomId !== null && !isUuid(classroomId)) return <NotFoundPage />
   return <PetitionForm key={classroomId ?? "public"} classroomId={classroomId} />
 }
 
@@ -57,7 +64,8 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     queryFn: async () => {
       const result = await api.getClassroomById({ id: classroomId! })
       if (result.success === false)
-        throw new Error(
+        throw new ApiError(
+          result.errors,
           "This classroom could not be loaded. Return to the classroom and try again.",
         )
       return result.data
@@ -69,11 +77,14 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     if (createdId) clearPetitionDraft(classroomId)
     else savePetitionDraft(classroomId, formData)
   }, [classroomId, formData, createdId])
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<Error | null>(null)
+  const errors = formErrors(submitError, ["title", "description", "categoryId", "goal", "deadline"])
+  const form = useRef<HTMLFormElement>(null)
   const errorSummary = useRef<HTMLParagraphElement>(null)
   useEffect(() => {
-    if (submitError) errorSummary.current?.focus()
-  }, [submitError])
+    if (errors.summary) errorSummary.current?.focus()
+  }, [errors.summary])
+  useFocusFirstInvalid(form, errors.summary ? null : submitError)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const categoryQuery = useQuery({
     queryKey: ["categories"],
@@ -121,8 +132,8 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     } catch (error) {
       setSubmitError(
         error instanceof Error
-          ? error.message
-          : "Your petition couldn't be created. Check your connection and try again.",
+          ? error
+          : new Error("Your petition couldn't be created. Check your connection and try again."),
       )
     } finally {
       setIsSubmitting(false)
@@ -226,7 +237,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
               </button>
             </div>
           ) : null}
-          {submitError ? (
+          {errors.summary ? (
             <p
               id="petition-submit-error"
               ref={errorSummary}
@@ -234,10 +245,10 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
               role="alert"
               className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
             >
-              {submitError}
+              {errors.summary}
             </p>
           ) : null}
-          <form id="create-petition-form" onSubmit={handleSubmit} className="space-y-7">
+          <form id="create-petition-form" ref={form} onSubmit={handleSubmit} className="space-y-7">
             <div className="space-y-2">
               <Label htmlFor="title">What would you like to change?</Label>
               <Input
@@ -247,8 +258,9 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
                 onChange={(event) => handleChange("title", event.target.value)}
                 required
                 maxLength={100}
-                aria-describedby="title-help"
+                {...fieldErrorProps("title-error", errors.fields.title, "title-help")}
               />
+              <FieldError id="title-error" message={errors.fields.title} />
               <p
                 id="title-help"
                 className="flex justify-between gap-3 text-xs text-muted-foreground"
@@ -265,7 +277,11 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
                 required
                 disabled={categoryQuery.isPending || categoryQuery.isError}
               >
-                <SelectTrigger id="category" className="w-full">
+                <SelectTrigger
+                  id="category"
+                  className="w-full"
+                  {...fieldErrorProps("category-error", errors.fields.categoryId)}
+                >
                   <SelectValue
                     placeholder={
                       categoryQuery.isPending ? "Loading categories…" : "Choose a category"
@@ -280,6 +296,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError id="category-error" message={errors.fields.categoryId} />
               {categoryQuery.isSuccess && categoryQuery.data.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   No categories are available yet. Please try again later.
@@ -297,8 +314,13 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
                 rows={9}
                 maxLength={2000}
                 className="min-h-48 resize-y leading-7"
-                aria-describedby="description-help"
+                {...fieldErrorProps(
+                  "description-error",
+                  errors.fields.description,
+                  "description-help",
+                )}
               />
+              <FieldError id="description-error" message={errors.fields.description} />
               <p
                 id="description-help"
                 className="flex justify-between gap-3 text-xs text-muted-foreground"
@@ -310,7 +332,11 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
             <div className="space-y-2">
               <Label htmlFor="goal">Signature goal</Label>
               <Select value={formData.goal} onValueChange={(value) => handleChange("goal", value)}>
-                <SelectTrigger id="goal" className="w-full">
+                <SelectTrigger
+                  id="goal"
+                  className="w-full"
+                  {...fieldErrorProps("goal-error", errors.fields.goal)}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -321,6 +347,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError id="goal-error" message={errors.fields.goal} />
               <p className="text-xs text-muted-foreground">
                 Choose a goal that makes sense for your community.
               </p>
@@ -334,7 +361,9 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
                 type="datetime-local"
                 value={formData.deadline}
                 onChange={(event) => handleChange("deadline", event.target.value)}
+                {...fieldErrorProps("petition-deadline-error", errors.fields.deadline)}
               />
+              <FieldError id="petition-deadline-error" message={errors.fields.deadline} />
               <p className="text-xs text-muted-foreground">
                 Signing and comments close at this time in your local timezone. Leave blank to keep
                 the petition open.

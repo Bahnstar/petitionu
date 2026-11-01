@@ -1,7 +1,7 @@
 import { Cause, Context, Effect, Exit, Layer, ManagedRuntime, Schema, SchemaIssue } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
+import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http"
 import { type Rpc, RpcClient, type RpcGroup, RpcSerialization } from "effect/rpc"
-import type { RpcClientError } from "effect/rpc/RpcClientError"
+import { RpcClientError } from "effect/rpc/RpcClientError"
 import { AppRpcs } from "./Rpcs.ts"
 
 /** One error in a failed result. `type` is `unauthenticated`, `forbidden`, `not_found`, `invalid` or `unknown`. */
@@ -65,12 +65,14 @@ export const buildCSRFHeaders = (): Record<string, string> => {
 
 /**
  * Fetches a fresh CSRF token and stores it in the page's meta tag. Call it after any sign-in or
- * sign-out, because the token is bound to the session.
+ * sign-out, because the token is bound to the session. Rejects on a failed response, leaving the
+ * current token in place.
  */
 export const reloadCSRFToken = async (
   fetchFn: typeof globalThis.fetch = globalThis.fetch,
 ): Promise<string> => {
   const response = await fetchFn("/rpc/csrf-token", { credentials: "same-origin" })
+  if (!response.ok) throw new Error(`Reloading the CSRF token failed: ${response.status}`)
   const { token } = (await response.json()) as { token: string }
   const document = page()
   if (document) {
@@ -129,8 +131,20 @@ const payloadErrors = (
   }))
 }
 
+/** The server's answer to a body over its limit. A payload can pass its schema and still be. */
+const bodyTooLargeStatus = 413
+
+const isBodyTooLarge = (error: unknown) =>
+  error instanceof RpcClientError &&
+  error.reason._tag === "HttpError" &&
+  error.reason.cause instanceof HttpClientError.StatusCodeError &&
+  error.reason.cause.response.status === bodyTooLargeStatus
+
 const toErrors = (cause: Cause.Cause<unknown>): ReadonlyArray<RpcErrorEntry> => {
   const error = Cause.squash(cause)
+  if (isBodyTooLarge(error)) {
+    return [{ type: "invalid", message: "This is too long to send. Shorten it and try again." }]
+  }
   if (!isTaggedFailure(error)) {
     return [{ type: "unknown", message: error instanceof Error ? error.message : String(error) }]
   }
@@ -160,9 +174,13 @@ export const makeApiClient = (options: ApiClientOptions = {}): ApiClient => {
     Layer.provide(
       RpcClient.layerProtocolHttp({
         url: options.url ?? "/rpc",
-        transformClient: HttpClient.mapRequest((request) =>
-          HttpClientRequest.setHeaders(request, headers()),
-        ),
+        // The protocol reads any response as RPC messages, so a 413's body would be lost. Its
+        // client already fails with `HttpClientError`, which `filterStatus` can't show in the type.
+        transformClient: <E, R>(client: HttpClient.HttpClient.With<E, R>) =>
+          client.pipe(
+            HttpClient.mapRequest((request) => HttpClientRequest.setHeaders(request, headers())),
+            HttpClient.filterStatus((status) => status !== bodyTooLargeStatus),
+          ) as HttpClient.HttpClient.With<E, R>,
       }),
     ),
     Layer.provide(RpcSerialization.layerJson),

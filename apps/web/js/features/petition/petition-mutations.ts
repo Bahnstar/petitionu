@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import type { CreatePetitionInput, PetitionInput } from "@petitionu/domain"
-import { api } from "@/lib/api"
+import { api, ApiError, serverError } from "@/lib/api"
 
 type PetitionTarget = { id: string; classroomId?: string | null }
 export type PetitionOwnerCommand =
@@ -21,7 +21,7 @@ type PetitionCommand =
     ))
 
 /** A reply was refused because its parent was hidden or deleted after the page loaded. */
-export class ReplyParentGone extends Error {}
+export class ReplyParentGone extends ApiError {}
 
 /** Marks a reply's pending post, so the comment it answers can tell while the form is open. */
 export const replyMutationKey = (commentId: string) => ["reply", commentId]
@@ -85,16 +85,14 @@ export async function mutatePetition(
   if (result.success === false) {
     // `unknown` errors are transport failures or unexpected responses; their text isn't for users.
     const errors = result.errors.filter((error) => error.type !== "unknown")
-    const message = singleMessage.has(command.kind)
-      ? errors[0]?.message
-      : errors.map((error) => error.message).join(" ")
-    const text = message || failureMessage(command)
+    const shown = singleMessage.has(command.kind) ? errors.slice(0, 1) : errors
+    const error = serverError(shown, failureMessage(command))
     // The page is out of date: refetch it, so the removed comment leaves the screen.
-    if (command.kind === "reply" && errors.some((error) => error.field === "parentCommentId")) {
+    if (command.kind === "reply" && errors.some((entry) => entry.field === "parentCommentId")) {
       void queryClient.invalidateQueries({ queryKey: ["petition", command.petition.id] })
-      throw new ReplyParentGone(text)
+      throw new ReplyParentGone(error.errors, error.message)
     }
-    throw new Error(text)
+    throw error
   }
 
   const keys: string[][] = [["petitions"], ["dashboardUser"]]

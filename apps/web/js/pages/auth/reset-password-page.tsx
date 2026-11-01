@@ -101,7 +101,7 @@ function SetPasswordForm({ token }: { token: string }) {
         throw new AuthFailure("Choose a password between 8 and 128 characters.")
       throwLinkError(error, invalidLink)
       // The server signs the user in with a new session and revokes the others.
-      await afterAuthChange()
+      await afterAuthChange({ destination: returnTo })
     },
   })
 

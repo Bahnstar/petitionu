@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { formErrors } from "@/lib/form-errors"
 import { useAuth } from "../../contexts/auth-context"
 import { mutatePetition, ReplyParentGone, replyMutationKey } from "./petition-mutations"
 
@@ -51,8 +53,10 @@ export function PetitionCommentForm({
       if (error instanceof ReplyParentGone) reply?.onParentGone(posted)
     },
   })
+  const errors = formErrors(mutation.error, ["text"])
   const stopped = reply?.accepting === false
   const fieldId = reply ? `comment-${reply.commentId}-reply` : "petition-comment"
+  const errorId = `${fieldId}-error`
 
   useEffect(() => {
     if (isReply) textarea.current?.focus()
@@ -83,10 +87,12 @@ export function PetitionCommentForm({
         readOnly={mutation.isPending || stopped}
         required
         className="resize-y"
+        {...fieldErrorProps(errorId, errors.fields.text)}
       />
-      {mutation.isError ? (
+      <FieldError id={errorId} message={errors.fields.text} />
+      {errors.summary ? (
         <p role="alert" className="text-sm text-destructive">
-          {mutation.error.message}
+          {errors.summary}
         </p>
       ) : null}
       {stopped ? (

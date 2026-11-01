@@ -17,8 +17,8 @@ const emptyDraft: PetitionDraft = {
   allowComments: true,
   isAnonymous: false,
 }
-const draftKey = (classroomId: string | null) =>
-  `petitionu:petition-draft:v1:${classroomId ?? "public"}`
+const draftKeyPrefix = "petitionu:petition-draft:v1:"
+const draftKey = (classroomId: string | null) => `${draftKeyPrefix}${classroomId ?? "public"}`
 
 function isPetitionDraft(
   value: unknown,
@@ -77,6 +77,17 @@ export function savePetitionDraft(classroomId: string | null, draft: PetitionDra
 export function clearPetitionDraft(classroomId: string | null) {
   try {
     sessionStorage.removeItem(draftKey(classroomId))
+  } catch {
+    /* Storage may be unavailable. */
+  }
+}
+
+/** Clears the public draft and every classroom's, for when their writer signs out. */
+export function clearAllPetitionDrafts() {
+  try {
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith(draftKeyPrefix)) sessionStorage.removeItem(key)
+    }
   } catch {
     /* Storage may be unavailable. */
   }

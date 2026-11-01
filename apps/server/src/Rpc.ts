@@ -1,6 +1,6 @@
 import { AppRpcs } from "@petitionu/domain"
 import { Layer } from "effect"
-import { type Rpc, RpcGroup, RpcSerialization, RpcServer } from "effect/rpc"
+import { type Rpc, RpcGroup, RpcServer } from "effect/rpc"
 import { AccountsHandlers } from "./Accounts.ts"
 import { CampusHandlers } from "./Campus.ts"
 import { ClassroomHandlers } from "./Classrooms.ts"
@@ -10,6 +10,7 @@ import { UsersHandlers } from "./Users.ts"
 import { ActorMiddlewareLive, RequireUserLive, RpcRequestGuard } from "./Actor.ts"
 import { PetitionsHandlers } from "./Petitions.ts"
 import { ParticipationHandlers } from "./Participation.ts"
+import { RedactedJsonSerialization } from "./RpcDefects.ts"
 
 /**
  * Composition point for RPC handlers. Each feature area adds one line for the handler layer
@@ -35,7 +36,7 @@ export const rpcRoute = <Rpcs extends Rpc.Any>(
   path: `/${string}`,
 ) =>
   RpcServer.layerHttp({ group, path, protocol: "http" }).pipe(
-    Layer.provide([ActorMiddlewareLive, RequireUserLive, RpcSerialization.layerJson]),
+    Layer.provide([ActorMiddlewareLive, RequireUserLive, RedactedJsonSerialization]),
     Layer.provide(RpcRequestGuard),
   )
 
