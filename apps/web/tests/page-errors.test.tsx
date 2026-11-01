@@ -45,6 +45,7 @@ const invalid = (...fields: FieldProblem[]) =>
 
 let calls: string[] = []
 let sawSecondUser = false
+let refuseRpc = false
 let failures = new Map<string, ReturnType<typeof fail>>()
 let signOut: () => Response | Promise<Response> = () => Response.json({ success: true })
 let csrfToken: () => Response = () => Response.json({ token: "fresh-token" })
@@ -67,6 +68,9 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/rpc/csrf-token") return csrfToken()
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/sign-out") return signOut()
+  if (url.pathname === "/rpc/" && refuseRpc) {
+    return Response.json({ error: "Forbidden" }, { status: 403 })
+  }
   if (url.pathname === "/rpc/") {
     const body = await request.json()
     calls.push(body.tag)
@@ -110,6 +114,7 @@ afterAll(async () => {
 beforeEach(() => {
   calls = []
   sawSecondUser = false
+  refuseRpc = false
   failures = new Map()
   signOut = () => Response.json({ success: true })
   csrfToken = () => Response.json({ token: "fresh-token" })
@@ -535,6 +540,28 @@ test("signing in keeps a draft written before it", async () => {
   await settle()
 
   expect(readPetitionDraft(null).title).toBe("Public draft")
+})
+
+test("a failed CSRF reload after a sign-in says so and offers a reload", async () => {
+  const container = await render(AccountData, "/")
+  csrfToken = () => new Response("upstream error", { status: 500 })
+  // What the server answers a stale token.
+  refuseRpc = true
+
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+
+  const alert = container.querySelector('[role="alert"]')
+  expect(alert?.textContent).toContain("You’re signed in")
+  expect(alert?.textContent).toContain("Reload the page")
+  expect(button(container, /^Reload page/)).toBeTruthy()
+
+  csrfToken = () => Response.json({ token: "fresh-token" })
+  refuseRpc = false
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+
+  expect(container.querySelector('[role="alert"]')).toBe(null)
 })
 
 test("a password change keeps the same user's data on screen while it refreshes", async () => {
