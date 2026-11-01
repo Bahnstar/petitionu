@@ -68,7 +68,7 @@ The main choices:
 27. As a signed-in student, I want to see my profile, including email, name, role, graduation year, whether my email is verified, whether my profile is complete, my campus, and whether I have a password, so that I know my account status.
 28. As a confirmed student, I want to fill in my first name, last name and graduation year (between 1900 and 2100), so that my profile is complete.
 29. As a confirmed student without a campus, I want completing my profile to match me to my campus by email domain, and to tell me to contact support if there's no single supported match, so that I'm not stuck.
-30. As an unconfirmed student, I want a clear message that I must confirm my email before completing my profile, so that I know what to do next.
+30. As a student who hasn't confirmed, I want signing in to tell me to confirm my email and send me a new link, so that I know what to do next.
 31. As a student, I want to see my own stats (petitions created, petitions signed, total signatures on my petitions), and I want them hidden from other users, so that my activity stays private.
 32. As a student, I want my email, role, graduation year and campus to be visible only to me and my campus admins, so that other students can't collect my personal details.
 
@@ -76,7 +76,7 @@ The main choices:
 
 33. As a student with a complete profile, I want to create a campus petition with a title, description, category, goal, optional deadline, comment setting and anonymity setting, so that I can rally support.
 34. As a student, I want a petition's deadline to have to be in the future, so that I don't publish something already expired.
-35. As a student, I want unconfirmed or incomplete accounts to get a clear message instead of being allowed to create or sign petitions, so that I understand what's required.
+35. As a student, I want incomplete accounts to get a clear message instead of being allowed to create or sign petitions, so that I understand what's required.
 36. As a student, I want my petition tied to my campus automatically, so that the right community sees it.
 37. As a signed-in student, I want to browse public petitions with signature counts, days left, whether they're trending, and whether I've signed, so that I can find causes to support.
 38. As an author who chose anonymity, I want my name hidden from other users on my petition, so that I can raise sensitive issues safely.
@@ -193,7 +193,8 @@ The main choices:
   - Hashing and verification are overridden to use bcrypt, so existing hashes verify and new hashes use the same format.
   - Reset emails are enabled and reset revokes all sessions.
   - Changing a password requires the current password and revokes other sessions.
-- **Email verification:** a confirmation email is sent on sign-up. Unverified users may sign in; taking part (petitions, signatures, comments, classrooms, reports) stays blocked by the domain's existing confirmed-and-complete-profile rule. The verification URL in the email points to an SPA confirm page. That page calls Better Auth's verify endpoint only when the user clicks Confirm, which keeps `require_interaction`. The verify and magic-link endpoints accept only that page's own request. Sign-up doesn't prove the address, so the first confirmation ends every other session. A browser already signed in as the user keeps its session and the password; a confirmation from anywhere else also removes the password, as a magic link does, and the user sets a new one with a password reset.
+- **Email verification:** a confirmation email is sent on sign-up, and sign-up doesn't sign the user in. An unconfirmed account can't sign in with a password: the right password gets a message to confirm and a new confirmation link. The verification URL in the email points to an SPA confirm page. That page calls Better Auth's verify endpoint only when the user clicks Confirm, which keeps `require_interaction`. The verify and magic-link endpoints accept only that page's own request. Sign-up doesn't prove the address, so the password might be someone else's until it's confirmed. The browser that registered, or that signed in with the password and got the new link, keeps the password. From any other browser the page warns first, and confirming then removes the password and any session, as a magic link does, and the page points the user to a password reset.
+- **Registered addresses:** sign-up answers a registered address as it answers a new one, so it doesn't reveal who has an account. The owner gets an email saying they already have an account, with a link to sign in.
 - **Magic link:** the Better Auth magic-link plugin, with sign-up through magic link allowed. The emailed URL points to an SPA page that calls the plugin's verify endpoint only after a click. A successful magic-link sign-in marks the email verified.
 - Reset password and magic-link sign-in also count as confirming the email, matching the current `auto_confirm_actions`.
 - **Campus assignment:** whenever a user becomes confirmed (email verification, magic-link sign-in or password reset), a Better Auth after-hook runs the domain's `AssignOrganization` workflow through the server's Effect runtime. If an approved or verified organization matches the email domain, the user is assigned to it. Otherwise one is created or found for a school domain, and the user is set as pending with a verification job queued.
