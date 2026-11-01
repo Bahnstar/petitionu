@@ -36,32 +36,42 @@ afterEach(() => {
 
 const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20)))
 
-async function openEditForm(deadline: Date | null) {
+async function renderEditForm(deadline: Date | null) {
   const container = document.createElement("div")
   document.body.append(container)
-  const petition = {
-    id: "00000000-0000-4000-8000-000000000001",
-    title: "A better campus",
-    description: "More benches",
-    goal: 100,
-    deadline,
-    allowComments: true,
-    isAnonymous: false,
-    status: "open" as const,
-    classroomId: null,
-  }
-  await act(() =>
-    createRoot(container).render(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter>
-          <PetitionOwnerControls petition={petition} canPublishUpdate />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    ),
-  )
+  const root = createRoot(container)
+  const client = new QueryClient()
+  // Shows the petition as a refetch would, leaving the form open.
+  const show = (shown: Date | null) =>
+    act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <PetitionOwnerControls
+              petition={{
+                id: "00000000-0000-4000-8000-000000000001",
+                title: "A better campus",
+                description: "More benches",
+                goal: 100,
+                deadline: shown,
+                allowComments: true,
+                isAnonymous: false,
+                status: "open",
+                classroomId: null,
+              }}
+              canPublishUpdate
+            />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      ),
+    )
+  await show(deadline)
   await act(() => container.querySelector<HTMLButtonElement>("#edit-petition")!.click())
-  return container.querySelector<HTMLFormElement>("#petition-owner-edit-form")!
+  const form = container.querySelector<HTMLFormElement>("#petition-owner-edit-form")!
+  return { form, show }
 }
+
+const openEditForm = async (deadline: Date | null) => (await renderEditForm(deadline)).form
 
 function setDeadline(form: HTMLFormElement, value: string) {
   const input = form.querySelector<HTMLInputElement>("#edit-petition-deadline")!
@@ -79,6 +89,26 @@ async function submit(form: HTMLFormElement) {
 
 test("an unedited form leaves a deadline with seconds alone", async () => {
   const form = await openEditForm(new Date("2026-01-02T03:04:05Z"))
+
+  const sent = await submit(form)
+
+  expect(sent.title).toBe("A better campus")
+  expect(sent).not.toHaveProperty("deadline")
+})
+
+test("an unedited form leaves alone a deadline that changes while it's open", async () => {
+  const { form, show } = await renderEditForm(new Date("2026-01-02T03:04:05Z"))
+  await show(new Date("2031-06-07T08:09:10Z"))
+
+  const sent = await submit(form)
+
+  expect(sent.title).toBe("A better campus")
+  expect(sent).not.toHaveProperty("deadline")
+})
+
+test("an unedited form leaves alone a deadline that appears while it's open", async () => {
+  const { form, show } = await renderEditForm(null)
+  await show(new Date("2031-06-07T08:09:10Z"))
 
   const sent = await submit(form)
 
