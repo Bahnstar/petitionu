@@ -5,7 +5,7 @@ import { request as httpRequest } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { makeBrowser } from "./support/browser.ts"
-import { ok } from "./support/classrooms.ts"
+import { insertClassroom, ok } from "./support/classrooms.ts"
 import { makeTestApp, serveOnSocket, testOrigin } from "./support/harness.ts"
 import { insertCategory } from "./support/petitions.ts"
 import { createOrganization, createUser } from "./support/users.ts"
@@ -147,6 +147,45 @@ describe("request body limit", () => {
         .rpc((api) => api.createPetition({ title, description, categoryId: category.id }))
         .pipe(Effect.flatMap(ok))
       assert.lengthOf(created.description ?? "", 20000)
+    }),
+  )
+
+  it.live("leaves room for the largest petition, every setting filled in", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const organization = yield* createOrganization(app, { domain: "school.edu" })
+      const professor = yield* createUser(app, {
+        role: "professor",
+        organizationId: organization.id,
+      })
+      const category = yield* insertCategory(app, { name: "Campus" })
+      const classroom = yield* insertClassroom(app, {
+        professorId: professor.id,
+        organizationId: organization.id,
+      })
+      const settings = {
+        title: "\u0001".repeat(200),
+        description: "\u0001".repeat(20000),
+        goal: Number.MAX_SAFE_INTEGER,
+        deadline: "2099-12-31T23:59:59.999+00:00",
+        allowComments: false,
+        isAnonymous: true,
+      }
+
+      const created = yield* professor.browser
+        .rpc((api) =>
+          api.createClassroomPetition({
+            ...settings,
+            categoryId: category.id,
+            classroomId: classroom.id,
+          }),
+        )
+        .pipe(Effect.flatMap(ok))
+      assert.lengthOf(created.description ?? "", 20000)
+      const updated = yield* professor.browser
+        .rpc((api) => api.updatePetition({ ...settings, id: created.id }))
+        .pipe(Effect.flatMap(ok))
+      assert.lengthOf(updated.title ?? "", 200)
     }),
   )
 

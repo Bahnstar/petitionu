@@ -535,9 +535,29 @@ const rows: ReadonlyArray<Row> = [
     call((api) => api.updatePetition({ id: malformedId, goal: 100 })),
   ],
   [
+    "updatePetition (a goal of 0)",
+    rejectedPayload,
+    call((api, world) => api.updatePetition({ id: world.campusPetition.id, goal: 0 })),
+  ],
+  [
+    "updatePetition (an unreadable deadline)",
+    rejectedPayload,
+    call((api, world) => api.updatePetition({ id: world.campusPetition.id, deadline: "soon" })),
+  ],
+  [
     "createPetition (a blank title)",
     rejectedPayload,
     call((api, world) => api.createPetition({ ...petitionInput(world), title: " " })),
+  ],
+  [
+    "createPetition (a goal of 0)",
+    rejectedPayload,
+    call((api, world) => api.createPetition({ ...petitionInput(world), goal: 0 })),
+  ],
+  [
+    "createPetition (an unreadable deadline)",
+    rejectedPayload,
+    call((api, world) => api.createPetition({ ...petitionInput(world), deadline: "soon" })),
   ],
 
   // Signatures, comments, updates

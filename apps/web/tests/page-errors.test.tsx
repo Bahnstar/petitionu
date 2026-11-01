@@ -394,6 +394,69 @@ test("a petition update shows a second field's error too", async () => {
   expect(document.activeElement?.id).toBe("petition-update-title")
 })
 
+async function openPetitionEdit() {
+  const petition = {
+    id: "00000000-0000-4000-8000-000000000001",
+    title: "A petition",
+    description: "A description",
+    goal: 100,
+    deadline: new Date("2026-01-02T03:04:05Z"),
+    allowComments: true,
+    isAnonymous: false,
+    status: "open" as const,
+    classroomId: null,
+  }
+  const container = await render(
+    () => <PetitionOwnerControls petition={petition} canPublishUpdate />,
+    "/",
+  )
+  await act(() => container.querySelector<HTMLButtonElement>("#edit-petition")!.click())
+  return container
+}
+
+for (const [goal, message] of [
+  ["0", "must be more than or equal to 1"],
+  ["1.5", "is invalid"],
+]) {
+  test(`the petition edit form refuses a goal of ${goal} against the field, without a call`, async () => {
+    const container = await openPetitionEdit()
+    await act(async () => type(container.querySelector("#edit-petition-goal"), goal))
+    calls = []
+
+    await submit(container.querySelector("#petition-owner-edit-form"))
+
+    expect(fieldError(container, "edit-petition-goal")).toBe(message)
+    expect(calls).not.toContain("updatePetition")
+  })
+}
+
+test("the petition edit form shows a refused deadline against its field", async () => {
+  failures = new Map([
+    ["updatePetition", invalid({ field: "deadline", message: "Choose a deadline in the future." })],
+  ])
+  const container = await openPetitionEdit()
+  await act(async () =>
+    type(container.querySelector("#edit-petition-deadline"), "2026-01-03T00:00"),
+  )
+
+  await submit(container.querySelector("#petition-owner-edit-form"))
+
+  expect(fieldError(container, "edit-petition-deadline")).toBe("Choose a deadline in the future.")
+  expect(document.activeElement?.id).toBe("edit-petition-deadline")
+})
+
+test("the petition edit form still shows an error about a setting with no field error", async () => {
+  failures = new Map([
+    ["updatePetition", invalid({ field: "allowComments", message: "is invalid" })],
+  ])
+  const container = await openPetitionEdit()
+
+  await submit(container.querySelector("#petition-owner-edit-form"))
+
+  const alerts = [...container.querySelectorAll('[role="alert"]')].map((a) => a.textContent)
+  expect(alerts).toEqual(["is invalid"])
+})
+
 for (const classroom of ["not-a-uuid", ""]) {
   test(`create petition shows the not-found view for classroomId "${classroom}"`, async () => {
     const container = await render(CreatePetitionPage, `/?classroomId=${classroom}`)
