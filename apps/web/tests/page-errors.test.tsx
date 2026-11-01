@@ -804,7 +804,7 @@ test("a confirmation that removed the password still says so after a full page l
   await clickThrough(/^Confirm/)(container)
 
   expect(assign).toHaveBeenCalledTimes(1)
-  const landing = assign.mock.calls[0]![0] as string
+  const landing = String(assign.mock.calls[0]![0])
   expect(landing).toStartWith("/auth/confirm?")
   expect(landing).not.toContain("token")
 
