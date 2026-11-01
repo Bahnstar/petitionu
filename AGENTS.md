@@ -23,7 +23,7 @@ Add a feature area as its own modules plus one line at each composition point, f
 - Check input in the payload schema with the shared schemas in `packages/domain/src/Inputs.ts`: `Uuid` for ids, `Note` and `OptionalNote` for text, with the area's length limit and wording. The shared client checks each payload before the call and reports a rejection as `invalid` entries, one per field, worded by the schema; the server checks again when it decodes, so handlers get checked, trimmed values. Add `.annotateRpcs(Rpc.ParseOptions, { errors: "all" })` to the group so the server reports every field too.
   - A malformed id is therefore `Invalid`, not `NotFound`, guests included. A page that takes an id from the URL checks it with `isUuid` first and shows its not-found view.
   - Keep in the handler only the checks a schema can't make (the database, the clock), failing with `Invalid` naming the field. An id stays a plain string only when the handler must answer a malformed one like an unknown one (join codes, reported content).
-  - A caller that skips the shared client and sends a payload the schema rejects gets a defect, not a field error.
+  - A caller that skips the shared client and sends a payload the schema rejects gets a generic defect, not a field error; the server logs the detail.
 - `test/policy-matrix.test.ts` is the authorization contract: every procedure as every actor type. A new procedure, or a change to who may call one, gets a matrix row; the matrix fails when a procedure has none.
 
 ## Database
@@ -43,7 +43,8 @@ Tests never import policy modules, SQL helpers or DTO mappers. Use `it.live` for
 
 ## Web app
 
-- Call procedures only through the shared client in `apps/web/lib/api.ts`, which keeps CSRF headers on every call. After any sign-in or sign-out, call the auth context's `afterAuthChange()` (reloads the CSRF token, then invalidates queries).
+- Call procedures only through the shared client in `apps/web/lib/api.ts`, which keeps CSRF headers on every call. After any sign-in, call the auth context's `afterAuthChange({ destination })`: it reloads the CSRF token and the user and clears other users' cached data. If the token still can't be reloaded after a retry, it loads `destination` in full, so pass where the caller goes next; without one it reloads the current page, which must not hold a spent token. Sign out through the context's `signOut()`, and pass `{ sameUser: true }` when the account changes but the user doesn't.
+- A query or form throws a failed result as `ApiError` (`serverError` keeps the server's words), both in `apps/web/lib/api.ts`, so the retry rule and `formErrors` can read it.
 - Reuse existing UI components and Lucide icons. Build new styling with Tailwind and custom CSS, without adding daisyUI components or CSS `@apply`. Preserve Tailwind's import and source declarations in `apps/web/css/app.css`.
 - For frontend changes, `bun run precommit` covers formatting, lint and the Vite build. See [docs/frontend-tooling.md](docs/frontend-tooling.md) for lint policy and vendored plugin maintenance.
 

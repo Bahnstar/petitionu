@@ -16,7 +16,7 @@ import { isUuid } from "@petitionu/domain"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { api } from "@/lib/api"
+import { api, serverError } from "@/lib/api"
 import { MemberList } from "../features/classroom/member-list"
 import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
@@ -129,11 +129,11 @@ export default function ClassroomDetailPage() {
   const classroomQuery = useQuery({
     queryKey: ["classroom", id],
     queryFn: async () => {
-      if (!validId) throw new Error("Classroom not found")
+      if (!validId) throw serverError([{ type: "not_found", message: "Classroom not found" }])
       const result = await api.getClassroomById({ id: id! })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to fetch classroom")
+        throw serverError(result.errors, "Failed to fetch classroom")
       }
 
       return result.data
@@ -151,7 +151,7 @@ export default function ClassroomDetailPage() {
       })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to fetch petitions")
+        throw serverError(result.errors, "Failed to fetch petitions")
       }
 
       return result.data
@@ -166,7 +166,7 @@ export default function ClassroomDetailPage() {
       const result = await api.getMembershipsForClassroom({ classroomId: id! })
 
       if (result.success === false) {
-        throw new Error(result.errors[0]?.message || "Failed to fetch memberships")
+        throw serverError(result.errors, "Failed to fetch memberships")
       }
 
       return result.data

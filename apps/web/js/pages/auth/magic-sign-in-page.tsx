@@ -24,9 +24,11 @@ export default function MagicSignInPage() {
         fetchOptions: { redirect: "manual" },
       })
       throwLinkError(error, invalidLink)
-      await afterAuthChange()
+      const returnTo = takeRememberedReturnTo()
+      await afterAuthChange({ destination: returnTo })
+      return returnTo
     },
-    onSuccess: () => navigate(takeRememberedReturnTo(), { replace: true }),
+    onSuccess: (returnTo) => navigate(returnTo, { replace: true }),
   })
 
   return (

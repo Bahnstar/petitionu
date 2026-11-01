@@ -76,17 +76,21 @@ export const ModerationHandlers = ModerationRpcs.toLayer(
         const id = commentId ?? petitionId
         if (id === null || !isUuid(id)) return yield* unavailable
         const visible = petitionVisible(sql, user, "p")
+        // A report's copy of the content is required, but a petition's title and description
+        // and a comment's text can be null.
+        const title = sql`coalesce(p.title, 'Untitled petition')`
         const found = yield* commentId === null
           ? findTarget(
               (petition) => sql`
-                SELECT p.id AS petition_id, p.title, p.description AS text, p.organization_id
+                SELECT p.id AS petition_id, ${title} AS title,
+                  coalesce(p.description, '') AS text, p.organization_id
                 FROM petition p WHERE p.id = ${petition} AND ${visible}
               `,
             )(id)
           : findTarget(
               (comment) => sql`
-                SELECT p.id AS petition_id, p.title, coalesce(c.text, p.description) AS text,
-                  p.organization_id
+                SELECT p.id AS petition_id, ${title} AS title,
+                  coalesce(c.text, p.description, '') AS text, p.organization_id
                 FROM comment c JOIN petition p ON p.id = c.petition_id
                 WHERE c.id = ${comment} AND ${commentVisible(sql, user, "c")}
               `,
