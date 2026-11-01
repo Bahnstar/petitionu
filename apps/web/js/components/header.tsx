@@ -8,7 +8,7 @@ import { ROUTES } from "@/lib/routes"
 import { Button } from "@/components/ui/button"
 
 export function Header({ landing = false }: { landing?: boolean }) {
-  const { user, isAuthenticated, isLoading, reloadNeeded } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
   const signOut = useSignOut()
   const { pathname } = useLocation()
   const [menuPath, setMenuPath] = useState<string | null>(null)
@@ -67,20 +67,6 @@ export function Header({ landing = false }: { landing?: boolean }) {
   const handleSignOut = () => {
     setMenuPath(null)
     void signOut.attempt()
-  }
-
-  function renderReloadNotice() {
-    if (!reloadNeeded) return null
-    return (
-      <div role="alert" className="site-header-alert flex flex-wrap items-center gap-3">
-        <p>
-          You’re signed in, but this page couldn’t finish updating. Reload the page to continue.
-        </p>
-        <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
-          Reload page
-        </Button>
-      </div>
-    )
   }
 
   function renderSignOutError() {
@@ -201,7 +187,6 @@ export function Header({ landing = false }: { landing?: boolean }) {
           </nav>
         )}
       </header>
-      {renderReloadNotice()}
       {renderSignOutError()}
     </>
   )

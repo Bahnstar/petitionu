@@ -1,18 +1,32 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import React, { createContext, useContext, useEffect, ReactNode } from "react"
 import { useQuery, useQueryClient, type Query } from "@tanstack/react-query"
 import { reloadCSRFToken, type MeDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
+import { ROUTES } from "@/lib/routes"
 import { clearAllPetitionDrafts } from "../lib/petition-draft"
 
 export type CurrentUser = MeDto
 
 interface AuthChange {
   readonly sameUser?: boolean
+  /** Where the caller goes next, if it isn't the current page. */
+  readonly destination?: string
 }
 
 const currentUserKey = ["currentUser"]
 const isPageQuery = (query: Query) => query.queryKey[0] !== currentUserKey[0]
+
+/**
+ * Recovers from a CSRF token that can't be reloaded: the server renders a fresh one into the page,
+ * along with the right auth state. Only a completed auth action gets here, so it can't loop.
+ * Never resolves, so the caller doesn't carry on while the page goes away.
+ */
+function loadFullPage(destination?: string) {
+  if (destination) window.location.assign(destination)
+  else window.location.reload()
+  return new Promise<void>(() => {})
+}
 
 interface AuthContextType {
   user: CurrentUser | null
@@ -23,19 +37,17 @@ interface AuthContextType {
   /**
    * Call after any sign-in or account change: reloads the CSRF token and the user, and clears
    * cached data. Pass `sameUser` when the user hasn't changed, to refresh it in place instead.
+   * If the token can't be reloaded, the page loads in full, at `destination` when given.
    */
   afterAuthChange: (change?: AuthChange) => Promise<void>
   /** Rejects if the server didn't confirm the sign-out, so the session may still be live. */
   signOut: () => Promise<void>
-  /** The user is signed in, but this page has no CSRF token for them until it's loaded again. */
-  reloadNeeded: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
-  const [reloadNeeded, setReloadNeeded] = useState(false)
 
   // Reading the session through Better Auth keeps its cookie alive; `getMe` doesn't refresh it.
   useEffect(() => {
@@ -60,16 +72,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   })
 
-  // The CSRF token is bound to the session, so it must be replaced before the next RPC call. A
-  // failed reload can't undo the auth change, so the UI still has to follow it.
+  // The CSRF token is bound to the session, and every RPC is refused without the right one.
   const reloadToken = async () => {
-    try {
-      await reloadCSRFToken()
-      return true
-    } catch (error) {
-      console.error("Couldn't reload the CSRF token", error)
-      return false
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await reloadCSRFToken()
+        return true
+      } catch (error) {
+        console.error("Couldn't reload the CSRF token", error)
+      }
     }
+    return false
   }
 
   // Cached data may belong to the previous user, so a change of user starts every page empty.
@@ -81,10 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : queryClient.resetQueries(pageQueries))
   }
 
-  const afterAuthChange = async ({ sameUser = false }: AuthChange = {}) => {
-    // Without the new token every RPC is refused, so the user would look signed out. Loading the
-    // page again gets one from the server.
-    setReloadNeeded(!(await reloadToken()))
+  const afterAuthChange = async ({ sameUser = false, destination }: AuthChange = {}) => {
+    if (!(await reloadToken())) return loadFullPage(destination)
     refreshPageQueries(sameUser)
     // A getMe already in flight was sent as the previous user, and would otherwise be reused.
     await queryClient.cancelQueries({ queryKey: currentUserKey })
@@ -102,8 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(currentUserKey, null)
     // Only sign-out: a draft written before signing in or finishing a profile is meant to stay.
     clearAllPetitionDrafts()
-    setReloadNeeded(false)
-    await reloadToken()
+    if (!(await reloadToken())) return loadFullPage(ROUTES.home)
     refreshPageQueries(false)
   }
 
@@ -115,7 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetch: () => queryClient.invalidateQueries({ queryKey: currentUserKey }),
     afterAuthChange,
     signOut,
-    reloadNeeded,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

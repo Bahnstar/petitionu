@@ -1,5 +1,5 @@
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
-import { afterAll, afterEach, beforeEach, expect, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test"
 import type { MeDto } from "@petitionu/domain"
 import type { ComponentType } from "react"
 
@@ -49,6 +49,9 @@ let refuseRpc = false
 let failures = new Map<string, ReturnType<typeof fail>>()
 let signOut: () => Response | Promise<Response> = () => Response.json({ success: true })
 let csrfToken: () => Response = () => Response.json({ token: "fresh-token" })
+let csrfCalls = 0
+/** How many CSRF reloads fail before they work again. */
+let csrfFailures = 0
 /** Procedures whose answers wait for `release`, as a slow or retrying refetch would. */
 let held = new Set<string>()
 let release = () => {}
@@ -65,7 +68,14 @@ function answer(tag: string) {
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
   const url = new URL(request.url)
-  if (url.pathname === "/rpc/csrf-token") return csrfToken()
+  if (url.pathname === "/rpc/csrf-token") {
+    csrfCalls += 1
+    if (csrfFailures > 0) {
+      csrfFailures -= 1
+      return new Response("upstream error", { status: 500 })
+    }
+    return csrfToken()
+  }
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/sign-out") return signOut()
   if (url.pathname === "/rpc/" && refuseRpc) {
@@ -106,6 +116,10 @@ const { PetitionOwnerControls } =
 const { api, retryQuery, serverError } = await import("../lib/api.ts")
 const { readPetitionDraft, savePetitionDraft } = await import("../js/lib/petition-draft.ts")
 
+// Recorded, not followed: a full page load is the end of the page under test.
+const assign = spyOn(window.location, "assign").mockImplementation(() => {})
+const reload = spyOn(window.location, "reload").mockImplementation(() => {})
+
 afterAll(async () => {
   globalThis.fetch = originalFetch
   await GlobalRegistrator.unregister()
@@ -118,6 +132,10 @@ beforeEach(() => {
   failures = new Map()
   signOut = () => Response.json({ success: true })
   csrfToken = () => Response.json({ token: "fresh-token" })
+  csrfCalls = 0
+  csrfFailures = 0
+  assign.mockClear()
+  reload.mockClear()
   held = new Set()
   released = new Promise((resolve) => {
     release = () => resolve()
@@ -448,24 +466,30 @@ test("signing out doesn't wait for refetches", async () => {
   await act(async () => release())
 })
 
-for (const [name, reply] of [
-  ["text", () => new Response("upstream error", { status: 500 })],
-  ["JSON", () => Response.json({ error: "down" }, { status: 500 })],
-] as const) {
-  test(`a failed CSRF reload (${name}) doesn't undo a finished sign-out`, async () => {
-    const meta = document.createElement("meta")
-    meta.setAttribute("name", "csrf-token")
-    meta.setAttribute("content", "old-token")
-    document.head.append(meta)
-    csrfToken = reply
-    const container = await signOutClick()
+test("sign-out retries a failed CSRF reload once and carries on in the page", async () => {
+  csrfFailures = 1
+  const container = await signOutClick()
 
-    expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
-    expect(container.textContent).toContain("Sign in")
-    expect(container.querySelector('[role="alert"]')).toBe(null)
-    expect(meta.getAttribute("content")).toBe("old-token")
-  })
-}
+  expect(csrfCalls).toBe(2)
+  expect(assign).not.toHaveBeenCalled()
+  expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
+  expect(document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")).toBe(
+    "fresh-token",
+  )
+})
+
+test("sign-out loads the home page in full when the CSRF reload fails twice", async () => {
+  csrfFailures = 2
+  saveDrafts()
+  const container = await signOutClick()
+
+  expect(csrfCalls).toBe(2)
+  expect(assign.mock.calls).toEqual([["/ash-typescript"]])
+  expect(reload).not.toHaveBeenCalled()
+  expect(container.querySelector("#where")?.textContent).toBe("/somewhere")
+  expect(container.querySelector('[role="alert"]')).toBe(null)
+  expect(readPetitionDraft(null).title).toBe("")
+})
 
 test("reloadCSRFToken rejects a failed response instead of storing it", async () => {
   const meta = document.createElement("meta")
@@ -542,26 +566,50 @@ test("signing in keeps a draft written before it", async () => {
   expect(readPetitionDraft(null).title).toBe("Public draft")
 })
 
-test("a failed CSRF reload after a sign-in says so and offers a reload", async () => {
+test("an auth change retries a failed CSRF reload once and stays in the page", async () => {
   const container = await render(AccountData, "/")
-  csrfToken = () => new Response("upstream error", { status: 500 })
-  // What the server answers a stale token.
+  csrfFailures = 1
+
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+
+  expect(csrfCalls).toBe(2)
+  expect(reload).not.toHaveBeenCalled()
+  expect(assign).not.toHaveBeenCalled()
+})
+
+test("an auth change with no destination reloads the page when the CSRF reload fails twice", async () => {
+  const container = await render(AccountData, "/")
+  csrfFailures = 2
+  const before = calls.length
+
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+
+  expect(csrfCalls).toBe(2)
+  expect(reload).toHaveBeenCalledTimes(1)
+  expect(calls.length).toBe(before)
+})
+
+test("a password change reloads in place when the CSRF reload fails twice", async () => {
+  const container = await render(AccountData, "/")
+  csrfFailures = 2
+
+  await act(() => button(container, /^Password changed/).click())
+  await settle()
+
+  expect(reload).toHaveBeenCalledTimes(1)
+  expect(assign).not.toHaveBeenCalled()
+  expect(container.querySelector("#data")?.textContent).toBe("First user's request")
+})
+
+test("a failed CSRF reload with no auth change never loads the page", async () => {
+  csrfFailures = 99
   refuseRpc = true
+  await render(AccountData, "/")
 
-  await act(() => button(container, /^Signed in/).click())
-  await settle()
-
-  const alert = container.querySelector('[role="alert"]')
-  expect(alert?.textContent).toContain("You’re signed in")
-  expect(alert?.textContent).toContain("Reload the page")
-  expect(button(container, /^Reload page/)).toBeTruthy()
-
-  csrfToken = () => Response.json({ token: "fresh-token" })
-  refuseRpc = false
-  await act(() => button(container, /^Signed in/).click())
-  await settle()
-
-  expect(container.querySelector('[role="alert"]')).toBe(null)
+  expect(assign).not.toHaveBeenCalled()
+  expect(reload).not.toHaveBeenCalled()
 })
 
 test("a password change keeps the same user's data on screen while it refreshes", async () => {
@@ -642,4 +690,23 @@ test("signing out again after a failure works", async () => {
 
   expect(container.querySelector('[role="alert"]')).toBe(null)
   expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
+})
+
+// Keep last: it starts the whole app, which stays mounted.
+test("startup can't loop: a page with no token that can't get one stays put", async () => {
+  csrfFailures = 99
+  refuseRpc = true
+  const app = document.createElement("div")
+  app.id = "app"
+  document.body.append(app)
+
+  await act(async () => {
+    await import("../js/index.tsx")
+  })
+  await settle()
+
+  expect(csrfCalls).toBe(1)
+  expect(assign).not.toHaveBeenCalled()
+  expect(reload).not.toHaveBeenCalled()
+  expect(app.textContent).not.toBe("")
 })
