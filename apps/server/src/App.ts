@@ -1,6 +1,7 @@
 import { Layer } from "effect"
 import type { HttpRouter } from "effect/http"
 import { Auth, AuthRoutes } from "./Auth.ts"
+import { BodyLimit } from "./BodyLimit.ts"
 import { CampusAssignmentLive } from "./Campus.ts"
 import { AppConfig } from "./Config.ts"
 import { Csrf, CsrfRoutes, SessionShellHead } from "./Csrf.ts"
@@ -17,7 +18,7 @@ import { ShellRoutes, StaticRoutes } from "./Web.ts"
  */
 export const AppRoutes = Layer.mergeAll(
   HealthRoutes,
-  AuthRoutes,
+  AuthRoutes.pipe(Layer.provide(BodyLimit)),
   CsrfRoutes,
   RpcRoutes,
   ShellRoutes.pipe(Layer.provide(SessionShellHead)),

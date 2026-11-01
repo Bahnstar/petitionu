@@ -247,29 +247,37 @@ describe("support requests", () => {
           })
           return { status: response.status, body: yield* Effect.promise(() => response.json()) }
         })
-      const defect = (message: string) => ({
+      const defect = {
         status: 200,
         body: [
           {
             _tag: "Exit",
             requestId: "1",
-            exit: { _tag: "Failure", cause: [{ _tag: "Die", defect: message }] },
+            exit: {
+              _tag: "Failure",
+              cause: [{ _tag: "Die", defect: "Something went wrong. Please try again." }],
+            },
           },
         ],
-      })
+      }
 
       // The server decodes the payload before any handler or query runs and answers with a
-      // defect naming each field; only callers that skip the shared client see this.
-      assert.deepStrictEqual(
-        yield* raw({ id: created.data.id, resolutionNote: "  " }),
-        defect('length must be greater than or equal to 1\n  at ["resolutionNote"]'),
-      )
+      // generic defect, logging each field; only callers that skip the shared client see this.
+      assert.deepStrictEqual(yield* raw({ id: created.data.id, resolutionNote: "  " }), defect)
       assert.deepStrictEqual(
         yield* raw({ id: "nope'; --", resolutionNote: "x".repeat(5001) }),
-        defect(
-          'is invalid\n  at ["id"]\nlength must be less than or equal to 5000\n  at ["resolutionNote"]',
-        ),
+        defect,
       )
+      for (const problem of [
+        'length must be greater than or equal to 1\\n  at [\\\"resolutionNote\\\"]',
+        'is invalid\\n  at [\\\"id\\\"]',
+        'length must be less than or equal to 5000\\n  at [\\\"resolutionNote\\\"]',
+      ]) {
+        assert.isTrue(
+          app.logs.some((line) => line.includes(problem)),
+          app.logs.join("\n"),
+        )
+      }
       const [row] = yield* app.sql<{ state: string; resolution_note: string | null }>`
         SELECT state, resolution_note FROM support_requests WHERE id = ${created.data.id}
       `.pipe(Effect.orDie)

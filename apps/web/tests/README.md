@@ -16,6 +16,12 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
   the petition's deadline changes under the open form.
 - `ui-wording.test.tsx` (`bun run test:wording`): singular counts, and the petition card's
   status wording, with a victory never also reading as closed.
+- `page-errors.test.tsx` (`bun run test:pages`): pages in happy-dom with a stubbed `fetch`, under
+  the app's retry rule: failed queries aren't repeated once the server has answered, and each
+  form shows every error against its field, a malformed `classroomId` shows the not-found view,
+  a failed sign-out says so and stays on the page, sign-out doesn't wait for refetches, an auth
+  change clears the previous user's cached data, sign-out clears petition drafts, and a CSRF
+  reload that fails twice after an auth action loads the page in full, never from startup.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 

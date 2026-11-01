@@ -46,7 +46,7 @@ function ChangePasswordForm() {
         throw new AuthFailure("Choose a new password of at most 128 characters.")
       throwAuthError(error, "Your password couldn’t be changed. Please try again.")
       // Every other session is signed out; this one's CSRF token and queries are reloaded.
-      await afterAuthChange()
+      await afterAuthChange({ sameUser: true })
     },
     onSuccess: () => {
       setCurrentPassword("")
