@@ -245,7 +245,7 @@ function PetitionComment({
     }
     return (
       <div className="flex flex-wrap items-start gap-1">
-        {canReply ? (
+        {canReply || mode === "reply" ? (
           <Button
             ref={replyButton}
             type="button"
@@ -295,6 +295,7 @@ function PetitionComment({
           reply={{
             commentId: comment.id,
             author: authorName,
+            accepting: canReply,
             onClose: closeReply,
             onParentGone: (text) => {
               setMode("view")

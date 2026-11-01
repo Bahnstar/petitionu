@@ -93,6 +93,7 @@ const petition = (): Petition => ({
 })
 
 let petitionReads = 0
+let client: InstanceType<typeof QueryClient>
 
 function createComment(payload: CreateCommentPayload) {
   replies.push(payload)
@@ -157,7 +158,7 @@ const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20))
 async function render(signedIn = user) {
   const container = document.createElement("div")
   document.body.append(container)
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(["currentUser"], signedIn)
   const root = createRoot(container)
   await act(() =>
@@ -368,6 +369,43 @@ const noReply: Array<[string, Partial<Petition>, typeof user]> = [
   ["comments are turned off", { allowComments: false }, user],
   ["the profile is incomplete", {}, { ...user, profileComplete: false }],
 ]
+const stopped: Array<[string, Partial<Petition>]> = [
+  ["closes", { status: "closed" }],
+  ["turns comments off", { allowComments: false }],
+  ["passes its deadline", { deadline: "2026-01-01T00:00:00.000000Z" }],
+]
+for (const [why, overrides] of stopped) {
+  test(`an open form goes read-only and keeps its text when the petition ${why}`, async () => {
+    const container = await render()
+    const first = commentWith(container, "The first comment")
+    await click(buttonIn(first, "Reply"))
+    const form = first.querySelector("form")!
+    await act(() => typeReply(form, "Half written"))
+    expect(form.querySelector("[role=status]")).toBeNull()
+
+    petitionOverrides = overrides
+    await act(() => client.invalidateQueries({ queryKey: ["petition"] }))
+    await settle()
+
+    expect(first.querySelector("form")).toBe(form)
+    expect(form.querySelector("[role=status]")?.textContent).toBe(
+      "This petition is no longer accepting replies.",
+    )
+    const textarea = form.querySelector("textarea")!
+    expect(textarea.value).toBe("Half written")
+    expect(textarea.readOnly).toBe(true)
+    expect(buttonIn(form, "Post reply")?.disabled).toBe(true)
+
+    await act(() => form.requestSubmit())
+    await settle()
+    expect(replies).toEqual([])
+
+    await click(buttonIn(form, "Cancel"))
+    expect(first.querySelector("form")).toBeNull()
+    expect(buttonIn(first, "Reply")).toBeUndefined()
+  })
+}
+
 for (const [why, overrides, signedIn] of noReply) {
   test(`no Reply when ${why}, and the replies stay readable`, async () => {
     petitionOverrides = overrides
