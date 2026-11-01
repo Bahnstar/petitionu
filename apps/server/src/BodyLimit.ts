@@ -47,14 +47,7 @@ const withBody = (request: HttpServerRequest.HttpServerRequest, url: URL, body: 
       headers: request.headers,
       body: body as Uint8Array<ArrayBuffer>,
     }),
-  ).modify({
-    remoteAddress: request.remoteAddress,
-    peerAddress: request.peerAddress,
-    ...(request.protocol === undefined ? {} : { protocol: request.protocol }),
-  })
-
-const isEmptyWebRequest = (request: HttpServerRequest.HttpServerRequest) =>
-  request.source instanceof Request && request.source.body === null
+  )
 
 /**
  * Runs `httpEffect` only for a body within `maxBodyBytes`, and answers 413 otherwise. A declared
@@ -67,7 +60,7 @@ export const limitBody = <E, R>(
 ) =>
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
-    if (!HttpMethod.hasBody(request.method) || isEmptyWebRequest(request)) return yield* httpEffect
+    if (!HttpMethod.hasBody(request.method)) return yield* httpEffect
     if (Number(request.headers["content-length"]) > maxBodyBytes) return tooLarge()
     const url = requestUrl(request)
     if (Option.isNone(url)) return HttpServerResponse.empty({ status: 400 })
