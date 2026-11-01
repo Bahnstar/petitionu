@@ -112,7 +112,7 @@ export default function CreateClassroomPage() {
         <section className="app-empty-state">
           <h1 className="app-page-heading">Get ready to create your classroom.</h1>
           <p className="app-page-description">
-            Confirm your email and complete your campus profile before creating a classroom.
+            Complete your campus profile before creating a classroom.
           </p>
           <Button asChild className="mt-6">
             <Link to="/ash-typescript/profile">Complete your profile</Link>

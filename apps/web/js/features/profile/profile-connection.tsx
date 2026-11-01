@@ -33,7 +33,7 @@ export function ProfileConnection({ user }: { user: CurrentUser }) {
             </span>
           ) : (
             <span className="rounded-full bg-[#fff5df] px-2.5 py-1 text-xs font-medium text-[#805b1d]">
-              Confirm your email
+              Finishing confirmation
             </span>
           )}
         </div>
@@ -137,10 +137,10 @@ export function ProfileConnection({ user }: { user: CurrentUser }) {
         {!user.emailVerified && (
           <div className="mt-3 space-y-4">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Open the confirmation email in your inbox before saving your profile.
+              We&apos;re still finishing confirming your email. Check again in a moment.
             </p>
             <Button type="button" variant="outline" disabled={checking} onClick={checkStatus}>
-              {checking ? "Checking confirmation..." : "I confirmed my email"}
+              {checking ? "Checking confirmation..." : "Check again"}
             </Button>
           </div>
         )}
