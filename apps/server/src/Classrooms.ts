@@ -27,6 +27,7 @@ import {
   requireConfirmed,
 } from "./ClassroomPolicy.ts"
 import { AppConfig } from "./Config.ts"
+import { maxListRows } from "./Database.ts"
 import { classroomInviteEmail, membershipApprovalEmail } from "./Email.ts"
 import { Mailer } from "./Mailer.ts"
 import { requireParticipant } from "./Participant.ts"
@@ -105,11 +106,16 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.orDie,
       )
 
-    const listMemberships = (where: Statement.Fragment) =>
-      sql`SELECT ${membershipColumns} WHERE ${where} ORDER BY m.inserted_at, m.id`.pipe(
+    const listMemberships = (
+      where: Statement.Fragment,
+      page: Statement.Fragment = sql.literal(""),
+    ) =>
+      sql`SELECT ${membershipColumns} WHERE ${where} ORDER BY m.inserted_at, m.id ${page}`.pipe(
         Effect.flatMap(decodeMemberships),
         Effect.orDie,
       )
+
+    const capped = sql`LIMIT ${maxListRows}`
 
     const classroomById = (id: string) =>
       listClassrooms(sql`c.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
@@ -317,7 +323,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassrooms: () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* listClassrooms(classroomVisible(sql, user.id))
+          return yield* listClassrooms(classroomVisible(sql, user.id), capped)
         }),
 
       getClassroomById: ({ id }) =>
@@ -337,7 +343,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             archived === undefined ? sql`TRUE` : sql`c.archived = ${archived}`,
           ])
           const pageLimit =
-            limit === undefined ? null : Math.min(Math.max(Math.trunc(limit), 1), 250)
+            limit === undefined ? null : Math.min(Math.max(Math.trunc(limit), 1), maxListRows)
           const pageOffset = Math.max(Math.trunc(offset ?? 0), 0)
           const page =
             pageLimit === null
@@ -398,7 +404,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassroomMemberships: () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* listMemberships(membershipVisible(sql, user.id))
+          return yield* listMemberships(membershipVisible(sql, user.id), capped)
         }),
 
       getMembershipsForClassroom: ({ classroomId }) =>
@@ -415,6 +421,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           return yield* listMemberships(
             sql`m.classroom_id = ${classroomId} AND m.status = 'pending'
               AND ${membershipVisible(sql, user.id)}`,
+            capped,
           )
         }),
 

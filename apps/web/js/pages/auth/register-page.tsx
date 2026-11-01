@@ -34,6 +34,8 @@ export default function RegisterPage() {
         fetchOptions: { body: { passwordConfirmation } },
       })
       throwAuthError(error, "Couldn’t create your account. Please try again.")
+      // Not `afterAuthChange`: sign-up starts no session, so the CSRF token still holds, and a full
+      // page load from a failed reload would lose this page's "check your email" screen.
       return email
     },
   })

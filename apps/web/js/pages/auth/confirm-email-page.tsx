@@ -11,13 +11,43 @@ import {
   AuthPage,
   throwLinkError,
 } from "@/js/features/auth/auth-page"
-import { takeRememberedReturnTo } from "@/js/features/auth/return-to"
+import { takeRememberedReturnTo, useReturnTo } from "@/js/features/auth/return-to"
 
 const invalidLink = "This confirmation link is invalid or has expired."
+
+/** Where a full page load lands after a removal, so the user still hears about it. */
+const passwordRemovedPath = (returnTo: string) =>
+  `/auth/confirm?${new URLSearchParams({ password_removed: "1", return_to: returnTo })}`
 
 type Confirmation =
   | { readonly confirmed: false }
   | { readonly confirmed: true; readonly passwordRemoved: boolean; readonly returnTo: string }
+
+function EmailConfirmed({
+  passwordRemoved,
+  returnTo,
+}: {
+  passwordRemoved: boolean
+  returnTo: string
+}) {
+  return (
+    <AuthPage title="Email confirmed">
+      <AuthNotice>Your email address has now been confirmed.</AuthNotice>
+      {passwordRemoved && (
+        <AuthNotice>
+          This account&apos;s password has been removed. To sign in with a password again,{" "}
+          <Link to="/reset" className="underline underline-offset-4">
+            reset your password
+          </Link>
+          .
+        </AuthNotice>
+      )}
+      <Button asChild className="w-full">
+        <Link to={returnTo}>Continue to PetitionU</Link>
+      </Button>
+    </AuthPage>
+  )
+}
 
 /**
  * Opened from the confirmation email. Mail scanners follow links, so nothing happens until the
@@ -27,6 +57,7 @@ type Confirmation =
 export default function ConfirmEmailPage() {
   const [params] = useSearchParams()
   const token = params.get("token")
+  const landedReturnTo = useReturnTo()
   const { afterAuthChange } = useAuth()
 
   const confirm = useMutation({
@@ -44,33 +75,18 @@ export default function ConfirmEmailPage() {
       })
       if (error?.code === "CONFIRM_REMOVES_PASSWORD") return { confirmed: false }
       throwLinkError(error, invalidLink)
-      await afterAuthChange()
-      return {
-        confirmed: true,
-        passwordRemoved: data?.passwordRemoved === true,
-        returnTo: takeRememberedReturnTo(),
-      }
+      const returnTo = takeRememberedReturnTo()
+      const passwordRemoved = data?.passwordRemoved === true
+      await afterAuthChange({
+        destination: passwordRemoved ? passwordRemovedPath(returnTo) : returnTo,
+      })
+      return { confirmed: true, passwordRemoved, returnTo }
     },
   })
 
-  if (confirm.data?.confirmed) {
-    return (
-      <AuthPage title="Email confirmed">
-        <AuthNotice>Your email address has now been confirmed.</AuthNotice>
-        {confirm.data.passwordRemoved && (
-          <AuthNotice>
-            This account&apos;s password has been removed. To sign in with a password again,{" "}
-            <Link to="/reset" className="underline underline-offset-4">
-              reset your password
-            </Link>
-            .
-          </AuthNotice>
-        )}
-        <Button asChild className="w-full">
-          <Link to={confirm.data.returnTo}>Continue to PetitionU</Link>
-        </Button>
-      </AuthPage>
-    )
+  if (confirm.data?.confirmed) return <EmailConfirmed {...confirm.data} />
+  if (params.has("password_removed")) {
+    return <EmailConfirmed passwordRemoved returnTo={landedReturnTo} />
   }
 
   const warned = confirm.data?.confirmed === false

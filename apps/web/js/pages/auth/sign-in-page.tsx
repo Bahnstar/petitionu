@@ -36,7 +36,7 @@ export default function SignInPage() {
         )
       }
       throwAuthError(error, "Incorrect email or password")
-      await afterAuthChange()
+      await afterAuthChange({ destination: returnTo })
     },
     onSuccess: () => navigate(returnTo, { replace: true }),
   })
