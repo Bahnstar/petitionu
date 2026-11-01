@@ -7,7 +7,9 @@
  *
  * The world: campus A (the classroom's campus), campus B and the superadmin's campus Z. On
  * campus A, the same-campus student owns the campus petition; the classroom student member owns
- * the classroom petition. Records the cells read but no actor owns belong to a bystander.
+ * the classroom petition. Records the cells read but no actor owns belong to a bystander. In the
+ * shared classroom, taught by someone outside the matrix, every signed-in actor is an active
+ * member, so account roles can't be mistaken for owning a classroom.
  */
 import { assert, layer } from "@effect/vitest"
 import { type ApiClient, AppRpcs, type ClassroomDto, type RpcResult } from "@petitionu/domain"
@@ -33,8 +35,11 @@ const actorNames = [
 ] as const
 type ActorName = (typeof actorNames)[number]
 
-/** `hidden`: `NotFound`, or a list that doesn't include the target. */
-type Outcome = "ok" | "hidden" | "unauthenticated" | "forbidden" | "invalid"
+/**
+ * `hidden`: `NotFound`, or a list that doesn't include the target. `withheld`: the target comes
+ * back without its join code.
+ */
+type Outcome = "ok" | "hidden" | "withheld" | "unauthenticated" | "forbidden" | "invalid"
 
 interface Actor {
   readonly name: ActorName
@@ -105,6 +110,19 @@ const makeWorld = Effect.gen(function* () {
   const membershipId = yield* seedMembership(app, classroom.id, users.member.id, "active")
   yield* seedMembership(app, classroom.id, users.ta.id, "active", "ta")
   const pendingId = yield* seedMembership(app, classroom.id, bystander.id, "pending")
+  const sharedClassroom = yield* insertClassroom(app, {
+    professorId: (yield* insertUser(app, campusA.id)).id,
+    organizationId: campusA.id,
+  })
+  for (const [name, user] of Object.entries(users)) {
+    yield* seedMembership(
+      app,
+      sharedClassroom.id,
+      user.id,
+      "active",
+      name === "ta" ? "ta" : "student",
+    )
+  }
 
   const campusPetition = yield* insertPetition(app, {
     userId: users.sameCampus.id,
@@ -149,6 +167,7 @@ const makeWorld = Effect.gen(function* () {
     actors,
     category,
     classroom,
+    sharedClassroom,
     membershipId,
     pendingId,
     campusPetition,
@@ -187,16 +206,42 @@ const listed = <A extends { readonly id: string }>(
     ? Effect.succeed(result.data.some((row) => row.id === id) ? "ok" : "hidden")
     : outcome(result)
 
-/** `ok` when the classroom comes back with its join code, `hidden` when it doesn't. */
-const joinCodeOutcome = <A extends ClassroomDto>(
-  result: RpcResult<ReadonlyArray<A>>,
+/**
+ * `ok` when the classroom comes back with its join code, `withheld` when it comes back without
+ * one, `hidden` when it doesn't come back.
+ */
+const joinCodeOutcome = (
+  result: RpcResult<ReadonlyArray<ClassroomDto>>,
   id: string,
-): Effect.Effect<Outcome> =>
-  result.success
-    ? Effect.succeed(result.data.find((row) => row.id === id)?.joinCode ? "ok" : "hidden")
-    : outcome(result)
+): Effect.Effect<Outcome> => {
+  if (!result.success) return outcome(result)
+  const classroom = result.data.find((row) => row.id === id)
+  if (classroom === undefined) return Effect.succeed("hidden")
+  return Effect.succeed(classroom.joinCode === null ? "withheld" : "ok")
+}
 
 type Cell = (world: WorldShape, actor: Actor) => Effect.Effect<Outcome>
+
+type ClassroomRead = (api: ApiClient, id: string) => Promise<RpcResult<ReadonlyArray<ClassroomDto>>>
+
+/** Every procedure that reads classrooms, as a list. */
+const classroomReads: ReadonlyArray<readonly [string, ClassroomRead]> = [
+  ["getClassrooms", (api) => api.getClassrooms()],
+  [
+    "getMyClassrooms",
+    (api) =>
+      api
+        .getMyClassrooms({})
+        .then((result) => (result.success ? { ...result, data: result.data.results } : result)),
+  ],
+  [
+    "getClassroomById",
+    (api, id) =>
+      api
+        .getClassroomById({ id })
+        .then((result) => (result.success ? { ...result, data: [result.data] } : result)),
+  ],
+]
 
 const call =
   <A>(f: (api: ApiClient, world: WorldShape, actor: Actor) => Promise<RpcResult<A>>): Cell =>
@@ -218,12 +263,14 @@ const lists =
     )
 
 const seesJoinCode =
-  (f: (api: ApiClient) => Promise<RpcResult<ReadonlyArray<ClassroomDto>>>): Cell =>
-  (world, actor) =>
-    Effect.flatMap(
-      actor.browser.rpc((api) => f(api)),
-      (result) => joinCodeOutcome(result, world.classroom.id),
+  (read: ClassroomRead, target: (world: WorldShape) => { readonly id: string }): Cell =>
+  (world, actor) => {
+    const { id } = target(world)
+    return Effect.flatMap(
+      actor.browser.rpc((api) => read(api, id)),
+      (result) => joinCodeOutcome(result, id),
     )
+  }
 
 /** Runs `f` against a target made fresh for each actor. */
 const fresh =
@@ -252,8 +299,8 @@ const signedIn = (base: Outcome, overrides: Partial<Record<ActorName, Outcome>> 
 const insiders = { member: "ok", ta: "ok", professor: "ok" } as const
 /** Only the classroom's professor and active members may see it. */
 const classroomOnly = signedIn("hidden", insiders)
-/** Only the classroom's professor sees its join code; its other members get null. */
-const professorOnly = signedIn("hidden", { professor: "ok" })
+/** Only the classroom's professor gets its join code; its other members get null. */
+const professorOnly = signedIn("hidden", { professor: "ok", member: "withheld", ta: "withheld" })
 /** Participation needs a confirmed user with a complete profile. */
 const participants = signedIn("ok", { unconfirmed: "invalid", incomplete: "invalid" })
 /** Participation in the classroom: insiders only; others can't find the classroom petition. */
@@ -730,33 +777,19 @@ const rows: ReadonlyArray<Row> = [
     classroomOnly,
     call((api, world) => api.getClassroomById({ id: world.classroom.id })),
   ],
-  [
-    "getClassrooms (shows the join code)",
-    professorOnly,
-    seesJoinCode((api) => api.getClassrooms()),
-  ],
-  [
-    "getMyClassrooms (shows the join code)",
-    professorOnly,
-    seesJoinCode((api) =>
-      api
-        .getMyClassrooms({})
-        .then((result) => (result.success ? { ...result, data: result.data.results } : result)),
-    ),
-  ],
-  [
-    "getClassroomById (shows the join code)",
-    professorOnly,
-    (world, actor) =>
-      Effect.flatMap(
-        actor.browser.rpc((api) => api.getClassroomById({ id: world.classroom.id })),
-        (result) =>
-          joinCodeOutcome(
-            result.success ? { ...result, data: [result.data] } : result,
-            world.classroom.id,
-          ),
-      ),
-  ],
+  ...classroomReads.flatMap(([name, read]): ReadonlyArray<Row> => [
+    [
+      `${name} (the join code of the classroom)`,
+      professorOnly,
+      seesJoinCode(read, (world) => world.classroom),
+    ],
+    [
+      // Professors, admins and superadmins who are only members here.
+      `${name} (the join code of a classroom taught by someone else)`,
+      signedIn("withheld"),
+      seesJoinCode(read, (world) => world.sharedClassroom),
+    ],
+  ]),
   [
     "createClassroom",
     signedIn("forbidden", { professor: "ok", admin: "ok", otherAdmin: "ok" }),
