@@ -3,7 +3,6 @@ import { useMutation } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { Loader2, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/js/contexts/auth-context"
 import {
   AuthError,
   AuthFailure,
@@ -21,7 +20,6 @@ export default function RegisterPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState("")
   const returnTo = useReturnTo()
   const returnToQuery = useReturnToQuery()
-  const { afterAuthChange } = useAuth()
 
   const register = useMutation({
     mutationFn: async () => {
@@ -36,21 +34,23 @@ export default function RegisterPage() {
         fetchOptions: { body: { passwordConfirmation } },
       })
       throwAuthError(error, "Couldn’t create your account. Please try again.")
-      await afterAuthChange()
       return email
     },
   })
 
   if (register.isSuccess) {
     return (
-      <AuthPage title="Check your email">
+      <AuthPage
+        title="Check your email"
+        links={
+          <Link to={`/sign-in${returnToQuery}`} className="auth-link">
+            Back to sign in
+          </Link>
+        }
+      >
         <AuthNotice>
-          Your account is ready. We sent a confirmation link to {register.data}; open it to confirm
-          your email address.
+          We sent an email to {register.data}. Open it in this browser to finish.
         </AuthNotice>
-        <Button asChild className="w-full">
-          <Link to={returnTo}>Continue to PetitionU</Link>
-        </Button>
       </AuthPage>
     )
   }

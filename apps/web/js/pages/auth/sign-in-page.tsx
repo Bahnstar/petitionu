@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/js/contexts/auth-context"
 import {
   AuthError,
+  AuthFailure,
   AuthField,
   AuthNotice,
   AuthPage,
@@ -27,6 +28,13 @@ export default function SignInPage() {
   const signIn = useMutation({
     mutationFn: async () => {
       const { error } = await authClient.signIn.email({ email, password, rememberMe })
+      if (error?.code === "EMAIL_NOT_VERIFIED") {
+        // The confirmation email opens a page that has no `return_to` of its own.
+        rememberReturnTo(returnTo)
+        throw new AuthFailure(
+          `Confirm your email address to sign in. We sent a new confirmation link to ${email}.`,
+        )
+      }
       throwAuthError(error, "Incorrect email or password")
       await afterAuthChange()
     },
