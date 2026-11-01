@@ -202,9 +202,10 @@ function PetitionComment({
     replyButton.current?.focus()
   }
 
-  // The form holds the post's text and result, so it stays open until the post settles.
+  // The form holds the post's text and result, so it stays open until the post settles. The
+  // cache knows at once; `posting` only once the page has rendered the post.
   function toggleReply() {
-    if (posting) return
+    if (queryClient.isMutating({ mutationKey: replyMutationKey(comment.id) }) > 0) return
     if (mode === "reply") closeReply()
     else open("reply")
   }
@@ -302,6 +303,7 @@ function PetitionComment({
             author: authorName,
             accepting: canReply,
             onClose: closeReply,
+            onCancel: toggleReply,
             onParentGone: (text) => {
               setMode("view")
               onParentGone(text)

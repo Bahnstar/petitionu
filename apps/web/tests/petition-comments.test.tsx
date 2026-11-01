@@ -313,6 +313,29 @@ test("the Reply toggle can't close a pending post, whose failure keeps the text"
   expect(toggle.getAttribute("aria-disabled")).toBe("false")
 })
 
+for (const name of ["Reply", "Cancel"]) {
+  test(`${name} right after submitting, before the page shows the post, keeps the form`, async () => {
+    refusal = { field: "petitionId", message: "This petition is closed." }
+    const release = holdPosts()
+    const container = await render()
+    const first = commentWith(container, "The first comment")
+    await click(buttonIn(first, "Reply"))
+    const form = first.querySelector("form")!
+    await act(() => typeReply(form, "Keep me"))
+
+    await act(() => {
+      form.requestSubmit()
+      buttonIn(first, name)!.click()
+    })
+    await settle()
+    expect(first.querySelector("form")).toBe(form)
+
+    await release()
+    expect(form.querySelector("[role=alert]")?.textContent).toBe(refusal.message)
+    expect(form.querySelector("textarea")?.value).toBe("Keep me")
+  })
+}
+
 test("a post's success leaves a newer draft alone", async () => {
   const release = holdPosts()
   const container = await render()

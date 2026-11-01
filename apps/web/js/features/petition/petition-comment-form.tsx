@@ -10,10 +10,10 @@ import { mutatePetition, ReplyParentGone, replyMutationKey } from "./petition-mu
 
 /**
  * Writes to a petition's conversation: a new comment, or with `reply` an inline reply to one.
- * A reply form takes focus when it opens and calls `onClose` when posted or cancelled. The text
- * can't change during a post, because a successful post clears it. If the comment it answers is
- * gone, the form goes with it, so `onParentGone` gets the text to keep. When the petition stops
- * `accepting` replies the form stays, read-only, so the text isn't lost with it.
+ * A reply form takes focus when it opens and calls `onClose` once posted; `onCancel` asks to close
+ * it. The text can't change during a post, because a successful post clears it. If the comment it
+ * answers is gone, the form goes with it, so `onParentGone` gets the text to keep. When the petition
+ * stops `accepting` replies the form stays, read-only, so the text isn't lost with it.
  */
 export function PetitionCommentForm({
   petition,
@@ -25,6 +25,7 @@ export function PetitionCommentForm({
     author: string
     accepting: boolean
     onClose: () => void
+    onCancel: () => void
     onParentGone: (text: string) => void
   }
 }) {
@@ -114,7 +115,7 @@ export function PetitionCommentForm({
               size="sm"
               variant="ghost"
               disabled={mutation.isPending}
-              onClick={reply.onClose}
+              onClick={reply.onCancel}
             >
               Cancel
             </Button>
