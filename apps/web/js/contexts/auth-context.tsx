@@ -78,7 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const afterAuthChange = async ({ sameUser = false }: AuthChange = {}) => {
     await reloadToken()
     refreshPageQueries(sameUser)
-    // Callers navigate next, and the page they land on needs to know who is signed in.
+    // A getMe already in flight was sent as the previous user, and would otherwise be reused.
+    await queryClient.cancelQueries({ queryKey: currentUserKey })
+    // Callers navigate next, so wait for the user. The page they land on may still render once
+    // with the old one, because observers hear about the result a tick later.
     await queryClient.invalidateQueries({ queryKey: currentUserKey })
   }
 

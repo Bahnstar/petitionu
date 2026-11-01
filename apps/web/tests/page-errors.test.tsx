@@ -70,8 +70,9 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/rpc/") {
     const body = await request.json()
     calls.push(body.tag)
-    if (held.has(body.tag)) await released
+    // Read first: a held answer is the one from when the request was sent.
     const failure = failures.get(body.tag)
+    if (held.has(body.tag)) await released
     if (failure) {
       return Response.json([
         { _tag: "Exit", requestId: body.id, exit: { _tag: "Failure", cause: [failure] } },
@@ -485,6 +486,22 @@ test("the next user never sees the previous user's cached data", async () => {
   await act(async () => release())
   await settle()
   expect(container.querySelector("#data")?.textContent).toBe("Second user's request")
+})
+
+test("a getMe sent before the sign-in can't decide who is signed in", async () => {
+  failures = new Map([["getMe", fail({ _tag: "NotFound", message: "User not found" })]])
+  held = new Set(["getMe"])
+  const container = await render(AccountData, "/")
+  failures = new Map()
+  held = new Set()
+
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+  await act(async () => release())
+  await settle()
+
+  expect(calls.filter((tag) => tag === "getMe").length).toBe(2)
+  expect(button(container, /^Sign out/)).toBeTruthy()
 })
 
 test("a password change keeps the same user's data on screen while it refreshes", async () => {
