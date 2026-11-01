@@ -143,7 +143,7 @@ describe("request body limit", () => {
     }),
   )
 
-  it.live("the shared client reports a rejected body as an `unknown` error", () =>
+  it.live("the shared client words a rejected body for the user", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
       const organization = yield* createOrganization(app, { domain: "school.edu" })
@@ -154,10 +154,12 @@ describe("request body limit", () => {
       const result = yield* user.browser.rpc((api) =>
         api.createSupportRequest({ kind: "support", message }),
       )
-      assert.isFalse(result.success)
-      assert.deepStrictEqual(result.success ? [] : result.errors.map(({ type }) => type), [
-        "unknown",
-      ])
+      assert.deepStrictEqual(result, {
+        success: false,
+        errors: [
+          { type: "invalid", message: "This is too long to send. Shorten it and try again." },
+        ],
+      })
     }),
   )
 
