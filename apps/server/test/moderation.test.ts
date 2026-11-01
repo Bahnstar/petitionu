@@ -339,6 +339,32 @@ describe("content reports", () => {
       }),
     )
 
+    it.live("a different user replying around a hidden comment gets nothing of its author", () =>
+      Effect.gen(function* () {
+        const { app, school, petition, comment, reply, hide } = yield* replied
+        const stranger = yield* createUser(app, {
+          organizationId: school.id,
+          firstName: "Mary",
+          lastName: "Jackson",
+        })
+        yield* hide(comment.id)
+        const replyTo = (parentCommentId: string) =>
+          stranger.browser.rpc((api) =>
+            api.createComment({ petitionId: petition.id, text: "Around it", parentCommentId }),
+          )
+
+        const direct = yield* replyTo(comment.id)
+        assert.deepStrictEqual(errorTypes(direct), ["invalid"])
+        const inThread = yield* replyTo(reply.id)
+        const created = expectData(inThread)
+        assert.include(created, { author: "Mary Jackson", parentCommentId: comment.id })
+        for (const response of [direct, inThread]) {
+          assert.notInclude(JSON.stringify(response), "Grace Hopper")
+          assert.notInclude(JSON.stringify(response), "Parent's secret text")
+        }
+      }),
+    )
+
     it.live("a reply under a hidden comment can still be reported and hidden", () =>
       Effect.gen(function* () {
         const { comment, reply, hide, page } = yield* replied
