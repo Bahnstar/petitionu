@@ -78,6 +78,9 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/sign-out") return signOut()
+  if (url.pathname.startsWith("/api/auth/")) {
+    return Response.json({ status: true, token: "session", user: { id: "u1" }, session: {} })
+  }
   if (url.pathname === "/rpc/" && refuseRpc) {
     return Response.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -106,6 +109,7 @@ const { MemoryRouter, Route, Routes, useLocation, useNavigate } = await import("
 const { AuthProvider, useAuth } = await import("../js/contexts/auth-context.tsx")
 const { reloadCSRFToken } = await import("@petitionu/domain")
 const { Header } = await import("../js/components/header.tsx")
+const { authRoutes } = await import("../js/pages/auth/auth-routes.tsx")
 const { default: ClassroomDetailPage } = await import("../js/pages/classroom-detail-page.tsx")
 const { default: CreateClassroomPage } = await import("../js/pages/create-classroom-page.tsx")
 const { default: CreatePetitionPage } = await import("../js/pages/create-petition-page.tsx")
@@ -146,6 +150,7 @@ afterEach(() => {
   document.body.innerHTML = ""
   document.head.innerHTML = ""
   sessionStorage.clear()
+  localStorage.clear()
 })
 
 const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 30)))
@@ -691,6 +696,91 @@ test("signing out again after a failure works", async () => {
   expect(container.querySelector('[role="alert"]')).toBe(null)
   expect(container.querySelector("#where")?.textContent).toBe("/ash-typescript")
 })
+
+function AuthPages() {
+  return (
+    <Routes>
+      {authRoutes.map((route) => (
+        <Route key={route.path} path={route.path} element={route.element} />
+      ))}
+      <Route path="*" element={<p>Landed</p>} />
+    </Routes>
+  )
+}
+
+const destination = "/ash-typescript/petitions"
+const returnTo = `return_to=${encodeURIComponent(destination)}`
+
+async function fillPasswords(container: HTMLElement) {
+  type(container.querySelector("#password"), "a good password")
+  type(container.querySelector("#password-confirmation"), "a good password")
+  await settle()
+  await submit(container.querySelector("form"))
+}
+
+const finishSignIn = async (container: HTMLElement) => {
+  type(container.querySelector("#email"), "ada@school.edu")
+  type(container.querySelector("#password"), "a good password")
+  await settle()
+  await submit(container.querySelector("form"))
+}
+
+const finishRegistration = async (container: HTMLElement) => {
+  type(container.querySelector("#email"), "ada@school.edu")
+  await fillPasswords(container)
+}
+
+const clickThrough = (name: RegExp) => async (container: HTMLElement) => {
+  await act(() => button(container, name).click())
+  await settle()
+}
+
+// Each of these URLs is spent or wrong once the action is done, so none may simply reload.
+for (const flow of [
+  { name: "sign-in", path: `/sign-in?${returnTo}`, finish: finishSignIn, navigates: true },
+  { name: "registration", path: `/register?${returnTo}`, finish: finishRegistration },
+  { name: "password reset", path: `/reset?token=tok-1&${returnTo}`, finish: fillPasswords },
+  {
+    name: "magic link",
+    path: "/auth/magic?token=tok-1",
+    finish: clickThrough(/^Sign in/),
+    remembered: true,
+    navigates: true,
+  },
+  {
+    name: "email confirmation",
+    path: "/auth/confirm?token=tok-1",
+    finish: clickThrough(/^Confirm/),
+    remembered: true,
+  },
+]) {
+  test(`${flow.name} loads its destination in full when the CSRF reload fails twice`, async () => {
+    if (flow.remembered) localStorage.setItem("petitionu:return-to", destination)
+    const container = await render(AuthPages, flow.path)
+    const at = container.querySelector("#where")?.textContent
+    csrfFailures = 2
+
+    await flow.finish(container)
+
+    expect(csrfCalls).toBe(2)
+    expect(assign.mock.calls).toEqual([[destination]])
+    expect(reload).not.toHaveBeenCalled()
+    expect(container.querySelector("#where")?.textContent).toBe(at)
+  })
+
+  test(`${flow.name} carries on in the page when the CSRF retry works`, async () => {
+    if (flow.remembered) localStorage.setItem("petitionu:return-to", destination)
+    const container = await render(AuthPages, flow.path)
+    csrfFailures = 1
+
+    await flow.finish(container)
+
+    expect(csrfCalls).toBe(2)
+    expect(assign).not.toHaveBeenCalled()
+    expect(reload).not.toHaveBeenCalled()
+    if (flow.navigates) expect(container.querySelector("#where")?.textContent).toBe(destination)
+  })
+}
 
 // Keep last: it starts the whole app, which stays mounted.
 test("startup can't loop: a page with no token that can't get one stays put", async () => {

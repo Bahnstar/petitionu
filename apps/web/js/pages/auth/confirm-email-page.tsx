@@ -19,8 +19,9 @@ export default function ConfirmEmailPage() {
     mutationFn: async (token: string) => {
       const { error } = await authClient.verifyEmail({ query: { token } })
       throwLinkError(error, invalidLink)
-      await afterAuthChange()
-      return takeRememberedReturnTo()
+      const returnTo = takeRememberedReturnTo()
+      await afterAuthChange({ destination: returnTo })
+      return returnTo
     },
   })
 

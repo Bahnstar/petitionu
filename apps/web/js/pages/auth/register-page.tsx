@@ -36,7 +36,7 @@ export default function RegisterPage() {
         fetchOptions: { body: { passwordConfirmation } },
       })
       throwAuthError(error, "Couldn’t create your account. Please try again.")
-      await afterAuthChange()
+      await afterAuthChange({ destination: returnTo })
       return email
     },
   })
