@@ -35,6 +35,13 @@ const countedBody = (total: number) => {
   return { state, stream }
 }
 
+interface NodeResponse {
+  readonly status: number
+  readonly closed: boolean
+  readonly cookie: string | undefined
+  readonly text: string
+}
+
 const streamed = (body: ReadableStream<Uint8Array>, headers: Record<string, string>) =>
   ({ method: "POST", headers, body, duplex: "half" }) as RequestInit
 
@@ -163,61 +170,112 @@ describe("request body limit", () => {
     }),
   )
 
-  it.live("a real server answers 413 to a chunked body and closes the connection", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const directory = yield* Effect.acquireRelease(
-          Effect.sync(() => mkdtempSync(join(tmpdir(), "petitionu-body-limit-"))),
-          (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true })),
+  describe("on a real Node server", () => {
+    const socketServer = Effect.gen(function* () {
+      const directory = yield* Effect.acquireRelease(
+        Effect.sync(() => mkdtempSync(join(tmpdir(), "petitionu-body-limit-"))),
+        (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true })),
+      )
+      const socketPath = join(directory, "server.sock")
+      yield* serveOnSocket(socketPath)
+
+      /** Sends a request as is. An `endless` body is written until the response arrives. */
+      const send = (
+        method: string,
+        path: string,
+        body: "endless" | string | undefined,
+        headers: Record<string, string> = {},
+      ) =>
+        Effect.promise(
+          () =>
+            new Promise<NodeResponse>((resolve, reject) => {
+              const request = httpRequest({
+                socketPath,
+                path,
+                method,
+                headers: { host: "petitionu.test", ...headers },
+              })
+              let timer: NodeJS.Timeout | undefined
+              request.on("response", (response) => {
+                clearInterval(timer)
+                const chunks: Array<Buffer> = []
+                response.on("data", (chunk: Buffer) => chunks.push(chunk))
+                response.on("close", () =>
+                  resolve({
+                    status: response.statusCode!,
+                    closed: response.headers.connection === "close",
+                    cookie: response.headers["set-cookie"]?.[0]?.split(";")[0],
+                    text: Buffer.concat(chunks).toString(),
+                  }),
+                )
+              })
+              request.on("error", reject)
+              if (body !== "endless") return void request.end(body)
+              request.flushHeaders()
+              timer = setInterval(() => request.write(Buffer.alloc(chunkSize, 32)), 1)
+            }),
         )
-        const socketPath = join(directory, "server.sock")
-        yield* serveOnSocket(socketPath)
 
-        const send = (path: string, body: "endless" | string, headers = {}) =>
-          Effect.promise(
-            () =>
-              new Promise<{ status: number; closed: boolean }>((resolve, reject) => {
-                const request = httpRequest({
-                  socketPath,
-                  path,
-                  method: "POST",
-                  headers: {
-                    host: "petitionu.test",
-                    origin: testOrigin,
-                    "content-type": "application/json",
-                    ...headers,
-                  },
-                })
-                let timer: NodeJS.Timeout | undefined
-                request.on("response", (response) => {
-                  clearInterval(timer)
-                  response.resume()
-                  response.on("close", () =>
-                    resolve({
-                      status: response.statusCode!,
-                      closed: response.headers.connection === "close",
-                    }),
-                  )
-                })
-                request.on("error", reject)
-                if (body !== "endless") return request.end(body)
-                request.flushHeaders()
-                timer = setInterval(() => request.write(Buffer.alloc(chunkSize, 32)), 1)
-              }),
-          )
+      const csrf = yield* send("GET", "/rpc/csrf-token", undefined)
+      const headers = {
+        origin: testOrigin,
+        "content-type": "application/json",
+        "x-csrf-token": (JSON.parse(csrf.text) as { readonly token: string }).token,
+        cookie: csrf.cookie!,
+      }
+      return { send, headers }
+    })
 
-        const auth = "/api/auth/sign-in/email"
-        const endless = yield* send(auth, "endless")
-        assert.deepStrictEqual(endless, { status: 413, closed: true })
+    const auth = "/api/auth/sign-in/email"
+    const rpcMessage = JSON.stringify({
+      _tag: "Request",
+      id: "1",
+      tag: "supportContact",
+      payload: null,
+      headers: [],
+    })
+    const chunked = { "transfer-encoding": "chunked" }
 
-        // A chunked body under the limit still goes through, over the same stream.
-        const small = yield* send(
-          auth,
-          JSON.stringify({ email: "nobody@example.edu", password: "wrong password" }),
-          { "transfer-encoding": "chunked" },
-        )
-        assert.strictEqual(small.status, 401)
-      }),
-    ),
-  )
+    it.live("answers 413 to a chunked body and closes the connection", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { send, headers } = yield* socketServer
+          for (const path of ["/rpc", auth]) {
+            const response = yield* send("POST", path, "endless", headers)
+            assert.deepInclude(response, { status: 413, closed: true }, path)
+          }
+        }),
+      ),
+    )
+
+    it.live("passes a chunked body under the limit to the handler", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { send, headers } = yield* socketServer
+          const rpc = yield* send("POST", "/rpc", rpcMessage, { ...headers, ...chunked })
+          assert.strictEqual(rpc.status, 200)
+          assert.include(rpc.text, '"_tag":"Success"')
+
+          const credentials = { email: "nobody@example.edu", password: "wrong password" }
+          const signIn = yield* send("POST", auth, JSON.stringify(credentials), {
+            ...headers,
+            ...chunked,
+          })
+          assert.strictEqual(signIn.status, 401)
+        }),
+      ),
+    )
+
+    it.live("reaches the handler with an empty body", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { send, headers } = yield* socketServer
+          const rpc = yield* send("POST", "/rpc", undefined, headers)
+          assert.strictEqual(rpc.status, 200)
+          const signIn = yield* send("POST", auth, undefined, headers)
+          assert.strictEqual(signIn.status, 400)
+        }),
+      ),
+    )
+  })
 })
