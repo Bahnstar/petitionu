@@ -81,11 +81,11 @@ const appConfigProvider = (databaseUrl: string, env?: Record<string, string>) =>
     ...env,
   })
 
-/** Appends each log's message and cause to `lines`. */
+/** Appends each log's level, message and cause to `lines`. */
 const captureLogs = (lines: Array<string>) =>
   Logger.layer([
-    Logger.make(({ cause, message }) => {
-      lines.push(`${JSON.stringify(message)} ${Cause.pretty(cause)}`)
+    Logger.make(({ cause, logLevel, message }) => {
+      lines.push(`${logLevel} ${JSON.stringify(message)} ${Cause.pretty(cause)}`)
     }),
   ])
 
@@ -99,7 +99,7 @@ export interface TestApp {
   readonly registry: ScriptedSchoolRegistry["Service"]
   /** A connection to the app's database, for test setup. */
   readonly sql: SqlClient.SqlClient
-  /** What the app has logged, one string per line. */
+  /** What the app has logged, one string per line, each starting with its level. */
   readonly logs: ReadonlyArray<string>
 }
 

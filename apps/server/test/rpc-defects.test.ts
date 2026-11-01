@@ -66,7 +66,9 @@ describe("RPC defects", () => {
       const sent = yield* post(browser, "/rpc", request("getCategories"))
       assert.deepStrictEqual(sent, { status: 200, text: fatal })
       assert.isTrue(
-        app.logs.some((line) => line.includes('relation "category" does not exist')),
+        app.logs.some(
+          (line) => line.startsWith("Error") && line.includes('relation "category" does not exist'),
+        ),
         app.logs.join("\n"),
       )
     }),
@@ -84,6 +86,10 @@ describe("RPC defects", () => {
       const logged = app.logs.filter((line) => line.includes(leaky))
       assert.lengthOf(logged, 2, app.logs.join("\n"))
       assert.include(logged[1], "Failed to execute statement")
+      assert.isTrue(
+        logged.every((line) => line.startsWith("Error")),
+        logged.join("\n"),
+      )
     }),
   )
 
@@ -95,8 +101,10 @@ describe("RPC defects", () => {
       const sent = yield* post(browser, "/rpc/broken", request("badResponse"))
       assert.deepStrictEqual(sent, { status: 200, text: failed })
       assert.isTrue(
-        app.logs.some((line) =>
-          line.includes('Failed to encode response for RPC \\"badResponse\\"'),
+        app.logs.some(
+          (line) =>
+            line.startsWith("Error") &&
+            line.includes('Failed to encode response for RPC \\"badResponse\\"'),
         ),
         app.logs.join("\n"),
       )
@@ -123,6 +131,54 @@ describe("RPC defects", () => {
       assert.isTrue(
         app.logs.some((line) => line.includes("noSuchProcedure")),
         app.logs.join("\n"),
+      )
+    }),
+  )
+
+  it.live("what a caller gets wrong is logged below Error, and cut short", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const browser = yield* makeBrowser(app)
+      const message = (fields: Record<string, unknown>) =>
+        JSON.stringify({ _tag: "Request", id: "1", tag: "getMe", payload: null, ...fields })
+
+      const longTag = "x".repeat(120 * 1024)
+      for (const body of [
+        "{ not json",
+        "",
+        "null",
+        "[null]",
+        "123",
+        "{}",
+        '{"_tag":"Nope"}',
+        `{"_tag":"${longTag}"}`,
+        '{"_tag":"Request"}',
+        message({ id: {}, headers: [] }),
+        message({}),
+        message({ headers: null }),
+        message({ headers: [1] }),
+        message({ headers: [[1, 2]] }),
+        message({ tag: longTag, headers: [] }),
+        message({ tag: 5, headers: [] }),
+        request("getPetitionById", { id: longTag }),
+        request("getPetitionById", "not an object"),
+        `[${request("noSuchProcedure")},${request("noSuchProcedure")}]`,
+        message({ tag: "__proto__", headers: [] }),
+      ]) {
+        const sent = yield* post(browser, "/rpc", body)
+        assert.strictEqual(sent.status, 200, body.slice(0, 80))
+        assert.notInclude(sent.text, "xxx", body.slice(0, 80))
+        assert.match(sent.text, /Something went wrong/, body.slice(0, 80))
+      }
+
+      assert.isNotEmpty(app.logs)
+      for (const line of app.logs) {
+        assert.isTrue(line.startsWith("Warn"), line.slice(0, 200))
+        assert.isBelow(line.length, 1000, line.slice(0, 200))
+      }
+      assert.isTrue(
+        app.logs.some((line) => line.includes("Unknown request tag: xxx")),
+        "the start of a long tag stays in the log",
       )
     }),
   )
