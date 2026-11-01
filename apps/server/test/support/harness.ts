@@ -61,6 +61,16 @@ export const makeMigratedTestDatabase = Effect.tap(makeTestDatabase, ({ url }) =
   migrateDatabase(url),
 )
 
+/** Like `makeMigratedTestDatabase`, with this database's sessions in `timeZone`. */
+export const makeMigratedTestDatabaseIn = (timeZone: string) =>
+  Effect.tap(makeMigratedTestDatabase, ({ name }) =>
+    withAdmin(
+      Effect.flatMap(SqlClient.SqlClient, (sql) =>
+        sql.unsafe(`ALTER DATABASE "${name}" SET timezone TO '${timeZone}'`),
+      ),
+    ).pipe(Effect.orDie),
+  )
+
 /** The public origin tests use: `PUBLIC_HOST` is `petitionu.test`. */
 export const testOrigin = "https://petitionu.test"
 

@@ -42,15 +42,22 @@ export const createProfessor = (app: TestApp, options?: MemberOptions) =>
 export const createStudent = (app: TestApp, options?: MemberOptions) =>
   createMember(app, "student", { firstName: "Test", lastName: "Member" })(options)
 
-/** Creates a classroom through `createClassroom`, as `professor`. */
+/** Creates a classroom through `createClassroom`, as `professor`, who gets its join code. */
 export const createClassroom = (
   professor: TestUser,
   input: { readonly name?: string; readonly description?: string } = {},
 ) =>
-  Effect.flatMap(
-    professor.browser.rpc((api) => api.createClassroom({ name: input.name ?? "Civics", ...input })),
-    ok,
-  )
+  Effect.gen(function* () {
+    const classroom = yield* ok(
+      yield* professor.browser.rpc((api) =>
+        api.createClassroom({ name: input.name ?? "Civics", ...input }),
+      ),
+    )
+    const { joinCode } = classroom
+    return joinCode === null
+      ? yield* Effect.die(new Error("the professor got no join code"))
+      : { ...classroom, joinCode }
+  })
 
 export type MembershipStatus = "pending" | "active" | "removed"
 export type MembershipRole = "student" | "ta"

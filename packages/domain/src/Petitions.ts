@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
-import { FieldError, Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
+import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
 import { Note, Uuid } from "./Inputs.ts"
 import { Deadline, Timestamp } from "./Timestamps.ts"
 
@@ -92,13 +92,31 @@ export type PetitionDetailDto = typeof PetitionDetailDto.Type
 const Title = Note({ maxLength: 200, required: "must be present" })
 const Description = Note({ maxLength: 20000, required: "must be present" })
 
+/** A whole number from 1. One filter, so a value fails with a single message. */
+const Goal = Schema.Number.check(
+  Schema.makeFilter((goal: number) => {
+    if (!Number.isSafeInteger(goal)) return "is invalid"
+    return goal >= 1 || "must be more than or equal to 1"
+  }),
+)
+
+/** ISO 8601. Stays a string for the client; the handler reads it as a date. */
+const DeadlineInput = Schema.String.check(
+  Schema.makeFilter((value: string) => !Number.isNaN(Date.parse(value)), {
+    message: "is invalid",
+  }),
+)
+
+const OptionalFlag = Schema.optional(Schema.Boolean).annotate({ message: "is invalid" })
+
 /** A petition's settings; omitted fields keep their value (or default on create). */
 const petitionSettings = {
-  goal: Schema.optional(Schema.NullOr(Schema.Number)),
-  /** ISO 8601. */
-  deadline: Schema.optional(Schema.NullOr(Schema.String)),
-  allowComments: Schema.optional(Schema.NullOr(Schema.Boolean)),
-  isAnonymous: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  // The message for what isn't a number, `null` included.
+  goal: Schema.optional(Goal).annotate({ message: "must be present" }),
+  /** `null` clears the deadline. */
+  deadline: Schema.optional(Schema.NullOr(DeadlineInput)),
+  allowComments: OptionalFlag,
+  isAnonymous: OptionalFlag,
 }
 
 /** A new petition: a title of up to 200 characters, a description of up to 20000. */
@@ -118,78 +136,6 @@ export const PetitionInputFields = {
 }
 export const PetitionInput = Schema.Struct(PetitionInputFields)
 export type PetitionInput = typeof PetitionInput.Type
-
-/** A petition's input with the goal checked and the deadline parsed. */
-export interface NormalizedPetitionInput {
-  readonly title?: string
-  readonly description?: string
-  readonly goal?: number | null
-  readonly deadline?: Date | null
-  readonly allowComments?: boolean | null
-  readonly isAnonymous?: boolean | null
-}
-
-type Checked<A> = { readonly value: A; readonly error?: string }
-
-const checkGoal = (goal: number | null | undefined, required: boolean): Checked<typeof goal> => {
-  if (goal === undefined || goal === null) {
-    return required ? { value: goal, error: "must be present" } : { value: goal }
-  }
-  if (!Number.isSafeInteger(goal)) return { value: goal, error: "is invalid" }
-  if (goal < 1) return { value: goal, error: "must be more than or equal to 1" }
-  return { value: goal }
-}
-
-const checkDeadline = (
-  raw: string | null | undefined,
-  now: Date,
-): Checked<Date | null | undefined> => {
-  if (raw === null || raw === undefined) return { value: raw }
-  const deadline = new Date(raw)
-  if (Number.isNaN(deadline.getTime())) return { value: undefined, error: "is invalid" }
-  // Deadlines are stored to the second, like Ash's `:utc_datetime`.
-  deadline.setUTCMilliseconds(0)
-  if (deadline.getTime() <= now.getTime()) {
-    return { value: deadline, error: "Choose a deadline in the future." }
-  }
-  return { value: deadline }
-}
-
-/**
- * Checks what the payload schema can't: the goal (which defaults to 1000 on create) and the
- * deadline, which must be in the future. The title and description arrive checked and trimmed.
- * Omitted fields stay omitted in `value`.
- */
-export const validatePetitionInput = (
-  input: PetitionInput,
-  options: { readonly mode: "create" | "update"; readonly now: Date },
-):
-  | { readonly ok: true; readonly value: NormalizedPetitionInput }
-  | { readonly ok: false; readonly errors: ReadonlyArray<FieldError> } => {
-  const creating = options.mode === "create"
-  const checks = {
-    title: { value: input.title },
-    description: { value: input.description },
-    goal: checkGoal(
-      creating && input.goal === undefined ? 1000 : input.goal,
-      creating || input.goal !== undefined,
-    ),
-    deadline: checkDeadline(input.deadline, options.now),
-    allowComments: { value: input.allowComments },
-    isAnonymous: { value: input.isAnonymous },
-  } satisfies Record<keyof NormalizedPetitionInput, Checked<unknown>>
-  const entries = Object.entries(checks) as Array<[string, Checked<unknown>]>
-  const errors = entries.flatMap(([field, check]) =>
-    check.error === undefined ? [] : [{ field, message: check.error }],
-  )
-  if (errors.length > 0) return { ok: false, errors }
-  const value = Object.fromEntries(
-    entries
-      .filter(([, check]) => check.value !== undefined)
-      .map(([key, check]) => [key, check.value]),
-  ) as NormalizedPetitionInput
-  return { ok: true, value }
-}
 
 /** Public. */
 export const getCategories = Rpc.make("getCategories", { success: Schema.Array(CategoryDto) })

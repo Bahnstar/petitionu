@@ -31,6 +31,15 @@ function localDeadline(value: Petition["deadline"]) {
   return new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }
 
+// The input holds minutes, so a stored deadline with seconds only survives an unedited form by
+// being left out of the edit. The key has to go too: `undefined` would be sent as `null`, which
+// clears the deadline. `opened` is the input as the form opened, so a deadline that changes under
+// an open form isn't taken for an edit.
+function deadlineChange(input: string, opened: string) {
+  if (input === opened) return {}
+  return { deadline: input ? new Date(input).toISOString() : null }
+}
+
 export function PetitionOwnerControls({
   petition,
   canPublishUpdate,
@@ -199,6 +208,7 @@ export function PetitionOwnerControls({
     description: petition.description ?? "",
     goal: String(petition.goal ?? 100),
     deadline: localDeadline(petition.deadline),
+    openedDeadline: localDeadline(petition.deadline),
     allowComments: !!petition.allowComments,
     isAnonymous: !!petition.isAnonymous,
   }))
@@ -243,6 +253,7 @@ export function PetitionOwnerControls({
         description: petition.description ?? "",
         goal: String(petition.goal ?? 100),
         deadline: localDeadline(petition.deadline),
+        openedDeadline: localDeadline(petition.deadline),
         allowComments: !!petition.allowComments,
         isAnonymous: !!petition.isAnonymous,
       })
@@ -313,7 +324,7 @@ export function PetitionOwnerControls({
                   title: edit.title.trim(),
                   description: edit.description.trim(),
                   goal: Number(edit.goal),
-                  deadline: edit.deadline ? new Date(edit.deadline).toISOString() : null,
+                  ...deadlineChange(edit.deadline, edit.openedDeadline),
                   allowComments: edit.allowComments,
                   isAnonymous: edit.isAnonymous,
                 },

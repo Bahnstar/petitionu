@@ -17,11 +17,13 @@ export const ClassroomDto = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   description: Schema.NullOr(Schema.String),
-  joinCode: Schema.String,
+  /** Null for everyone but the classroom's professor. */
+  joinCode: Schema.NullOr(Schema.String),
   archived: Schema.Boolean,
   allowStudentPetitions: Schema.Boolean,
   /** Active members, not counting the professor. */
   memberCount: Schema.Number,
+  /** The petitions the viewer can see, as `getClassroomPetitions` lists them. */
   petitionCount: Schema.Number,
   professorId: Schema.String,
   professor: ClassroomProfessor,
