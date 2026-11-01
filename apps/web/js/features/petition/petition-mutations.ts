@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import type { CreatePetitionInput, PetitionInput } from "@petitionu/domain"
-import { api, serverError } from "@/lib/api"
+import { api, ApiError, serverError } from "@/lib/api"
 
 type PetitionTarget = { id: string; classroomId?: string | null }
 export type PetitionOwnerCommand =
@@ -13,16 +13,24 @@ type PetitionCommand =
   | ({ petition: PetitionTarget } & (
       | PetitionOwnerCommand
       | { kind: "comment"; text: string }
+      | { kind: "reply"; commentId: string; text: string }
       | { kind: "sign"; reason: string }
       | { kind: "withdraw" }
       | { kind: "editComment"; commentId: string; text: string }
       | { kind: "deleteComment"; commentId: string }
     ))
 
+/** A reply was refused because its parent was hidden or deleted after the page loaded. */
+export class ReplyParentGone extends ApiError {}
+
+/** Marks a reply's pending post, so the comment it answers can tell while the form is open. */
+export const replyMutationKey = (commentId: string) => ["reply", commentId]
+
 function failureMessage(command: PetitionCommand) {
   if (command.kind === "create")
     return "Your petition couldn't be created. Check your connection and try again."
   if (command.kind === "comment") return "Your comment couldn't be posted. Please try again."
+  if (command.kind === "reply") return "Your reply couldn't be posted. Please try again."
   if (command.kind === "sign") return "Your signature couldn't be added. Please try again."
   if (command.kind === "withdraw") return "Your signature couldn't be withdrawn. Please try again."
   return "Your change couldn't be saved. Please try again."
@@ -36,6 +44,8 @@ function execute(command: PetitionCommand) {
   }
   const petitionId = command.petition.id
   if (command.kind === "comment") return api.createComment({ petitionId, text: command.text })
+  if (command.kind === "reply")
+    return api.createComment({ petitionId, text: command.text, parentCommentId: command.commentId })
   if (command.kind === "sign")
     return api.createSignature({ petitionId, reason: command.reason.trim() || null })
   if (command.kind === "withdraw") return api.deleteSignature({ petitionId })
@@ -51,6 +61,7 @@ function execute(command: PetitionCommand) {
 // Participation shows one message: the first reason the server gave.
 const singleMessage = new Set<PetitionCommand["kind"]>([
   "comment",
+  "reply",
   "editComment",
   "deleteComment",
   "sign",
@@ -58,8 +69,8 @@ const singleMessage = new Set<PetitionCommand["kind"]>([
 ])
 
 // Callers own form state and participation hints; the server remains authoritative.
-// Successful writes refresh their projections only. Owner commands, withdrawals and comment
-// edits wait for refreshed detail (the page would otherwise show the stale signature or
+// Successful writes refresh their projections only. Owner commands, withdrawals, replies and
+// comment edits wait for refreshed detail (the page would otherwise show the stale signature or
 // comment); creation, signing and commenting confirm immediately.
 export function mutatePetition(
   queryClient: QueryClient,
@@ -74,10 +85,14 @@ export async function mutatePetition(
   if (result.success === false) {
     // `unknown` errors are transport failures or unexpected responses; their text isn't for users.
     const errors = result.errors.filter((error) => error.type !== "unknown")
-    throw serverError(
-      singleMessage.has(command.kind) ? errors.slice(0, 1) : errors,
-      failureMessage(command),
-    )
+    const shown = singleMessage.has(command.kind) ? errors.slice(0, 1) : errors
+    const error = serverError(shown, failureMessage(command))
+    // The page is out of date: refetch it, so the removed comment leaves the screen.
+    if (command.kind === "reply" && errors.some((entry) => entry.field === "parentCommentId")) {
+      void queryClient.invalidateQueries({ queryKey: ["petition", command.petition.id] })
+      throw new ReplyParentGone(error.errors, error.message)
+    }
+    throw error
   }
 
   const keys: string[][] = [["petitions"], ["dashboardUser"]]

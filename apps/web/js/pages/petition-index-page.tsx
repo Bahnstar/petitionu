@@ -9,7 +9,8 @@ import { isUuid, type PetitionDetailDto, type SharedPetitionDto } from "@petitio
 import { api, ApiError } from "@/lib/api"
 import { formErrors } from "@/lib/form-errors"
 import { PetitionOwnerControls } from "../features/petition/petition-owner-controls"
-import { PetitionComment } from "../features/petition/petition-comment"
+import { PetitionThreads } from "../features/petition/petition-comment"
+import { PetitionCommentForm } from "../features/petition/petition-comment-form"
 import { Button } from "@/components/ui/button"
 import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Textarea } from "@/components/ui/textarea"
@@ -104,20 +105,9 @@ function PetitionContent({ petition }: { petition: Petition }) {
   const now = useCurrentTime()
   const { user, isLoading: authLoading } = useAuth()
   const queryClient = useQueryClient()
-  const [commentText, setCommentText] = useState("")
   const [signatureReason, setSignatureReason] = useState("")
   const [shareMessage, setShareMessage] = useState("")
   const [sharePending, setSharePending] = useState(false)
-  const commentMutation = useMutation({
-    mutationFn: async (text: string) => {
-      if (!user?.emailVerified || !user.profileComplete)
-        throw new Error("Complete your profile before commenting.")
-      return mutatePetition(queryClient, { kind: "comment", petition, text })
-    },
-    onSuccess: () => {
-      setCommentText("")
-    },
-  })
   const signatureMutation = useMutation({
     mutationFn: async () => {
       if (!user?.emailVerified || !user.profileComplete)
@@ -133,7 +123,6 @@ function PetitionContent({ petition }: { petition: Petition }) {
     // The refreshed petition says whether the reader has signed from here on.
     onSuccess: () => signatureMutation.reset(),
   })
-  const commentErrors = formErrors(commentMutation.error, ["text"])
   const signatureErrors = formErrors(signatureMutation.error, ["reason"])
   const sharePetition = async () => {
     setShareMessage("")
@@ -231,11 +220,11 @@ function PetitionContent({ petition }: { petition: Petition }) {
             <small>{comments.length}</small>
           </h2>
           {renderCommentForm()}
-          <div className="petition-thread">
-            {comments.map((comment) => (
-              <PetitionComment key={comment.id} petition={petition} comment={comment} />
-            ))}
-          </div>
+          <PetitionThreads
+            petition={petition}
+            comments={comments}
+            canReply={!!petition.allowComments && !closed && canParticipate}
+          />
         </section>
       </>
     ) : null
@@ -267,52 +256,7 @@ function PetitionContent({ petition }: { petition: Petition }) {
           </p>
         )
       if (user && !canParticipate) return renderParticipationMessage("comment")
-      if (user) {
-        return (
-          <form
-            id="petition-comment-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (commentText.trim() && !commentMutation.isPending)
-                commentMutation.mutate(commentText.trim())
-            }}
-            className="app-panel mb-6 space-y-4"
-          >
-            <Label htmlFor="petition-comment">Add to the conversation</Label>
-            <Textarea
-              id="petition-comment"
-              placeholder="Share a thought, a question, or why this matters to you."
-              rows={4}
-              value={commentText}
-              onChange={(event) => setCommentText(event.target.value)}
-              required
-              className="resize-y"
-              {...fieldErrorProps("petition-comment-error", commentErrors.fields.text)}
-            />
-            <FieldError id="petition-comment-error" message={commentErrors.fields.text} />
-            {commentErrors.summary ? (
-              <p role="alert" className="text-sm text-destructive">
-                {commentErrors.summary}
-              </p>
-            ) : null}
-            {commentMutation.isSuccess ? (
-              <p role="status" className="text-sm text-muted-foreground">
-                Your comment has been posted.
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">Keep it respectful and constructive.</p>
-              <Button
-                id="post-comment"
-                type="submit"
-                disabled={!commentText.trim() || commentMutation.isPending}
-              >
-                {commentMutation.isPending ? "Posting…" : "Post comment"}
-              </Button>
-            </div>
-          </form>
-        )
-      }
+      if (user) return <PetitionCommentForm petition={petition} />
       return (
         <p className="mb-6 text-sm text-muted-foreground">
           <AuthLink className="font-medium text-primary underline underline-offset-4">

@@ -43,6 +43,15 @@ const cases = [
     affected: [2, 3, 4, 5, 6],
   },
   { command: { kind: "comment", petition, text: "I agree" }, action: "createComment" },
+  {
+    command: {
+      kind: "reply",
+      petition,
+      commentId: "00000000-0000-4000-8000-000000000003",
+      text: "Me too",
+    },
+    action: "createComment",
+  },
   { command: { kind: "sign", petition, reason: "  " }, action: "createSignature" },
   { command: { kind: "withdraw", petition }, action: "deleteSignature", returns: "nothing" },
   {
@@ -186,6 +195,11 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
       assert.equal(payload.petitionId, petition.id)
     if (command.classroomId) assert.equal(payload.classroomId, command.classroomId)
     if (command.kind === "sign") assert.equal(payload.reason, null)
+    if (command.kind === "comment") assert.equal(payload.parentCommentId, undefined)
+    if (command.kind === "reply") {
+      assert.equal(payload.petitionId, petition.id)
+      assert.equal(payload.parentCommentId, "00000000-0000-4000-8000-000000000003")
+    }
     if (["editComment", "deleteComment"].includes(command.kind))
       assert.equal(payload.id, "00000000-0000-4000-8000-000000000003")
     if (command.kind === "editComment") assert.equal(payload.text, "Fixed")
@@ -203,6 +217,7 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
     const { client } = setup(refusal)
     const single = [
       "comment",
+      "reply",
       "editComment",
       "deleteComment",
       "sign",
@@ -214,6 +229,55 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
       ? "Not allowed."
       : "Not allowed. Please try later."
     await assert.rejects(mutatePetition(client, command), { message })
+    for (const key of allKeys) assert.equal(client.getQueryState(key).isInvalidated, false)
+    client.clear()
+  })
+}
+
+test("a reply refused for its parent refreshes the petition only", async () => {
+  const { client } = setup(() => ({
+    _tag: "Invalid",
+    message: "Invalid",
+    fields: [{ field: "parentCommentId", message: "Reply to a comment in this petition." }],
+  }))
+  const commentId = "00000000-0000-4000-8000-000000000003"
+  await assert.rejects(mutatePetition(client, { kind: "reply", petition, commentId, text: "Hi" }), {
+    message: "Reply to a comment in this petition.",
+  })
+  allKeys.forEach((key, index) => {
+    assert.equal(client.getQueryState(key).isInvalidated, index < 2, JSON.stringify(key))
+  })
+  client.clear()
+})
+
+test("a reply's parent refusal is found behind another error", async () => {
+  const { client } = setup(() => ({
+    _tag: "Invalid",
+    message: "Invalid",
+    fields: [
+      { field: "text", message: "must be present" },
+      { field: "parentCommentId", message: "Reply to a comment in this petition." },
+    ],
+  }))
+  const commentId = "00000000-0000-4000-8000-000000000003"
+  await assert.rejects(mutatePetition(client, { kind: "reply", petition, commentId, text: "Hi" }), {
+    message: "must be present",
+  })
+  assert.equal(client.getQueryState(allKeys[0]).isInvalidated, true)
+  client.clear()
+})
+
+for (const command of [
+  { kind: "editComment", commentId: "00000000-0000-4000-8000-000000000003", text: "Fixed" },
+  { kind: "deleteComment", commentId: "00000000-0000-4000-8000-000000000003" },
+]) {
+  test(`${command.kind}: a refusal naming the parent still refreshes nothing`, async () => {
+    const { client } = setup(() => ({
+      _tag: "Invalid",
+      message: "Invalid",
+      fields: [{ field: "parentCommentId", message: "Not allowed." }],
+    }))
+    await assert.rejects(mutatePetition(client, { ...command, petition }))
     for (const key of allKeys) assert.equal(client.getQueryState(key).isInvalidated, false)
     client.clear()
   })
@@ -255,7 +319,7 @@ test("public participation does not refresh classroom projections", async () => 
   client.clear()
 })
 
-for (const kind of ["close", "withdraw", "editComment", "deleteComment", "comment"]) {
+for (const kind of ["close", "withdraw", "editComment", "deleteComment", "reply", "comment"]) {
   test(`${kind}: preserves completion timing while active detail queries refresh`, async () => {
     const { client } = setup()
     let finishRefresh

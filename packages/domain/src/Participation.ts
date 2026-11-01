@@ -68,7 +68,11 @@ export const getSignatures = Rpc.make("getSignatures", {
   success: Schema.Array(SignatureDto),
 }).middleware(RequireUser)
 
-/** Comments on an open petition that allows them; `parentCommentId` replies on the same petition. */
+/**
+ * Comments on an open petition that allows them. `parentCommentId` replies to a readable comment on
+ * the same petition; replies are one level deep, so the reply comes back attached to the top-level
+ * comment.
+ */
 export const createComment = Rpc.make("createComment", {
   payload: {
     petitionId: Uuid,
