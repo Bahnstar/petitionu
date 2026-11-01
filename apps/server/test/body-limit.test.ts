@@ -277,5 +277,18 @@ describe("request body limit", () => {
         }),
       ),
     )
+
+    it.live("answers 400 to a Host a URL can't carry to the handler", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { send, headers } = yield* socketServer
+          const badHost = { ...headers, host: "a:b@petitionu.test" }
+          for (const path of ["/rpc", auth]) {
+            const response = yield* send("POST", path, rpcMessage, badHost)
+            assert.strictEqual(response.status, 400, path)
+          }
+        }),
+      ),
+    )
   })
 })

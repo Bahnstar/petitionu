@@ -31,6 +31,14 @@ const readBody = (request: HttpServerRequest.HttpServerRequest) =>
     return size > maxBodyBytes ? Option.none() : Option.some(Buffer.concat(chunks))
   })
 
+/** The request's URL, unless it's one `withBody` can't build a request from. */
+const requestUrl = (request: HttpServerRequest.HttpServerRequest) =>
+  Option.filter(
+    HttpServerRequest.toURL(request),
+    // The Fetch API refuses a URL with credentials, which a `Host` header can put there.
+    (url) => url.username === "" && url.password === "",
+  )
+
 /** `request` with its body already read, for handlers that read it again. */
 const withBody = (request: HttpServerRequest.HttpServerRequest, url: URL, body: Uint8Array) =>
   HttpServerRequest.fromWeb(
@@ -61,7 +69,7 @@ export const limitBody = <E, R>(
     const request = yield* HttpServerRequest.HttpServerRequest
     if (!HttpMethod.hasBody(request.method) || isEmptyWebRequest(request)) return yield* httpEffect
     if (Number(request.headers["content-length"]) > maxBodyBytes) return tooLarge()
-    const url = HttpServerRequest.toURL(request)
+    const url = requestUrl(request)
     if (Option.isNone(url)) return HttpServerResponse.empty({ status: 400 })
     const body = yield* readBody(request).pipe(Effect.orDie)
     if (Option.isNone(body)) return tooLarge()
