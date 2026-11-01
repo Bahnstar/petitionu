@@ -28,7 +28,7 @@ export default function SignInPage() {
     mutationFn: async () => {
       const { error } = await authClient.signIn.email({ email, password, rememberMe })
       throwAuthError(error, "Incorrect email or password")
-      await afterAuthChange()
+      await afterAuthChange({ destination: returnTo })
     },
     onSuccess: () => navigate(returnTo, { replace: true }),
   })

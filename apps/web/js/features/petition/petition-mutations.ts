@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import type { CreatePetitionInput, PetitionInput } from "@petitionu/domain"
-import { api } from "@/lib/api"
+import { api, serverError } from "@/lib/api"
 
 type PetitionTarget = { id: string; classroomId?: string | null }
 export type PetitionOwnerCommand =
@@ -74,10 +74,10 @@ export async function mutatePetition(
   if (result.success === false) {
     // `unknown` errors are transport failures or unexpected responses; their text isn't for users.
     const errors = result.errors.filter((error) => error.type !== "unknown")
-    const message = singleMessage.has(command.kind)
-      ? errors[0]?.message
-      : errors.map((error) => error.message).join(" ")
-    throw new Error(message || failureMessage(command))
+    throw serverError(
+      singleMessage.has(command.kind) ? errors.slice(0, 1) : errors,
+      failureMessage(command),
+    )
   }
 
   const keys: string[][] = [["petitions"], ["dashboardUser"]]

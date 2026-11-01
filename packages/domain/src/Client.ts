@@ -65,12 +65,14 @@ export const buildCSRFHeaders = (): Record<string, string> => {
 
 /**
  * Fetches a fresh CSRF token and stores it in the page's meta tag. Call it after any sign-in or
- * sign-out, because the token is bound to the session.
+ * sign-out, because the token is bound to the session. Rejects on a failed response, leaving the
+ * current token in place.
  */
 export const reloadCSRFToken = async (
   fetchFn: typeof globalThis.fetch = globalThis.fetch,
 ): Promise<string> => {
   const response = await fetchFn("/rpc/csrf-token", { credentials: "same-origin" })
+  if (!response.ok) throw new Error(`Reloading the CSRF token failed: ${response.status}`)
   const { token } = (await response.json()) as { token: string }
   const document = page()
   if (document) {
