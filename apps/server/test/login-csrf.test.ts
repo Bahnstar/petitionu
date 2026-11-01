@@ -28,6 +28,16 @@ const crossSiteRequests = {
     "sec-fetch-mode": "no-cors",
     "sec-fetch-dest": "image",
   },
+  "a script's `fetch` on another site": {
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "a script's `fetch` on a sibling subdomain": {
+    "sec-fetch-site": "same-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
   "a client that sends no fetch metadata": {},
 }
 
@@ -37,7 +47,7 @@ const crafted = {
     Effect.gen(function* () {
       const attacker = yield* registerUser(app)
       const url = yield* app.mailer.lastLinkTo(attacker.email)
-      return `/api/auth/verify-email?token=${url.searchParams.get("token")}`
+      return `/api/auth/verify-email?token=${url.searchParams.get("token")}&removePassword=true`
     }),
   "magic-link/verify": (app: TestApp) =>
     Effect.gen(function* () {
@@ -110,8 +120,8 @@ describe("other ways to sign a browser in from another site", () => {
     name: "",
   }
 
-  // Confirming in the browser that registered keeps the password, so a page must not be able to
-  // register an address from the owner's own browser.
+  // The browser that used a password keeps it when confirming, so a page must not be able to
+  // register an address, or try its password, from the owner's own browser.
   for (const path of ["/sign-up/email", "/sign-in/email"]) {
     it.live(`${path} rejects a cross-site POST`, () =>
       Effect.gen(function* () {

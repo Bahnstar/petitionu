@@ -28,7 +28,7 @@ describe("campus assignment on confirmation", () => {
       Effect.gen(function* () {
         const { app, jobs } = yield* makeJobsApp()
         const domain = schoolDomain()
-        const user = yield* registerUser(app, { email: `alex@${domain}` })
+        const user = yield* createUser(app, { stage: "unconfirmed", email: `alex@${domain}` })
         assert.isNull((yield* me(user.browser)).organizationId)
         assert.deepStrictEqual(yield* organizationsAt(app, domain), [])
         assert.deepStrictEqual(yield* jobs.jobsFor(user.id), [])
@@ -183,7 +183,7 @@ describe("campus assignment on confirmation", () => {
     Effect.gen(function* () {
       const { app } = yield* makeJobsApp()
       const domain = schoolDomain()
-      const user = yield* registerUser(app, { email: `alex@${domain}` })
+      const user = yield* createUser(app, { stage: "unconfirmed", email: `alex@${domain}` })
       const confirm = yield* user.browser.authGet("/verify-email?token=invalid")
       assert.notStrictEqual(confirm.status, 200)
       const stranger = yield* makeBrowser(app)

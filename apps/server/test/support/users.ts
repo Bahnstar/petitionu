@@ -57,7 +57,10 @@ export const emailsTo = (app: TestApp, to: string) =>
     Effect.map(sentTo(app, to), (sent) => sent.length),
   )
 
-/** Registers through the real sign-up endpoint; the new user is unconfirmed and signed in. */
+/**
+ * Registers through the real sign-up endpoint. The new user is unconfirmed and not signed in;
+ * `browser` is the one that registered, so confirming there keeps the password.
+ */
 export const registerUser = (
   app: TestApp,
   options: { readonly email?: string; readonly password?: string } = {},
@@ -72,18 +75,53 @@ export const registerUser = (
       browser.auth("/sign-up/email", { email, password, passwordConfirmation: password, name: "" }),
     )
     if (response.status !== 200) return yield* fail("sign-up failed", response)
-    yield* browser.reloadCsrf
     return { id: response.body.user.id as string, email, password, browser } satisfies TestUser
   })
 
-/** Clicks Confirm on the page the last confirmation email links to. */
-export const confirmEmail = (app: TestApp, browser: Browser, email: string) =>
+/**
+ * Clicks Confirm on the page the last confirmation email links to. `removePassword` also accepts
+ * the warning shown to a browser that didn't use the password.
+ */
+export const clickConfirm = (
+  app: TestApp,
+  browser: Browser,
+  email: string,
+  options: { readonly removePassword?: boolean } = {},
+) =>
   Effect.gen(function* () {
     const token = yield* lastEmailedToken(app, email)
-    const response = yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
+    const accept = options.removePassword ? "&removePassword=true" : ""
+    return yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}${accept}`)
+  })
+
+/** Clicks Confirm, and accepts the warning if `removePassword`; fails unless it confirms. */
+export const confirmEmail = (
+  app: TestApp,
+  browser: Browser,
+  email: string,
+  options: { readonly removePassword?: boolean } = {},
+) =>
+  Effect.gen(function* () {
+    const response = yield* clickConfirm(app, browser, email, options)
     if (response.status !== 200) return yield* fail("confirmation failed", response)
     yield* browser.reloadCsrf
   })
+
+/**
+ * Gives an unconfirmed user a session, which no endpoint does any more, so the rules for one can
+ * still be tested. The address counts as verified only long enough to sign in.
+ */
+const signInUnconfirmed = (app: TestApp, user: TestUser) =>
+  Effect.gen(function* () {
+    yield* app.sql`UPDATE users SET email_verified = true WHERE id = ${user.id}`
+    const response = yield* user.browser.auth("/sign-in/email", {
+      email: user.email,
+      password: user.password,
+    })
+    if (response.status !== 200) return yield* fail("sign-in failed", response)
+    yield* app.sql`UPDATE users SET email_verified = false WHERE id = ${user.id}`
+    yield* user.browser.reloadCsrf
+  }).pipe(Effect.orDie)
 
 /** Signs in through the real endpoint in a new browser. */
 export const signIn = (app: TestApp, email: string, password = defaultPassword) =>
@@ -118,7 +156,8 @@ export type UserStage = "unconfirmed" | "confirmed" | "complete"
 
 /**
  * Creates a signed-in user at `stage`, through the real auth endpoints:
- * - `unconfirmed`: registered, email not confirmed;
+ * - `unconfirmed`: registered, email not confirmed, with a session it can only have from before
+ *   unconfirmed sign-in was refused;
  * - `confirmed`: confirmed by clicking the emailed link;
  * - `complete`: confirmed, with first and last name and an organization (a new verified one
  *   for the email's domain unless `organizationId` is given).
@@ -138,7 +177,8 @@ export const createUser = (
   Effect.gen(function* () {
     const stage = options.stage ?? "complete"
     const user = yield* registerUser(app, options.email ? { email: options.email } : {})
-    if (stage !== "unconfirmed") yield* confirmEmail(app, user.browser, user.email)
+    if (stage === "unconfirmed") yield* signInUnconfirmed(app, user)
+    else yield* confirmEmail(app, user.browser, user.email)
     if (stage === "complete") {
       const organizationId =
         options.organizationId ??
