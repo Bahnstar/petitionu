@@ -20,6 +20,9 @@ type PetitionCommand =
       | { kind: "deleteComment"; commentId: string }
     ))
 
+/** A reply was refused because its parent was hidden or deleted after the page loaded. */
+export class ReplyParentGone extends Error {}
+
 /** Marks a reply's pending post, so the comment it answers can tell while the form is open. */
 export const replyMutationKey = (commentId: string) => ["reply", commentId]
 
@@ -85,7 +88,13 @@ export async function mutatePetition(
     const message = singleMessage.has(command.kind)
       ? errors[0]?.message
       : errors.map((error) => error.message).join(" ")
-    throw new Error(message || failureMessage(command))
+    const text = message || failureMessage(command)
+    // The page is out of date: refetch it, so the removed comment leaves the screen.
+    if (command.kind === "reply" && errors.some((error) => error.field === "parentCommentId")) {
+      void queryClient.invalidateQueries({ queryKey: ["petition", command.petition.id] })
+      throw new ReplyParentGone(text)
+    }
+    throw new Error(text)
   }
 
   const keys: string[][] = [["petitions"], ["dashboardUser"]]

@@ -234,6 +234,38 @@ for (const { command, action, affected = [0, 1, 2, 3, 4], returns } of cases) {
   })
 }
 
+test("a reply refused for its parent refreshes the petition only", async () => {
+  const { client } = setup(() => ({
+    _tag: "Invalid",
+    message: "Invalid",
+    fields: [{ field: "parentCommentId", message: "Reply to a comment in this petition." }],
+  }))
+  const commentId = "00000000-0000-4000-8000-000000000003"
+  await assert.rejects(mutatePetition(client, { kind: "reply", petition, commentId, text: "Hi" }), {
+    message: "Reply to a comment in this petition.",
+  })
+  allKeys.forEach((key, index) => {
+    assert.equal(client.getQueryState(key).isInvalidated, index < 2, JSON.stringify(key))
+  })
+  client.clear()
+})
+
+for (const command of [
+  { kind: "editComment", commentId: "00000000-0000-4000-8000-000000000003", text: "Fixed" },
+  { kind: "deleteComment", commentId: "00000000-0000-4000-8000-000000000003" },
+]) {
+  test(`${command.kind}: a refusal naming the parent still refreshes nothing`, async () => {
+    const { client } = setup(() => ({
+      _tag: "Invalid",
+      message: "Invalid",
+      fields: [{ field: "parentCommentId", message: "Not allowed." }],
+    }))
+    await assert.rejects(mutatePetition(client, { ...command, petition }))
+    for (const key of allKeys) assert.equal(client.getQueryState(key).isInvalidated, false)
+    client.clear()
+  })
+}
+
 test("transport failure preserves the cache and creation's connection guidance", async () => {
   const { client } = setup()
   respond = async () => {

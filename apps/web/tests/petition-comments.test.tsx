@@ -92,6 +92,8 @@ const petition = (): Petition => ({
   updates: [],
 })
 
+let petitionReads = 0
+
 function createComment(payload: CreateCommentPayload) {
   replies.push(payload)
   const created = comment("00000000-0000-4000-8000-000000000020", payload.text, {
@@ -105,6 +107,7 @@ function createComment(payload: CreateCommentPayload) {
 function answer(tag: string, payload: CreateCommentPayload) {
   if (tag === "getMe") return user
   if (tag === "createComment") return createComment(payload)
+  petitionReads += 1
   return petition()
 }
 
@@ -310,6 +313,44 @@ test("a post's success leaves a newer draft alone", async () => {
   expect(replies).toEqual([{ petitionId, text: "One", parentCommentId: firstId }])
   expect(first.querySelector("form")).toBeNull()
   expect(second.querySelector("textarea")?.value).toBe("Second draft")
+})
+
+for (const [text, id] of [
+  ["The first comment", firstId],
+  ["The second comment", secondId],
+] as const) {
+  test(`a reply to a gone parent refetches and keeps its text: ${text}`, async () => {
+    refusal = {
+      field: "parentCommentId",
+      message: "Reply to a comment in this petition.",
+      removes: id,
+    }
+    const container = await render()
+    const reads = petitionReads
+    await reply(commentWith(container, text), "Too late")
+
+    expect(petitionReads).toBe(reads + 1)
+    expect(threads(container).flat()).not.toContain(text)
+    const kept = container.querySelector<HTMLElement>("[role=alert]")!
+    expect(kept.textContent).toContain("no longer available")
+    expect(kept.querySelector("textarea")?.value).toBe("Too late")
+    expect(document.activeElement).toBe(kept.querySelector("textarea"))
+
+    await click(buttonIn(kept, "Dismiss"))
+    expect(container.querySelector("[role=alert]")).toBeNull()
+  })
+}
+
+test("a reply to a gone reply keeps its text, and its thread stays", async () => {
+  refusal = {
+    field: "parentCommentId",
+    message: "Reply to a comment in this petition.",
+    removes: replyId,
+  }
+  const container = await render()
+  await reply(commentWith(container, "A reply to the first"), "Too late")
+  expect(threads(container)[0]).toEqual(["The first comment"])
+  expect(container.querySelector("[role=alert] textarea")?.textContent).toBe("Too late")
 })
 
 test("replies offer what comments do: edit for their author, report for everyone else", async () => {

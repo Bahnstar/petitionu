@@ -4,19 +4,25 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "../../contexts/auth-context"
-import { mutatePetition, replyMutationKey } from "./petition-mutations"
+import { mutatePetition, ReplyParentGone, replyMutationKey } from "./petition-mutations"
 
 /**
  * Writes to a petition's conversation: a new comment, or with `reply` an inline reply to one.
  * A reply form takes focus when it opens and calls `onClose` when posted or cancelled. The text
- * can't change during a post, because a successful post clears it.
+ * can't change during a post, because a successful post clears it. If the comment it answers is
+ * gone, the form goes with it, so `onParentGone` gets the text to keep.
  */
 export function PetitionCommentForm({
   petition,
   reply,
 }: {
   petition: { id: string; classroomId?: string | null }
-  reply?: { commentId: string; author: string; onClose: () => void }
+  reply?: {
+    commentId: string
+    author: string
+    onClose: () => void
+    onParentGone: (text: string) => void
+  }
 }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -38,6 +44,9 @@ export function PetitionCommentForm({
     onSuccess: () => {
       setText("")
       reply?.onClose()
+    },
+    onError: (error, posted) => {
+      if (error instanceof ReplyParentGone) reply?.onParentGone(posted)
     },
   })
   const fieldId = reply ? `comment-${reply.commentId}-reply` : "petition-comment"
