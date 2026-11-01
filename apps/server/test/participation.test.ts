@@ -660,6 +660,81 @@ describe("replies", () => {
     }),
   )
 
+  it.live("a passed deadline refuses replies", () =>
+    Effect.gen(function* () {
+      const { app, author, petition, comment, reply } = yield* replied
+      yield* updatePetitionRow(app, petition.id, { deadline: new Date(Date.now() - 60_000) })
+      for (const parent of [comment, reply]) {
+        assert.deepStrictEqual(
+          expectErrors(yield* replyTo(author.browser, petition.id, parent.id)),
+          [
+            {
+              type: "invalid",
+              field: "petitionId",
+              message: "This petition's deadline has passed.",
+            },
+          ],
+        )
+      }
+      assert.strictEqual(yield* count(app, "comment"), 2)
+    }),
+  )
+
+  it.live("an archived classroom refuses replies", () =>
+    Effect.gen(function* () {
+      const { app, school, newStudent } = yield* makeCampus
+      const professor = yield* newStudent()
+      const member = yield* newStudent()
+      const classroom = yield* insertClassroom(app, {
+        professorId: professor.id,
+        organizationId: school.id,
+      })
+      yield* upsertMembership(app, { classroomId: classroom.id, userId: member.id })
+      const petition = yield* insertPetition(app, {
+        userId: professor.id,
+        organizationId: school.id,
+        classroomId: classroom.id,
+      })
+      const comment = expectData(
+        yield* professor.browser.rpc((api) =>
+          api.createComment({ petitionId: petition.id, text: "Before the archive" }),
+        ),
+      )
+      expectData(yield* replyTo(member.browser, petition.id, comment.id))
+      yield* setClassroomArchived(app, classroom.id, true)
+      for (const browser of [professor.browser, member.browser]) {
+        assert.deepStrictEqual(expectErrors(yield* replyTo(browser, petition.id, comment.id)), [
+          {
+            type: "invalid",
+            field: "petitionId",
+            message: "This classroom is archived or unavailable.",
+          },
+        ])
+      }
+      assert.strictEqual(yield* count(app, "comment"), 2)
+    }),
+  )
+
+  it.live("a hidden petition refuses replies, and its comments can't be parents", () =>
+    Effect.gen(function* () {
+      const { app, school, author, replier, petition, comment, reply } = yield* replied
+      const admin = yield* createUser(app, { organizationId: school.id, role: "admin" })
+      yield* updatePetitionRow(app, petition.id, { hidden_at: new Date() })
+      for (const user of [author, replier, admin]) {
+        assert.deepStrictEqual(
+          expectErrors(yield* replyTo(user.browser, petition.id, comment.id)),
+          [{ type: "invalid", field: "petitionId", message: "This petition is unavailable." }],
+        )
+      }
+      const other = yield* insertPetition(app, { userId: author.id, organizationId: school.id })
+      assert.deepStrictEqual(
+        expectErrors(yield* replyTo(author.browser, other.id, reply.id)),
+        refused,
+      )
+      assert.strictEqual(yield* count(app, "comment"), 2)
+    }),
+  )
+
   it.live("deleting a comment keeps its replies, which can still take replies", () =>
     Effect.gen(function* () {
       const { author, replier, petition, comment, reply } = yield* replied
