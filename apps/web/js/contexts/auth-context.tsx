@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, type Query } from "@tanstack/react-query"
 import { reloadCSRFToken, type MeDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
+import { clearAllPetitionDrafts } from "../lib/petition-draft"
 
 export type CurrentUser = MeDto
 
@@ -92,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message || "Sign-out failed")
     await queryClient.cancelQueries({ queryKey: currentUserKey })
     queryClient.setQueryData(currentUserKey, null)
+    // Only sign-out: a draft written before signing in or finishing a profile is meant to stay.
+    clearAllPetitionDrafts()
     await reloadToken()
     refreshPageQueries(false)
   }

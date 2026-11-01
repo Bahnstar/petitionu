@@ -504,6 +504,39 @@ test("a getMe sent before the sign-in can't decide who is signed in", async () =
   expect(button(container, /^Sign out/)).toBeTruthy()
 })
 
+function saveDrafts() {
+  savePetitionDraft(null, { ...readPetitionDraft(null), title: "Public draft" })
+  savePetitionDraft(classroomId, { ...readPetitionDraft(classroomId), title: "Class draft" })
+  sessionStorage.setItem("unrelated", "kept")
+}
+
+test("signing out clears every petition draft and nothing else", async () => {
+  saveDrafts()
+  await signOutClick()
+
+  expect(readPetitionDraft(null).title).toBe("")
+  expect(readPetitionDraft(classroomId).title).toBe("")
+  expect(sessionStorage.getItem("unrelated")).toBe("kept")
+})
+
+test("a failed sign-out keeps the drafts", async () => {
+  saveDrafts()
+  signOut = () => Response.json({ message: "No" }, { status: 500 })
+  await signOutClick()
+
+  expect(readPetitionDraft(null).title).toBe("Public draft")
+})
+
+test("signing in keeps a draft written before it", async () => {
+  saveDrafts()
+  const container = await render(AccountData, "/")
+
+  await act(() => button(container, /^Signed in/).click())
+  await settle()
+
+  expect(readPetitionDraft(null).title).toBe("Public draft")
+})
+
 test("a password change keeps the same user's data on screen while it refreshes", async () => {
   const container = await render(AccountData, "/")
   held = new Set(["getMySupportRequests"])
