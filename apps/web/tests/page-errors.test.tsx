@@ -88,7 +88,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 const { act } = await import("react")
 const { createRoot } = await import("react-dom/client")
 const { QueryClient, QueryClientProvider, useQuery } = await import("@tanstack/react-query")
-const { MemoryRouter, Route, Routes, useLocation } = await import("react-router-dom")
+const { MemoryRouter, Route, Routes, useLocation, useNavigate } = await import("react-router-dom")
 const { AuthProvider, useAuth } = await import("../js/contexts/auth-context.tsx")
 const { reloadCSRFToken } = await import("@petitionu/domain")
 const { Header } = await import("../js/components/header.tsx")
@@ -565,13 +565,45 @@ for (const [name, response] of [
     signOut = response
     const container = await signOutClick()
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-      "couldn’t sign you out",
-    )
+    const alert = container.querySelector('[role="alert"]')?.textContent
+    expect(alert).toContain("couldn’t confirm you’re signed out")
+    expect(alert).not.toContain("still signed in")
     expect(container.querySelector("#where")?.textContent).toBe("/somewhere")
     expect(button(container, /^Sign out/)).toBeTruthy()
   })
 }
+
+function HeaderWithRoutes() {
+  const navigate = useNavigate()
+  return (
+    <>
+      <Header />
+      <button type="button" onClick={() => navigate("/other")}>
+        Leave
+      </button>
+      <button type="button" onClick={() => navigate("/somewhere")}>
+        Return
+      </button>
+    </>
+  )
+}
+
+test("a sign-out failure stays gone after leaving the page and coming back", async () => {
+  signOut = () => Response.json({ message: "No" }, { status: 500 })
+  const container = await render(HeaderWithRoutes, "/somewhere")
+  await act(() => button(container, /^Sign out/).click())
+  await settle()
+  expect(container.querySelector('[role="alert"]')).not.toBe(null)
+
+  await act(() => button(container, /^Leave/).click())
+  await settle()
+  expect(container.querySelector('[role="alert"]')).toBe(null)
+
+  await act(() => button(container, /^Return/).click())
+  await settle()
+  expect(container.querySelector("#where")?.textContent).toBe("/somewhere")
+  expect(container.querySelector('[role="alert"]')).toBe(null)
+})
 
 test("signing out again after a failure works", async () => {
   signOut = () => Response.json({ message: "No" }, { status: 500 })

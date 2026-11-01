@@ -1,17 +1,17 @@
 import { AuthLink } from "./auth-link"
 import { useEffect, useRef, useState } from "react"
 import { LogOut, Menu, X } from "lucide-react"
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
+import { Link, NavLink, useLocation } from "react-router-dom"
 import { useAuth } from "../contexts/auth-context"
+import { useSignOut } from "../hooks/use-sign-out"
 import { ROUTES } from "@/lib/routes"
 import { Button } from "@/components/ui/button"
 
 export function Header({ landing = false }: { landing?: boolean }) {
-  const { user, isAuthenticated, isLoading, signOut } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const signOut = useSignOut()
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const [menuPath, setMenuPath] = useState<string | null>(null)
-  const [signOutFailedAt, setSignOutFailedAt] = useState<string | null>(null)
   const mobileOpen = menuPath === pathname
   if (menuPath !== null && menuPath !== pathname) setMenuPath(null)
   const menuButton = useRef<HTMLButtonElement>(null)
@@ -64,24 +64,16 @@ export function Header({ landing = false }: { landing?: boolean }) {
     ),
   )
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     setMenuPath(null)
-    setSignOutFailedAt(null)
-    try {
-      await signOut()
-    } catch {
-      setSignOutFailedAt(pathname)
-      return
-    }
-    navigate(ROUTES.home)
+    void signOut.attempt()
   }
 
   function renderSignOutError() {
-    if (signOutFailedAt !== pathname) return null
+    if (!signOut.failed) return null
     return (
-      <p role="alert" className="site-sign-out-error">
-        We couldn’t sign you out. You’re still signed in here, so check your connection and try
-        again.
+      <p role="alert" className="site-header-alert">
+        We couldn’t confirm you’re signed out. Check your connection and try again.
       </p>
     )
   }
