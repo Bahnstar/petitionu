@@ -1,3 +1,4 @@
+import { appRequestHeaders } from "@petitionu/domain"
 import { useMutation } from "@tanstack/react-query"
 import { Link, useSearchParams } from "react-router-dom"
 import { Loader2, MailCheck } from "lucide-react"
@@ -69,6 +70,7 @@ export default function ConfirmEmailPage() {
         { passwordRemoved?: boolean },
         AuthClientError
       >("/verify-email", {
+        headers: appRequestHeaders,
         query: input.removePassword
           ? { token: input.token, removePassword: "true" }
           : { token: input.token },

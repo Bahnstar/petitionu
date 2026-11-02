@@ -10,6 +10,9 @@ interface Recorded {
   readonly method: string
 }
 
+const appRequestHeader = "x-petitionu-app"
+const linkEndpoints = ["/api/auth/verify-email", "/api/auth/magic-link/verify"]
+
 let requests: Recorded[] = []
 const originalFetch = globalThis.fetch
 
@@ -18,6 +21,10 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
   const url = new URL(request.url)
   requests.push({ url: url.pathname + url.search, method: request.method })
+  // As the server does: these endpoints refuse a request without the app's header.
+  if (linkEndpoints.includes(url.pathname) && !request.headers.get(appRequestHeader)) {
+    return Response.json({ message: "Open the link from your email" }, { status: 403 })
+  }
   if (url.pathname === "/rpc/csrf-token") return Response.json({ token: "fresh-token" })
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/sign-in/email") {

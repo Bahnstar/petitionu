@@ -1,3 +1,4 @@
+import { appRequestHeaders } from "@petitionu/domain"
 import { useMutation } from "@tanstack/react-query"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { Loader2, LogIn } from "lucide-react"
@@ -21,7 +22,7 @@ export default function MagicSignInPage() {
       // Better Auth redirects a rejected token to `/?error=`; don't follow it, it isn't JSON.
       const { error } = await authClient.magicLink.verify({
         query: { token },
-        fetchOptions: { redirect: "manual" },
+        fetchOptions: { redirect: "manual", headers: appRequestHeaders },
       })
       throwLinkError(error, invalidLink)
       const returnTo = takeRememberedReturnTo()

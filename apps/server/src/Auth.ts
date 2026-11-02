@@ -1,3 +1,4 @@
+import { appRequestHeader, appRequestHeaders } from "@petitionu/domain"
 import bcrypt from "bcryptjs"
 import { betterAuth } from "better-auth"
 import { APIError, createAuthMiddleware } from "better-auth/api"
@@ -48,17 +49,23 @@ const passwordConfirmation = (path: string, body: PasswordBody) => {
   return undefined
 }
 
-/** Endpoints a link's token signs in through; only the SPA's pages may call them. */
+/** Endpoints a link's token acts on; only the SPA's pages may call them. */
 const linkEndpoints = new Set(["/verify-email", "/magic-link/verify"])
 
 /**
  * Whether a request is the app's own `fetch`. A crafted link, or one in user content, arrives as
  * a navigation, an image or from another site, and could sign a browser into the attacker's
- * account. A client that sends no fetch metadata is refused too, which includes browsers too old
- * to send it: those users confirm by password reset instead.
+ * account. None of those can set a header, and another site's `fetch` with one needs a CORS
+ * preflight the server doesn't grant, so the header holds in every browser. Older browsers send
+ * no fetch metadata, so `sec-fetch-site` only refuses when it's there.
  */
-const isAppFetch = (headers: Headers | undefined) =>
-  headers?.get("sec-fetch-site") === "same-origin" && headers.get("sec-fetch-dest") === "empty"
+const isAppFetch = (headers: Headers | undefined) => {
+  const site = headers?.get("sec-fetch-site")
+  return (
+    headers?.get(appRequestHeader) === appRequestHeaders[appRequestHeader] &&
+    (site === null || site === "same-origin")
+  )
+}
 
 /**
  * Signed cookie naming the account whose password this browser last used, at sign-up or at a

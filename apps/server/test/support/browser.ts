@@ -1,4 +1,4 @@
-import { type ApiClient, makeApiClient } from "@petitionu/domain"
+import { type ApiClient, appRequestHeaders, makeApiClient } from "@petitionu/domain"
 import { Effect } from "effect"
 import { type TestApp, testOrigin } from "./harness.ts"
 
@@ -112,6 +112,7 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       Effect.gen(function* () {
         const response = yield* request(`/api/auth${path}`, {
           headers: {
+            ...appRequestHeaders,
             "sec-fetch-site": "same-origin",
             "sec-fetch-mode": "cors",
             "sec-fetch-dest": "empty",

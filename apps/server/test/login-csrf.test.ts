@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
+import { appRequestHeader, appRequestHeaders } from "@petitionu/domain"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp, type TestApp, testOrigin } from "./support/harness.ts"
@@ -39,6 +40,29 @@ const crossSiteRequests = {
     "sec-fetch-dest": "empty",
   },
   "a client that sends no fetch metadata": {},
+  "a same-origin `fetch` without the app's header": {
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "a preflighted `fetch` from another site": {
+    ...appRequestHeaders,
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "a preflighted `fetch` from a sibling subdomain": {
+    ...appRequestHeaders,
+    "sec-fetch-site": "same-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "the app's header on a request the browser says the user started": {
+    ...appRequestHeaders,
+    "sec-fetch-site": "none",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document",
+  },
 }
 
 /** A link the attacker can get from their own account, one that signs the opener in. */
@@ -94,6 +118,42 @@ describe("emailed link endpoints", () => {
         assert.strictEqual(response.status, 200)
         yield* browser.reloadCsrf
         assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: true })
+      }),
+    )
+
+    // Older Safari sends no `Sec-Fetch-*` at all, so the app's header has to be enough.
+    it.live(`/${route} works from a browser that sends no fetch metadata`, () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        const link = yield* craft(app)
+        const browser = yield* makeBrowser(app)
+
+        const response = yield* browser.request(link, { headers: appRequestHeaders })
+
+        assert.strictEqual(response.status, 200)
+        yield* browser.reloadCsrf
+        assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: true })
+      }),
+    )
+
+    it.live(`/${route} grants no CORS preflight for the app's header`, () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        const link = yield* craft(app)
+
+        const preflight = yield* app.request(`${testOrigin}${link}`, {
+          method: "OPTIONS",
+          headers: {
+            origin: evilOrigin,
+            "access-control-request-method": "GET",
+            "access-control-request-headers": appRequestHeader,
+          },
+        })
+
+        assert.isFalse(preflight.ok, String(preflight.status))
+        assert.isFalse(preflight.headers.has("access-control-allow-origin"))
+        assert.isFalse(preflight.headers.has("access-control-allow-headers"))
+        assert.isFalse(preflight.headers.has("access-control-allow-credentials"))
       }),
     )
   }
