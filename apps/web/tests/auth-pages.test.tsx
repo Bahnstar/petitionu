@@ -19,6 +19,38 @@ const linkEndpoints = [
   "/api/auth/verify-email/password",
 ]
 
+interface LinkRequest {
+  readonly token?: string
+  readonly password?: string
+}
+
+// SAFETY: only the pages under test call this stub, and they send these fields as strings.
+const parsed = (body: string | undefined) => JSON.parse(body ?? "{}") as LinkRequest
+
+async function linkDetails(body: string | undefined) {
+  const { token } = parsed(body)
+  if (token === "invalid") {
+    return Response.json({ code: "INVALID_LINK", message: "Invalid" }, { status: 400 })
+  }
+  if (token === "limited") return Response.json({ message: "Slow down" }, { status: 429 })
+  if (token === "broken") return Response.json({ message: "Down" }, { status: 500 })
+  if (token === "slow") await new Promise((resolve) => setTimeout(resolve, 60))
+  return Response.json({
+    email: "owner@example.edu",
+    needsPassword: token === "has-password",
+    signedInAs: token === "attacker" ? "me@example.edu" : null,
+  })
+}
+
+function confirmWithPassword(body: string | undefined) {
+  const { password } = parsed(body)
+  if (password === "tried too often") return Response.json({ message: "No" }, { status: 429 })
+  if (password !== "the password") {
+    return Response.json({ code: "INVALID_PASSWORD", message: "Incorrect" }, { status: 400 })
+  }
+  return Response.json({ status: true, user: null })
+}
+
 let requests: Recorded[] = []
 const originalFetch = globalThis.fetch
 
@@ -43,28 +75,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/api/auth/sign-up/email") {
     return Response.json({ token: null, user: { id: "u1" } })
   }
-  if (url.pathname === "/api/auth/link-details") {
-    const { token } = JSON.parse(body ?? "{}") as { token: string }
-    if (token === "invalid") {
-      return Response.json({ code: "INVALID_LINK", message: "Invalid" }, { status: 400 })
-    }
-    if (token === "limited") return Response.json({ message: "Slow down" }, { status: 429 })
-    if (token === "broken") return Response.json({ message: "Down" }, { status: 500 })
-    if (token === "slow") await new Promise((resolve) => setTimeout(resolve, 60))
-    return Response.json({
-      email: "owner@example.edu",
-      needsPassword: token === "has-password",
-      signedInAs: token === "attacker" ? "me@example.edu" : null,
-    })
-  }
-  if (url.pathname === "/api/auth/verify-email/password") {
-    const { password } = JSON.parse(body ?? "{}") as { password: string }
-    if (password === "tried too often") return Response.json({ message: "No" }, { status: 429 })
-    if (password !== "the password") {
-      return Response.json({ code: "INVALID_PASSWORD", message: "Incorrect" }, { status: 400 })
-    }
-    return Response.json({ status: true, user: null })
-  }
+  if (url.pathname === "/api/auth/link-details") return linkDetails(body)
+  if (url.pathname === "/api/auth/verify-email/password") return confirmWithPassword(body)
   if (url.pathname === "/api/auth/verify-email") {
     if (["has-password", "changed"].includes(url.searchParams.get("token") ?? "")) {
       if (!url.searchParams.has("removePassword")) {
@@ -243,7 +255,7 @@ for (const page of [
     expect(container.querySelector(".auth-link")?.textContent).toContain("Stay signed in")
     expect(() => button(container, page.button)).toThrow()
 
-    await act(() => button(container, /^Switch to owner@example.edu/).click())
+    await act(() => button(container, /^Switch to this account/).click())
     await settle()
     expect(requests.filter((r) => r.url.startsWith(page.endpoint))).toEqual([])
 

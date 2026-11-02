@@ -70,7 +70,7 @@ export function SwitchAccount({
       />
       <Button type="button" className="w-full" onClick={onSwitch}>
         <ArrowLeftRight aria-hidden="true" />
-        Switch to {email}
+        Switch to this account
       </Button>
     </AuthPage>
   )

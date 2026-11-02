@@ -89,42 +89,113 @@ function EmailConfirmed({
   )
 }
 
-/**
- * Opened from the confirmation email. Mail scanners follow links, so nothing is used until the
- * click. Sign-up doesn't prove the address, so an account's password may be someone else's: only
- * entering it keeps it, and continuing without it removes it. The server decides: if a plain click
- * would remove a password the page didn't know about, it refuses, and the page asks.
- */
-export default function ConfirmEmailPage() {
-  const [params] = useSearchParams()
-  const token = params.get("token")
-  const landedReturnTo = useReturnTo()
-  const { afterAuthChange } = useAuth()
-  const link = useEmailLink("confirm", token, invalidLink)
-  const [switching, setSwitching] = useState(false)
-  const [refused, setRefused] = useState(false)
-  const [password, setPassword] = useState("")
-  const [removedBeforeLoad] = useState(passwordWasRemoved)
-  useEffect(forgetPasswordRemoved, [])
+interface ConfirmInput {
+  readonly token: string
+  readonly password?: string
+  readonly removePassword?: boolean
+}
 
+/** `/verify-email` is a GET and can't carry a password, which has its own endpoint. */
+const sendConfirmation = ({ token, password, removePassword }: ConfirmInput) =>
+  password === undefined
+    ? authClient.$fetch<ConfirmResponse, AuthClientError>("/verify-email", {
+        headers: appRequestHeaders,
+        query: removePassword ? { token, removePassword: "true" } : { token },
+      })
+    : authClient.$fetch<ConfirmResponse, AuthClientError>("/verify-email/password", {
+        method: "POST",
+        headers: appRequestHeaders,
+        body: { token, password },
+      })
+
+/** Asks for the account's password, the only way to keep it, or to go on without it. */
+function KeepPasswordForm({
+  pending,
+  wrongPassword,
+  onKeep,
+  onRemove,
+}: {
+  pending: boolean
+  wrongPassword: string | undefined
+  onKeep: (password: string) => void
+  onRemove: () => void
+}) {
+  const [password, setPassword] = useState("")
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (!pending) onKeep(password)
+      }}
+    >
+      <AuthNotice>
+        This account has a password. Enter it to keep it. If you didn&apos;t set one or can&apos;t
+        remember it, continue without it: the password is removed, and you can set a new one with a
+        password reset.
+      </AuthNotice>
+      <AuthField
+        id="password"
+        label="Password"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        {...fieldErrorProps("password-error", wrongPassword)}
+      />
+      <FieldError id="password-error" message={wrongPassword} />
+      <div className="mt-4 grid gap-2">
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending ? (
+            <Loader2 className="animate-spin" aria-hidden="true" />
+          ) : (
+            <KeyRound aria-hidden="true" />
+          )}
+          {pending ? "Confirming…" : "Keep my password"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={pending}
+          onClick={onRemove}
+        >
+          Continue without password
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** One click, for an account with no password to prove. */
+function ConfirmButton({ pending, onConfirm }: { pending: boolean; onConfirm: () => void }) {
+  return (
+    <Button type="button" className="w-full" disabled={pending} onClick={onConfirm}>
+      {pending ? (
+        <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : (
+        <MailCheck aria-hidden="true" />
+      )}
+      {pending ? "Confirming…" : "Confirm"}
+    </Button>
+  )
+}
+
+function ConfirmDescription({ email }: { email: string | undefined }) {
+  if (!email) return "Confirm that this is your email address to finish setting up your account."
+  return (
+    <>
+      Confirm that <strong>{email}</strong> is your email address to finish setting up your account.
+    </>
+  )
+}
+
+/** Sends a confirmation; a page that gets `confirmed: false` asks for the password. */
+function useConfirmation() {
+  const { afterAuthChange } = useAuth()
+  const [refused, setRefused] = useState(false)
   const confirm = useMutation({
-    mutationFn: async (input: {
-      token: string
-      password?: string
-      removePassword?: boolean
-    }): Promise<Confirmation> => {
-      const { data, error } = await (input.password === undefined
-        ? authClient.$fetch<ConfirmResponse, AuthClientError>("/verify-email", {
-            headers: appRequestHeaders,
-            query: input.removePassword
-              ? { token: input.token, removePassword: "true" }
-              : { token: input.token },
-          })
-        : authClient.$fetch<ConfirmResponse, AuthClientError>("/verify-email/password", {
-            method: "POST",
-            headers: appRequestHeaders,
-            body: { token: input.token, password: input.password },
-          }))
+    mutationFn: async (input: ConfirmInput): Promise<Confirmation> => {
+      const { data, error } = await sendConfirmation(input)
       if (error?.code === "CONFIRM_REMOVES_PASSWORD") {
         setRefused(true)
         return { confirmed: false, wrongPassword: false }
@@ -140,8 +211,67 @@ export default function ConfirmEmailPage() {
       return { confirmed: true, passwordRemoved, returnTo }
     },
   })
+  return { confirm, refused }
+}
 
-  if (confirm.data?.confirmed) return <EmailConfirmed {...confirm.data} />
+function ConfirmForm({
+  token,
+  link,
+  confirm,
+  refused,
+}: ReturnType<typeof useConfirmation> & {
+  token: string | null
+  link: ReturnType<typeof useEmailLink>
+}) {
+  const ready = link.data && token
+  const asksPassword = link.data?.needsPassword || refused
+  const error = link.error?.message ?? confirm.error?.message ?? null
+  const wrongPassword = confirm.data?.confirmed === false && confirm.data.wrongPassword
+
+  return (
+    <AuthPage
+      title="Confirm your email"
+      description={<ConfirmDescription email={link.data?.email} />}
+      links={
+        <Link to="/sign-in" className="auth-link">
+          Back to sign in
+        </Link>
+      }
+    >
+      <AuthError message={token ? error : invalidLink} />
+      {ready && !asksPassword && (
+        <ConfirmButton pending={confirm.isPending} onConfirm={() => confirm.mutate({ token })} />
+      )}
+      {ready && asksPassword && (
+        <KeepPasswordForm
+          pending={confirm.isPending}
+          wrongPassword={wrongPassword ? "Incorrect password" : undefined}
+          onKeep={(password) => confirm.mutate({ token, password })}
+          onRemove={() => confirm.mutate({ token, removePassword: true })}
+        />
+      )}
+    </AuthPage>
+  )
+}
+
+/**
+ * Opened from the confirmation email. Mail scanners follow links, so nothing is used until the
+ * click. Sign-up doesn't prove the address, so an account's password may be someone else's: only
+ * entering it keeps it, and continuing without it removes it. The server decides: if a plain click
+ * would remove a password the page didn't know about, it refuses, and the page asks.
+ */
+export default function ConfirmEmailPage() {
+  const [params] = useSearchParams()
+  const token = params.get("token")
+  const landedReturnTo = useReturnTo()
+  const link = useEmailLink("confirm", token, invalidLink)
+  const confirmation = useConfirmation()
+  const [switching, setSwitching] = useState(false)
+  const [removedBeforeLoad] = useState(passwordWasRemoved)
+  useEffect(forgetPasswordRemoved, [])
+
+  const confirmed = confirmation.confirm.data
+  if (confirmed?.confirmed) return <EmailConfirmed {...confirmed} />
   if (removedBeforeLoad && !token) {
     return <EmailConfirmed passwordRemoved returnTo={landedReturnTo} />
   }
@@ -156,89 +286,5 @@ export default function ConfirmEmailPage() {
     )
   }
 
-  const asksPassword = link.data?.needsPassword || refused
-  const wrongPassword = confirm.data?.wrongPassword ? "Incorrect password" : undefined
-
-  return (
-    <AuthPage
-      title="Confirm your email"
-      description={
-        link.data ? (
-          <>
-            Confirm that <strong>{link.data.email}</strong> is your email address to finish setting
-            up your account.
-          </>
-        ) : (
-          "Confirm that this is your email address to finish setting up your account."
-        )
-      }
-      links={
-        <Link to="/sign-in" className="auth-link">
-          Back to sign in
-        </Link>
-      }
-    >
-      <AuthError
-        message={token ? (link.error?.message ?? confirm.error?.message ?? null) : invalidLink}
-      />
-      {link.data && token && !asksPassword && (
-        <Button
-          type="button"
-          className="w-full"
-          disabled={confirm.isPending}
-          onClick={() => confirm.mutate({ token })}
-        >
-          {confirm.isPending ? (
-            <Loader2 className="animate-spin" aria-hidden="true" />
-          ) : (
-            <MailCheck aria-hidden="true" />
-          )}
-          {confirm.isPending ? "Confirming…" : "Confirm"}
-        </Button>
-      )}
-      {link.data && token && asksPassword && (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!confirm.isPending) confirm.mutate({ token, password })
-          }}
-        >
-          <AuthNotice>
-            This account has a password. Enter it to keep it. If you didn&apos;t set one or
-            can&apos;t remember it, continue without it: the password is removed, and you can set a
-            new one with a password reset.
-          </AuthNotice>
-          <AuthField
-            id="password"
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            {...fieldErrorProps("password-error", wrongPassword)}
-          />
-          <FieldError id="password-error" message={wrongPassword} />
-          <div className="mt-4 grid gap-2">
-            <Button type="submit" className="w-full" disabled={confirm.isPending}>
-              {confirm.isPending ? (
-                <Loader2 className="animate-spin" aria-hidden="true" />
-              ) : (
-                <KeyRound aria-hidden="true" />
-              )}
-              {confirm.isPending ? "Confirming…" : "Keep my password"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={confirm.isPending}
-              onClick={() => confirm.mutate({ token, removePassword: true })}
-            >
-              Continue without password
-            </Button>
-          </div>
-        </form>
-      )}
-    </AuthPage>
-  )
+  return <ConfirmForm token={token} link={link} {...confirmation} />
 }

@@ -15,11 +15,7 @@ import {
 const magicToken = (app: TestApp, email: string) =>
   Effect.gen(function* () {
     const browser = yield* makeBrowser(app)
-    const { token } = yield* withEmailTo(
-      app,
-      email,
-      browser.auth("/sign-in/magic-link", { email }),
-    )
+    const { token } = yield* withEmailTo(app, email, browser.auth("/sign-in/magic-link", { email }))
     return token
   })
 
