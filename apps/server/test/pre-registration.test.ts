@@ -302,6 +302,18 @@ describe("confirming your own registration", () => {
     }),
   )
 
+  it.live("stops trying links after five a minute", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const browser = yield* makeBrowser(app)
+      const statuses = []
+      for (let attempt = 0; attempt < 6; attempt++) {
+        statuses.push((yield* browser.authGet("/verify-email?token=garbage")).status)
+      }
+      assert.deepStrictEqual(statuses, [401, 401, 401, 401, 401, 429])
+    }),
+  )
+
   it.live("with the password ends a session the account somehow already has", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()

@@ -183,7 +183,10 @@ export class Auth extends Context.Service<
       // password. Sign-up doesn't prove the address, so the password may be someone else's, and
       // only knowing it shows otherwise (`/verify-email/password`). Without that, confirming
       // removes it, as a magic link does, once the user has chosen to: a click that hasn't is
-      // refused without changing anything.
+      // refused without changing anything. A click that loses Better Auth's lock can get the user
+      // back unverified, with the password still there, and Better Auth would flip
+      // `email_verified` regardless, so this refuses it. The password is checked again here
+      // because the click holding the lock may have kept it.
       const revokeUnprovenAccess = async (user: { id: string }, request?: Request) => {
         const context = await auth.$context
         const account = await context.internalAdapter.findCredentialAccount(user.id)
@@ -195,8 +198,12 @@ export class Auth extends Context.Service<
           })
         }
         const ctx = { context } as Parameters<typeof revokeUnprovenAccountAccess>[0]
-        await revokeUnprovenAccountAccess(ctx, user.id)
-        if (account && request) removedPasswords.add(request)
+        const promoted = await revokeUnprovenAccountAccess(ctx, user.id)
+        if (!promoted?.emailVerified) {
+          throw new APIError("SERVICE_UNAVAILABLE", { message: "Try again" })
+        }
+        const remaining = await context.internalAdapter.findCredentialAccount(user.id)
+        if (account && !remaining && request) removedPasswords.add(request)
       }
 
       // The user whose password a `/reset-password` request just reset, keyed by request.

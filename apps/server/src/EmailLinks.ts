@@ -122,7 +122,9 @@ const verifyEmailWithPassword = createAuthEndpoint(
     }
 
     const confirmed = await settleConfirmation(context, user.id)
-    if (!confirmed?.emailVerified) throw new APIError("INTERNAL_SERVER_ERROR")
+    if (!confirmed?.emailVerified) {
+      throw new APIError("SERVICE_UNAVAILABLE", { message: "Try again" })
+    }
     const session = await context.internalAdapter.createSession(user.id)
     await setSessionCookie(ctx, { session, user: confirmed })
     return ctx.json({ status: true, user: null })

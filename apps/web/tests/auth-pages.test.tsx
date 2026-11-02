@@ -37,7 +37,7 @@ async function linkDetails(body: string | undefined) {
   if (token === "slow") await new Promise((resolve) => setTimeout(resolve, 60))
   return Response.json({
     email: "owner@example.edu",
-    needsPassword: token === "has-password",
+    needsPassword: token === "has-password" || token === "busy",
     signedInAs: token === "attacker" ? "me@example.edu" : null,
   })
 }
@@ -51,6 +51,26 @@ function confirmWithPassword(body: string | undefined) {
   return Response.json({ status: true, user: null })
 }
 
+function verifyEmail(url: URL) {
+  const token = url.searchParams.get("token") ?? ""
+  if (token === "busy") {
+    if (busy) return Response.json({ message: "Try again" }, { status: 503 })
+    return Response.json({ status: true, user: null, passwordRemoved: true })
+  }
+  if (["has-password", "changed"].includes(token)) {
+    if (!url.searchParams.has("removePassword")) {
+      return Response.json(
+        { code: "CONFIRM_REMOVES_PASSWORD", message: "Confirming here removes the password" },
+        { status: 409 },
+      )
+    }
+    return Response.json({ status: true, user: null, passwordRemoved: true })
+  }
+  return Response.json({ status: true, user: null })
+}
+
+/** Whether the `busy` link's removal is refused, as a click that loses the server's lock is. */
+let busy = true
 let requests: Recorded[] = []
 const originalFetch = globalThis.fetch
 
@@ -77,18 +97,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (url.pathname === "/api/auth/link-details") return linkDetails(body)
   if (url.pathname === "/api/auth/verify-email/password") return confirmWithPassword(body)
-  if (url.pathname === "/api/auth/verify-email") {
-    if (["has-password", "changed"].includes(url.searchParams.get("token") ?? "")) {
-      if (!url.searchParams.has("removePassword")) {
-        return Response.json(
-          { code: "CONFIRM_REMOVES_PASSWORD", message: "Confirming here removes the password" },
-          { status: 409 },
-        )
-      }
-      return Response.json({ status: true, user: null, passwordRemoved: true })
-    }
-    return Response.json({ status: true, user: null })
-  }
+  if (url.pathname === "/api/auth/verify-email") return verifyEmail(url)
   if (url.pathname === "/api/auth/magic-link/verify" && url.searchParams.get("token") === "bad") {
     // Better Auth redirects every rejected magic link to `/?error=`, even without a callbackURL.
     if (request.redirect !== "manual") throw new TypeError("Failed to fetch")
@@ -359,6 +368,24 @@ test("/auth/confirm continues without the password only by choice, and points to
   expect(requests.some((r) => r.url.includes("removePassword=true"))).toBe(true)
   expect(container.textContent).toContain("password has been removed")
   expect(container.querySelector('a[href="/reset"]')).not.toBeNull()
+})
+
+test("/auth/confirm lets a click the server couldn't finish try again", async () => {
+  const container = await render("/auth/confirm?token=busy")
+
+  await act(() => button(container, /^Continue without password/).click())
+  await settle()
+
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Please try again")
+  expect(container.textContent).not.toContain("has now been confirmed")
+  expect(container.textContent).not.toContain("password has been removed")
+  expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(false)
+  expect(sessionStorage.length).toBe(0)
+
+  busy = false
+  await act(() => button(container, /^Continue without password/).click())
+  await settle()
+  expect(container.textContent).toContain("password has been removed")
 })
 
 test("/auth/confirm asks for the password if the server refuses a plain click", async () => {
