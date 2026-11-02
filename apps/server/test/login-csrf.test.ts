@@ -99,6 +99,58 @@ describe("emailed link endpoints", () => {
   }
 })
 
+describe("plain HTTP", () => {
+  // `Secure` cookies are dropped on a plain HTTP name, so no account may be started from one: the
+  // password-holder cookie would be lost, and its owner couldn't keep the password on Confirm.
+  it.live("can't register: only the https origin is accepted", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const email = uniqueEmail()
+      const response = yield* app.request(`${testOrigin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: { origin: "http://petitionu.test", "content-type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password: "correct horse battery",
+          passwordConfirmation: "correct horse battery",
+          name: "",
+        }),
+      })
+
+      assert.strictEqual(response.status, 403)
+      assert.isEmpty(response.headers.getSetCookie())
+      assert.isEmpty(yield* app.sql`SELECT 1 FROM users WHERE email = ${email}`.pipe(Effect.orDie))
+    }),
+  )
+
+  it.live("a registering browser's cookie is one a browser will accept as `__Host-`", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const email = uniqueEmail()
+      const browser = yield* makeBrowser(app)
+      const response = yield* browser.request("/api/auth/sign-up/email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password: "correct horse battery",
+          passwordConfirmation: "correct horse battery",
+          name: "",
+        }),
+      })
+
+      const cookie = response.headers
+        .getSetCookie()
+        .find((header) => header.startsWith("__Host-petitionu.password-holder="))
+      assert.match(cookie ?? "", /; Secure/i)
+      assert.match(cookie ?? "", /; Path=\//i)
+      assert.match(cookie ?? "", /; HttpOnly/i)
+      assert.match(cookie ?? "", /; SameSite=Lax/i)
+      assert.notMatch(cookie ?? "", /; Domain=/i)
+    }),
+  )
+})
+
 describe("other ways to sign a browser in from another site", () => {
   const crossSitePost = (app: TestApp, path: string, contentType: string, body: unknown) =>
     app.request(`${testOrigin}/api/auth${path}`, {
