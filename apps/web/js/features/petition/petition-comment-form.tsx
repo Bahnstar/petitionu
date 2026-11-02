@@ -6,14 +6,22 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { formErrors } from "@/lib/form-errors"
 import { useAuth } from "../../contexts/auth-context"
-import { mutatePetition, ReplyParentGone, replyMutationKey } from "./petition-mutations"
+import { commentWriteKey, mutatePetition, ReplyParentGone } from "./petition-mutations"
+
+/** A new comment's text lives in its form; a reply's in the comment it answers. */
+function useFormText(reply?: { text: string; onTextChange: (text: string) => void }) {
+  const [text, setText] = useState("")
+  return reply ? ([reply.text, reply.onTextChange] as const) : ([text, setText] as const)
+}
 
 /**
  * Writes to a petition's conversation: a new comment, or with `reply` an inline reply to one.
  * A reply form takes focus when it opens and calls `onClose` once posted; `onCancel` asks to close
- * it. The text can't change during a post, because a successful post clears it. If the comment it
- * answers is gone, the form goes with it, so `onParentGone` gets the text to keep. When the petition
- * stops `accepting` replies the form stays, read-only, so the text isn't lost with it.
+ * it. The text can't change during a post, because a successful post clears it. A reply's text
+ * belongs to its comment, which has to keep it if the form goes. If the comment it answers is gone,
+ * the form goes with it, so `onParentGone` gets the text to keep; `onPostFailed` hears of any other
+ * failure. When the petition stops `accepting` replies the form stays, read-only, so the text isn't
+ * lost with it.
  */
 export function PetitionCommentForm({
   petition,
@@ -24,18 +32,21 @@ export function PetitionCommentForm({
     commentId: string
     author: string
     accepting: boolean
+    text: string
+    onTextChange: (text: string) => void
     onClose: () => void
     onCancel: () => void
     onParentGone: (text: string) => void
+    onPostFailed: (text: string) => void
   }
 }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [text, setText] = useState("")
+  const [text, setText] = useFormText(reply)
   const textarea = useRef<HTMLTextAreaElement>(null)
   const isReply = !!reply
   const mutation = useMutation({
-    mutationKey: reply ? replyMutationKey(reply.commentId) : undefined,
+    mutationKey: reply ? commentWriteKey(reply.commentId) : undefined,
     mutationFn: async (posted: string) => {
       if (!user?.emailVerified || !user.profileComplete)
         throw new Error("Complete your profile before commenting.")
@@ -52,6 +63,7 @@ export function PetitionCommentForm({
     },
     onError: (error, posted) => {
       if (error instanceof ReplyParentGone) reply?.onParentGone(posted)
+      else reply?.onPostFailed(posted)
     },
   })
   const errors = formErrors(mutation.error, ["text"])

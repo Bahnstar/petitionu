@@ -23,8 +23,8 @@ type PetitionCommand =
 /** A reply was refused because its parent was hidden or deleted after the page loaded. */
 export class ReplyParentGone extends ApiError {}
 
-/** Marks a reply's pending post, so the comment it answers can tell while the form is open. */
-export const replyMutationKey = (commentId: string) => ["reply", commentId]
+/** Marks a reply or edit in flight, so its comment and the page can tell while it's pending. */
+export const commentWriteKey = (commentId: string) => ["commentWrite", commentId]
 
 function failureMessage(command: PetitionCommand) {
   if (command.kind === "create")
