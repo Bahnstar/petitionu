@@ -5,6 +5,7 @@ import { Rpc, RpcGroup } from "effect/rpc"
 import { rpcRoute } from "../src/Rpc.ts"
 import { type Browser, makeBrowser } from "./support/browser.ts"
 import { makeTestApp } from "./support/harness.ts"
+import { createUser } from "./support/users.ts"
 
 const internalError = "Something went wrong. Please try again."
 
@@ -180,6 +181,45 @@ describe("RPC defects", () => {
         app.logs.some((line) => line.includes("Unknown request tag: xxx")),
         "the start of a long tag stays in the log",
       )
+    }),
+  )
+
+  it.live("text and paging the schema refuses stay a caller's mistake in the logs", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      // Confirmed, with no profile: anyone signed in can send these.
+      const { browser } = yield* createUser(app, { stage: "confirmed" })
+      const id = "00000000-0000-4000-8000-000000000001"
+      const petition = { description: "Better", categoryId: id }
+      const alreadyLogged = app.logs.length
+
+      for (const body of [
+        request("createPetition", { ...petition, title: "a\u0000b" }),
+        request("createPetition", { ...petition, title: "\u0000".repeat(10 * 1024) }),
+        request("createPetition", { title: "Fine", description: "a\u0000b", categoryId: id }),
+        request("createSignature", { petitionId: id, reason: "a\u0000b" }),
+        request("createClassroom", { name: "Maths", description: "a\u0000b" }),
+        request("inviteToClassroom", { classroomId: id, email: "a\u0000@b.edu" }),
+        request("getMyClassrooms", { limit: 10, offset: 1e300 }),
+        request("getMyClassrooms", { limit: 10, offset: "NaN" }),
+        request("getMyClassrooms", { limit: 10, offset: "Infinity" }),
+        request("getMyClassrooms", { limit: "NaN" }),
+        request("getMyClassrooms", { limit: "Infinity" }),
+        request("getMyClassrooms", { limit: 1e300 }),
+      ]) {
+        assert.deepStrictEqual(
+          yield* post(browser, "/rpc", body),
+          { status: 200, text: failed },
+          body.slice(0, 120),
+        )
+      }
+
+      const logged = app.logs.slice(alreadyLogged)
+      assert.isNotEmpty(logged)
+      for (const line of logged) {
+        assert.isTrue(line.startsWith("Warn"), line.slice(0, 200))
+        assert.isBelow(line.length, 1000, line.slice(0, 200))
+      }
     }),
   )
 

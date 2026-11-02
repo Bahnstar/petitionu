@@ -79,7 +79,7 @@ The main choices:
 35. As a student, I want incomplete accounts to get a clear message instead of being allowed to create or sign petitions, so that I understand what's required.
 36. As a student, I want my petition tied to my campus automatically, so that the right community sees it.
 37. As a signed-in student, I want to browse public petitions with signature counts, days left, whether they're trending, and whether I've signed, so that I can find causes to support.
-38. As an author who chose anonymity, I want my name hidden from other users on my petition, so that I can raise sensitive issues safely.
+38. As an author who chose anonymity, I want my name hidden from other users on my petition, my classroom's professor included, and only I can change that setting, so that I can raise sensitive issues safely.
 39. As a petition author, I want to edit, close or mark my petition as a victory, so that its status reflects what happened.
 40. As a petition author, I want to publish updates on my petition, so that supporters know about progress.
 41. As a signed-in student, I want to read a petition's updates newest first, so that I see the latest progress.
@@ -179,7 +179,7 @@ The main choices:
 - Migration 0004 adds `comment.deleted_at`. Deleting a comment keeps the row (content reports reference it through a foreign key with no `ON DELETE`, and replies through `parent_comment_id`), sets `deleted_at` and clears the text. Deleted comments drop out of every read, like hidden ones, and can't be replied to, edited or reported; report snapshots keep the reported text.
 - Legacy objects are kept but no longer used: `tokens`, `users.hashed_password` and `oban_jobs`. Dropping them comes later (see Out of Scope).
 - Data access is hand-written SQL through the Effect SQL client, with Schema-decoded rows. Ash calculations become SQL expressions or subqueries:
-  - `signatures_count`, `has_signed`, `can_manage` and `trending` (more than 5 signatures and at least 50% of the goal);
+  - `signatures_count`, `has_signed`, `can_manage`, `is_author` and `trending` (more than 5 signatures and at least 50% of the goal);
   - `days_left` (30 days from creation when there's no deadline, otherwise days until the deadline);
   - `author` (with anonymity), `email_verified` and `profile_complete`;
   - the user activity stats.
@@ -239,7 +239,7 @@ The main choices:
   - **Moderation:** createContentReport, getContentReports, resolveContentReport.
 - Each procedure has a fixed input schema and a fixed output DTO. Client-side field selection (`fields: [...]`) is dropped. Each DTO is defined as the union of what the frontend currently asks for at that call site, so no screen loses data. A procedure with call sites that need different depths gets one DTO covering all of them; these differences are small.
 - Guest access to petitions becomes an explicit contract:
-  - `getPetitionById` is public and returns a shared-petition DTO to guests (the shared fields allowed today: id, title, description, status, classroom and organization IDs, has-signed, can-manage, goal, signature count, days left, trending, author, comment and anonymity flags, deadline, created-at, and the category's id and name). Signed-in actors get the full petition DTO.
+  - `getPetitionById` is public and returns a shared-petition DTO to guests (the shared fields allowed today: id, title, description, status, classroom and organization IDs, has-signed, can-manage, is-author, goal, signature count, days left, trending, author, comment and anonymity flags, deadline, created-at, and the category's id and name). Signed-in actors get the full petition DTO.
   - Petition list, signature, comment and update procedures require a signed-in user. A guest calling them gets a typed `Unauthenticated` error with the current message, "Sign in to access petition activity."
 - The errors are Schema-tagged and shared: `Unauthenticated`, `Forbidden`, `NotFound`, and `Invalid`, which carries per-field messages.
 - The shared browser client wraps the Effect RPC client in plain promise functions that return the frontend's existing result shape. That shape is either success with data, or failure with a list of errors that each have a type (`not_found`, `forbidden`, `unauthenticated`, `invalid`), a message, and an optional field. TanStack Query `queryFn`/`mutationFn` code keeps its current structure, and inferred result types become the DTO schemas' types.

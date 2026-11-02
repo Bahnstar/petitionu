@@ -19,7 +19,12 @@ import { classroomVisible } from "./ClassroomPolicy.ts"
 import { commentEditable, commentVisible } from "./CommentPolicy.ts"
 import { maxListRows } from "./Database.ts"
 import { requireParticipant } from "./Participant.ts"
-import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
+import {
+  authorizeAnonymityChange,
+  petitionAuthored,
+  petitionManageable,
+  petitionVisible,
+} from "./PetitionPolicy.ts"
 import { selectPetitions } from "./PetitionQueries.ts"
 
 const petitionNotFound = new NotFound({ message: "Petition not found" })
@@ -36,6 +41,12 @@ const checkDeadline = (deadline: Date) =>
   deadline.getTime() <= Date.now()
     ? invalidField("deadline", "Choose a deadline in the future.")
     : Effect.void
+
+/** What `manage` hands a change about the locked petition. */
+interface Managed {
+  readonly deadline: Date | null
+  readonly isAuthor: boolean
+}
 
 export const PetitionsHandlers = PetitionRpcs.toLayer(
   Effect.gen(function* () {
@@ -154,13 +165,15 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
 
     /**
      * Loads a petition the user may manage, locking it: `NotFound` unless the user can see it,
-     * `Forbidden` unless they wrote it or teach its classroom. `change` gets the stored deadline.
+     * `Forbidden` unless they wrote it or teach its classroom. `change` gets the stored deadline
+     * and whether the user wrote it.
      */
-    const manage = <A, E, R>(id: string, change: (stored: Date | null) => Effect.Effect<A, E, R>) =>
+    const manage = <A, E, R>(id: string, change: (stored: Managed) => Effect.Effect<A, E, R>) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        const [row] = yield* sql<{ canManage: boolean; deadline: Date | null }>`
-          SELECT ${petitionManageable(sql, user, "p")} AS can_manage, p.deadline
+        const [row] = yield* sql<Managed & { canManage: boolean }>`
+          SELECT ${petitionManageable(sql, user, "p")} AS can_manage,
+            ${petitionAuthored(sql, user, "p")} AS is_author, p.deadline
           FROM petition p
           WHERE p.id = ${id} AND ${petitionVisible(sql, user, "p")}
           FOR UPDATE OF p
@@ -169,7 +182,7 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
         if (!row.canManage) {
           return yield* new Forbidden({ message: "You can't manage this petition." })
         }
-        yield* change(row.deadline)
+        yield* change(row)
         return yield* getPetition(user, id).pipe(Effect.orDie)
       }).pipe(sql.withTransaction, Effect.catchTag("SqlError", Effect.die))
 
@@ -223,8 +236,9 @@ export const PetitionsHandlers = PetitionRpcs.toLayer(
       createClassroomPetition: ({ categoryId, classroomId, ...input }) =>
         create({ ...input, categoryId }, classroomId),
       updatePetition: ({ id, ...input }) =>
-        manage(id, (stored) =>
+        manage(id, ({ deadline: stored, isAuthor }) =>
           Effect.gen(function* () {
+            if (input.isAnonymous !== undefined) yield* authorizeAnonymityChange(isAuthor)
             const deadline =
               typeof input.deadline === "string" ? storedDeadline(input.deadline) : input.deadline
             const changed = deadline?.getTime() !== stored?.getTime()

@@ -1,4 +1,5 @@
-import type { Actor } from "@petitionu/domain"
+import { type Actor, Forbidden } from "@petitionu/domain"
+import { Effect } from "effect"
 import type { SqlClient } from "effect/sql"
 
 const actorId = (actor: Actor) => (actor._tag === "SignedIn" ? actor.id : null)
@@ -38,3 +39,19 @@ export const petitionManageable = (
     OR EXISTS (SELECT 1 FROM classrooms pm_c WHERE pm_c.id = ${p}.classroom_id
       AND pm_c.professor_id = ${id})))`
 }
+
+/** `is_author`: the actor wrote the petition. False for a guest, or a petition with no author. */
+export const petitionAuthored = (sql: SqlClient.SqlClient, actor: Actor, petition = "petition") => {
+  const id = actorId(actor)
+  if (id === null) return sql`false`
+  return sql`coalesce(${sql(petition)}.user_id = ${id}, false)`
+}
+
+/**
+ * Changing a petition's anonymity: its author only. Managing isn't enough, because a professor
+ * who could switch it off could read a student's name and switch it back (spec story 38).
+ */
+export const authorizeAnonymityChange = (isAuthor: boolean) =>
+  isAuthor
+    ? Effect.void
+    : Effect.fail(new Forbidden({ message: "Only the petition's author can change this setting." }))

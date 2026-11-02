@@ -1,7 +1,7 @@
 import { type Actor, PetitionDto } from "@petitionu/domain"
 import { Effect, Schema } from "effect"
 import { type SqlClient, SqlSchema, type Statement } from "effect/sql"
-import { petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
+import { petitionAuthored, petitionManageable, petitionVisible } from "./PetitionPolicy.ts"
 
 const actorId = (actor: Actor) => (actor._tag === "SignedIn" ? actor.id : null)
 
@@ -32,6 +32,7 @@ export const selectPetitions = (
         EXISTS (SELECT 1 FROM signature hs WHERE hs.petition_id = p.id AND hs.user_id = ${id})
           AS has_signed,
         coalesce(${petitionManageable(sql, actor, "p")}, false) AS can_manage,
+        ${petitionAuthored(sql, actor, "p")} AS is_author,
         CASE WHEN p.deadline IS NULL
           THEN 30 - EXTRACT(DAY FROM (now() AT TIME ZONE 'utc') - p.inserted_at)::int
           ELSE EXTRACT(DAY FROM p.deadline - (now() AT TIME ZONE 'utc'))::int

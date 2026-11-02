@@ -2,7 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
-import { Note, Uuid } from "./Inputs.ts"
+import { Note, Uuid, WholeNumberFrom } from "./Inputs.ts"
 import { Deadline, Timestamp } from "./Timestamps.ts"
 
 export const PetitionStatus = Schema.Literals(["open", "closed", "victory"])
@@ -26,6 +26,8 @@ const sharedFields = {
   organizationId: Schema.NullOr(Schema.String),
   hasSigned: Schema.Boolean,
   canManage: Schema.Boolean,
+  /** The caller wrote it, so its anonymity is theirs to change. Never says who did. */
+  isAuthor: Schema.Boolean,
   goal: Schema.NullOr(Schema.Number),
   signaturesCount: Schema.Number,
   daysLeft: Schema.Number,
@@ -94,13 +96,7 @@ export type PetitionDetailDto = typeof PetitionDetailDto.Type
 const Title = Note({ maxLength: 200, required: "must be present" })
 const Description = Note({ maxLength: 20000, required: "must be present" })
 
-/** A whole number from 1. One filter, so a value fails with a single message. */
-const Goal = Schema.Number.check(
-  Schema.makeFilter((goal: number) => {
-    if (!Number.isSafeInteger(goal)) return "is invalid"
-    return goal >= 1 || "must be more than or equal to 1"
-  }),
-)
+const Goal = WholeNumberFrom(1)
 
 /** ISO 8601. Stays a string for the client; the handler reads it as a date. */
 const DeadlineInput = Schema.String.check(
@@ -186,7 +182,10 @@ export const createClassroomPetition = Rpc.make("createClassroomPetition", {
   error: Schema.Union([Unauthenticated, Invalid]),
 })
 
-/** The author or the classroom's professor edits a visible petition. */
+/**
+ * The author or the classroom's professor edits a visible petition. `isAnonymous` is the author's
+ * alone: anyone else who sends it is `Forbidden`, whatever its value, and nothing changes.
+ */
 export const updatePetition = Rpc.make("updatePetition", {
   payload: { id: Uuid, ...PetitionInputFields },
   success: PetitionDto,

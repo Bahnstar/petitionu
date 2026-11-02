@@ -2,7 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound, Unauthenticated } from "./Errors.ts"
-import { Note, OptionalNote, Uuid } from "./Inputs.ts"
+import { Note, OptionalNote, PlainText, Uuid, WholeNumberFrom } from "./Inputs.ts"
 import { Timestamp } from "./Timestamps.ts"
 
 /** The public user shape: id and names. */
@@ -93,13 +93,14 @@ export const getClassroomById = Rpc.make("getClassroomById", {
 
 /**
  * The classrooms the caller teaches or is an active member of, sorted by name. `archived`
- * filters on the archived flag; without `limit`, every classroom is returned.
+ * filters on the archived flag; without `limit`, every classroom is returned. A `limit` above the
+ * server's cap gets a page of the cap's size, and the response gives the `limit` it used.
  */
 export const getMyClassrooms = Rpc.make("getMyClassrooms", {
   payload: {
     archived: Schema.optionalKey(Schema.Boolean),
-    limit: Schema.optionalKey(Schema.Number),
-    offset: Schema.optionalKey(Schema.Number),
+    limit: Schema.optionalKey(WholeNumberFrom(1)),
+    offset: Schema.optionalKey(WholeNumberFrom(0)),
   },
   success: ClassroomPage,
 }).middleware(RequireUser)
@@ -187,7 +188,7 @@ export const requestToJoinClassroom = Rpc.make("requestToJoinClassroom", {
 export const inviteToClassroom = Rpc.make("inviteToClassroom", {
   payload: {
     classroomId: Uuid,
-    email: Schema.String,
+    email: PlainText,
     role: Schema.optionalKey(MembershipRole),
   },
   success: MembershipDto,

@@ -572,6 +572,18 @@ const rows: ReadonlyArray<Row> = [
     call((api, world) => api.updatePetition({ id: world.classroomPetition.id, goal: 100 })),
   ],
   [
+    "updatePetition (the anonymity of the campus petition)",
+    signedIn("forbidden", { sameCampus: "ok" }),
+    call((api, world) => api.updatePetition({ id: world.campusPetition.id, isAnonymous: false })),
+  ],
+  [
+    "updatePetition (the anonymity of the classroom petition)",
+    signedIn("hidden", { member: "ok", professor: "forbidden", ta: "forbidden" }),
+    call((api, world) =>
+      api.updatePetition({ id: world.classroomPetition.id, isAnonymous: false }),
+    ),
+  ],
+  [
     "closePetition (a campus petition)",
     signedIn("forbidden", { sameCampus: "ok" }),
     fresh(freshCampusPetition, (api, petition) => api.closePetition({ id: petition.id })),

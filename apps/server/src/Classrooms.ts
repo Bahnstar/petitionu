@@ -348,9 +348,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
             classroomVisible(sql, user.id),
             archived === undefined ? sql`TRUE` : sql`c.archived = ${archived}`,
           ])
-          const pageLimit =
-            limit === undefined ? null : Math.min(Math.max(Math.trunc(limit), 1), maxListRows)
-          const pageOffset = Math.max(Math.trunc(offset ?? 0), 0)
+          const pageLimit = limit === undefined ? null : Math.min(limit, maxListRows)
+          const pageOffset = offset ?? 0
           const page =
             pageLimit === null
               ? sql`OFFSET ${pageOffset}`

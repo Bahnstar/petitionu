@@ -75,6 +75,7 @@ const petition = (): Petition => ({
   organizationId: null,
   hasSigned: false,
   canManage: false,
+  isAuthor: false,
   goal: 100,
   signaturesCount: 0,
   daysLeft: 10,

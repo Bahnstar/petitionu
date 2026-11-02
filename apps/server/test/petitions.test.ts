@@ -212,6 +212,7 @@ describe("petitions", () => {
         "id",
         "insertedAt",
         "isAnonymous",
+        "isAuthor",
         "organizationId",
         "signaturesCount",
         "status",
@@ -842,4 +843,159 @@ describe("petitions", () => {
       )
     }),
   )
+
+  describe("anonymity", () => {
+    const named = (json: unknown) => JSON.stringify(json).includes("Secret Name")
+
+    /** A student's anonymous petition in a classroom taught by someone else. */
+    const anonymousStudent = (isAnonymous = true) =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        const professor = yield* createUser(app, { role: "professor" })
+        const student = yield* createUser(app, { firstName: "Secret", lastName: "Name" })
+        const classroom = yield* insertClassroom(app, { professorId: professor.id })
+        yield* upsertMembership(app, { classroomId: classroom.id, userId: student.id })
+        const petition = yield* insertPetition(app, {
+          userId: student.id,
+          classroomId: classroom.id,
+          isAnonymous,
+          title: "Grade appeals",
+        })
+        const stored = Effect.map(
+          app.sql<{ title: string; is_anonymous: boolean }>`
+            SELECT title, is_anonymous FROM petition WHERE id = ${petition.id}`,
+          ([row]) => ({ ...row! }),
+        ).pipe(Effect.orDie)
+        return { app, professor, student, classroom, petition, stored }
+      })
+
+    const refused = [
+      { type: "forbidden", message: "Only the petition's author can change this setting." },
+    ]
+
+    it.live("the classroom's professor can't unmask a student, even for a moment", () =>
+      Effect.gen(function* () {
+        const { professor, petition, stored } = yield* anonymousStudent()
+
+        const unmask = { id: petition.id, isAnonymous: false }
+        const result = yield* professor.browser.rpc((api) => api.updatePetition(unmask))
+        assert.deepStrictEqual(expectErrors(result), refused)
+        assert.isFalse(named(result))
+        assert.deepStrictEqual(yield* stored, { title: "Grade appeals", is_anonymous: true })
+
+        // Nothing else in the call lands either.
+        assert.deepStrictEqual(
+          expectErrors(
+            yield* professor.browser.rpc((api) =>
+              api.updatePetition({ ...unmask, title: "Changed" }),
+            ),
+          ),
+          refused,
+        )
+        assert.deepStrictEqual(yield* stored, { title: "Grade appeals", is_anonymous: true })
+
+        const detail = expectData(
+          yield* professor.browser.rpc((api) => api.getPetitionById({ id: petition.id })),
+        )
+        assert.strictEqual(detail.author, "Anonymous student")
+      }),
+    )
+
+    it.live("nor can a professor hide a student who chose to be named", () =>
+      Effect.gen(function* () {
+        const { professor, petition, stored } = yield* anonymousStudent(false)
+
+        assert.deepStrictEqual(
+          expectErrors(
+            yield* professor.browser.rpc((api) =>
+              api.updatePetition({ id: petition.id, isAnonymous: true }),
+            ),
+          ),
+          refused,
+        )
+        assert.strictEqual((yield* stored).is_anonymous, false)
+      }),
+    )
+
+    it.live("a professor still edits every other field, and the author stays hidden", () =>
+      Effect.gen(function* () {
+        const { professor, petition } = yield* anonymousStudent()
+
+        const edited = expectData(
+          yield* professor.browser.rpc((api) =>
+            api.updatePetition({
+              id: petition.id,
+              title: "Fair grade appeals",
+              description: "Longer window",
+              goal: 25,
+              allowComments: false,
+            }),
+          ),
+        )
+        assert.include(edited, {
+          title: "Fair grade appeals",
+          description: "Longer window",
+          goal: 25,
+          allowComments: false,
+          isAnonymous: true,
+          author: "Anonymous student",
+          isAuthor: false,
+          canManage: true,
+        })
+        assert.isFalse(named(edited))
+      }),
+    )
+
+    it.live("the author changes it both ways, and a professor does on their own petition", () =>
+      Effect.gen(function* () {
+        const { app, professor, student, classroom, petition } = yield* anonymousStudent()
+
+        const shown = expectData(
+          yield* student.browser.rpc((api) =>
+            api.updatePetition({ id: petition.id, isAnonymous: false }),
+          ),
+        )
+        assert.include(shown, { isAnonymous: false, author: "Secret Name", isAuthor: true })
+        const hidden = expectData(
+          yield* student.browser.rpc((api) =>
+            api.updatePetition({ id: petition.id, isAnonymous: true }),
+          ),
+        )
+        assert.include(hidden, { isAnonymous: true, author: "Anonymous student", isAuthor: true })
+
+        const own = yield* insertPetition(app, {
+          userId: professor.id,
+          classroomId: classroom.id,
+        })
+        assert.include(
+          expectData(
+            yield* professor.browser.rpc((api) =>
+              api.updatePetition({ id: own.id, isAnonymous: true }),
+            ),
+          ),
+          { isAnonymous: true, isAuthor: true },
+        )
+      }),
+    )
+
+    it.live("isAuthor is about the caller, and false for a petition with no author", () =>
+      Effect.gen(function* () {
+        const { app, professor, student, petition } = yield* anonymousStudent()
+        const guest = yield* makeBrowser(app)
+        const author = (browser: typeof student.browser, id: string) =>
+          Effect.map(
+            browser.rpc((api) => api.getPetitionById({ id })),
+            (result) => expectData(result).isAuthor,
+          )
+
+        assert.isTrue(yield* author(student.browser, petition.id))
+        assert.isFalse(yield* author(professor.browser, petition.id))
+
+        const open = yield* insertPetition(app, { userId: student.id })
+        yield* updatePetitionRow(app, open.id, { user_id: null })
+        assert.isFalse(yield* author(guest, open.id))
+        assert.isFalse(yield* author(student.browser, open.id))
+      }),
+    )
+  })
 })
