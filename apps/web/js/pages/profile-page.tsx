@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, serverError } from "@/lib/api"
 import { formErrors } from "@/lib/form-errors"
-import { useAuth, type CurrentUser } from "../contexts/auth-context"
+import { useAuth, usePageUser, type CurrentUser } from "../contexts/auth-context"
 import { AuthLink } from "../components/auth-link"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useFocusFirstInvalid } from "../hooks/use-focus-first-invalid"
@@ -17,7 +17,8 @@ import { PasswordSettings } from "../features/profile/password-settings"
 
 export default function ProfilePage() {
   useDocumentTitle("Your profile")
-  const { user, isLoading, error, refetch } = useAuth()
+  const { isLoading, error, refetch } = useAuth()
+  const user = usePageUser()
 
   if (isLoading) {
     return (

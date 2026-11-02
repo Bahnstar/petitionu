@@ -1,7 +1,23 @@
 import { makeApiClient, type RpcErrorEntry } from "@petitionu/domain"
 
-/** The app's RPC procedures; every call sends the page's CSRF token. */
-export const api = makeApiClient()
+let sessionEnded = () => Promise.resolve(false)
+
+/** Sets how to find out whether a call's token was refused because the session is over. */
+export function setSessionCheck(check: () => Promise<boolean>) {
+  sessionEnded = check
+}
+
+/**
+ * The app's RPC procedures; every call sends the page's CSRF token. A call refused for that token
+ * says to sign in if the session is over. `getMe` is what the session check itself calls, so it
+ * reports the refusal as it is.
+ */
+export const api = makeApiClient({
+  onRefused: async (tag) =>
+    tag !== "getMe" && (await sessionEnded())
+      ? [{ type: "unauthenticated", message: "Sign in to participate." }]
+      : undefined,
+})
 
 /** A failed RPC call, thrown so queries and forms can act on what the server reported. */
 export class ApiError extends Error {

@@ -14,14 +14,15 @@ import { formErrors } from "@/lib/form-errors"
 import { ROUTES } from "@/lib/routes"
 import { useDocumentTitle } from "../hooks/use-document-title"
 import { useFocusFirstInvalid } from "../hooks/use-focus-first-invalid"
-import { useAuth } from "../contexts/auth-context"
+import { useAuth, usePageUser } from "../contexts/auth-context"
 
 export default function CreateClassroomPage() {
   useDocumentTitle("New Classroom")
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user: currentUser, isLoading: authLoading } = useAuth()
+  const { isLoading: authLoading } = useAuth()
+  const currentUser = usePageUser()
 
   const [formData, setFormData] = useState({
     name: "",

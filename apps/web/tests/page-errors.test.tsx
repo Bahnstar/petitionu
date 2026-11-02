@@ -46,6 +46,14 @@ const invalid = (...fields: FieldProblem[]) =>
 let calls: string[] = []
 let sawSecondUser = false
 let refuseRpc = false
+/** Only a reloaded token gets past the CSRF check, as after a session changed in another tab. */
+let staleToken = false
+/** `getMe` can't be reached: a thrown fetch, as when the network is down. */
+let getMeDown = false
+/** Any RPC answers 500. */
+let serverDown = false
+let signedInAs = student
+let moderationQueue: unknown[] = []
 let failures = new Map<string, ReturnType<typeof fail>>()
 let signOut: () => Response | Promise<Response> = () => Response.json({ success: true })
 let csrfToken: () => Response = () => Response.json({ token: "fresh-token" })
@@ -59,7 +67,8 @@ let released = Promise.resolve()
 const originalFetch = globalThis.fetch
 
 function answer(tag: string) {
-  if (tag === "getMe") return student
+  if (tag === "getMe") return signedInAs
+  if (tag === "getContentReports") return moderationQueue
   if (tag === "getCategories") return [{ id: categoryId, name: "Campus life", description: null }]
   return []
 }
@@ -87,9 +96,14 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname === "/rpc/" && refuseRpc) {
     return Response.json({ error: "Forbidden" }, { status: 403 })
   }
+  if (url.pathname === "/rpc/" && serverDown) return new Response("oops", { status: 500 })
   if (url.pathname === "/rpc/") {
     const body = await request.json()
     calls.push(body.tag)
+    if (body.tag === "getMe" && getMeDown) throw new TypeError("Failed to fetch")
+    if (staleToken && request.headers.get("x-csrf-token") !== "fresh-token") {
+      return Response.json({ error: "Forbidden" }, { status: 403 })
+    }
     // Read first: a held answer is the one from when the request was sent.
     const failure = failures.get(body.tag)
     if (held.has(body.tag)) await released
@@ -107,7 +121,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 
 const { act } = await import("react")
 const { createRoot } = await import("react-dom/client")
-const { QueryClient, QueryClientProvider, useQuery } = await import("@tanstack/react-query")
+const { QueryClient, QueryClientProvider, useQuery, useQueryClient } =
+  await import("@tanstack/react-query")
 const { MemoryRouter, Route, Routes, useLocation, useNavigate } = await import("react-router-dom")
 const { AuthProvider, useAuth } = await import("../js/contexts/auth-context.tsx")
 const { reloadCSRFToken } = await import("@petitionu/domain")
@@ -118,6 +133,7 @@ const { default: CreateClassroomPage } = await import("../js/pages/create-classr
 const { default: CreatePetitionPage } = await import("../js/pages/create-petition-page.tsx")
 const { default: ProfilePage } = await import("../js/pages/profile-page.tsx")
 const { default: SupportPage } = await import("../js/pages/support-page.tsx")
+const { default: ModerationPage } = await import("../js/pages/moderation-page.tsx")
 const { PetitionOwnerControls } =
   await import("../js/features/petition/petition-owner-controls.tsx")
 const { api, retryQuery, serverError } = await import("../lib/api.ts")
@@ -136,6 +152,11 @@ beforeEach(() => {
   calls = []
   sawSecondUser = false
   refuseRpc = false
+  staleToken = false
+  getMeDown = false
+  serverDown = false
+  signedInAs = student
+  moderationQueue = []
   failures = new Map()
   signOut = () => Response.json({ success: true })
   csrfToken = () => Response.json({ token: "fresh-token" })
@@ -484,7 +505,8 @@ function HeaderOnly() {
 
 /** A page of a user's data, cached under a key that doesn't name the user. */
 function AccountData() {
-  const { afterAuthChange } = useAuth()
+  const { afterAuthChange, refetch } = useAuth()
+  const client = useQueryClient()
   const query = useQuery({
     queryKey: ["supportRequests"],
     queryFn: async () => {
@@ -502,6 +524,15 @@ function AccountData() {
       </button>
       <button type="button" onClick={() => afterAuthChange({ sameUser: true })}>
         Password changed
+      </button>
+      <button type="button" onClick={refetch}>
+        Check the user
+      </button>
+      <button
+        type="button"
+        onClick={() => client.invalidateQueries({ queryKey: ["supportRequests"] })}
+      >
+        Reload the data
       </button>
     </>
   )
@@ -877,6 +908,195 @@ test("a confirmation that removed the password still says so after a full page l
   expect(landed.querySelector(`a[href="${destination}"]`)).not.toBeNull()
 })
 
+const endSession = () => {
+  staleToken = true
+  failures = new Map([
+    ["getMe", fail({ _tag: "NotFound", message: "User not found" })],
+    ["getMySupportRequests", fail({ _tag: "Unauthenticated", message: "Sign in first." })],
+  ])
+}
+
+function SupportWithHeader() {
+  return (
+    <>
+      <Header />
+      <SupportPage />
+    </>
+  )
+}
+
+const count = (tag: string) => calls.filter((call) => call === tag).length
+const fullLoads = () => assign.mock.calls.length + reload.mock.calls.length
+
+for (const [name, Page, field, form, write] of [
+  ["support", SupportPage, "#support-message", "form", "createSupportRequest"],
+  ["profile", ProfilePage, "#profile-first-name", "#profile-form", "updateMyProfile"],
+  ["new classroom", CreateClassroomPage, "#name", "#create-classroom-form", "createClassroom"],
+] as const) {
+  test(`a stale tab's ${name} form says to sign in once and keeps what was typed`, async () => {
+    const container = await render(Page, "/")
+    type(container.querySelector(field), "Typed before it ended")
+    await settle()
+    endSession()
+
+    await submit(container.querySelector(form))
+
+    expect(container.textContent).toContain("Sign in to participate.")
+    expect(container.querySelector<HTMLInputElement>(field)?.value).toBe("Typed before it ended")
+    expect(count(write)).toBe(1)
+    expect(csrfCalls).toBe(1)
+    expect(fullLoads()).toBe(0)
+  })
+}
+
+test("a stale tab's moderation note stays when the session has ended", async () => {
+  signedInAs = { ...student, role: "admin" }
+  moderationQueue = [
+    {
+      id: categoryId,
+      petitionId: classroomId,
+      commentId: null,
+      targetTitle: "A title",
+      targetText: "A title",
+      reason: "spam",
+      details: null,
+      state: "open",
+      resolutionNote: null,
+      insertedAt: student.insertedAt,
+      resolvedAt: null,
+    },
+  ]
+  const container = await render(ModerationPage, "/")
+  const note = container.querySelector("textarea")
+  type(note, "Typed before it ended")
+  await settle()
+  endSession()
+
+  await submit(container.querySelector("form"))
+
+  expect(container.textContent).toContain("Sign in to participate.")
+  expect(container.querySelector("textarea")?.value).toBe("Typed before it ended")
+})
+
+test("the header stops showing a user whose session ended", async () => {
+  const container = await render(AccountData, "/")
+  expect(button(container, /^Sign out/)).toBeTruthy()
+  endSession()
+
+  await act(() => button(container, /^Check the user/).click())
+  await settle()
+
+  expect(() => button(container, /^Sign out/)).toThrow()
+  expect(count("getMe")).toBe(3)
+  expect(csrfCalls).toBe(1)
+  expect(fullLoads()).toBe(0)
+})
+
+test("a read refused for a stale token stops retrying and clears the user", async () => {
+  const container = await render(AccountData, "/")
+  endSession()
+  const before = count("getMySupportRequests")
+
+  await act(() => button(container, /^Reload the data/).click())
+  await settle()
+  await settle()
+
+  expect(count("getMySupportRequests") - before).toBe(1)
+  expect(() => button(container, /^Sign out/)).toThrow()
+  expect(csrfCalls).toBe(1)
+  expect(fullLoads()).toBe(0)
+})
+
+test("a stale token with a live session recovers in place and refreshes the page", async () => {
+  const container = await render(AccountData, "/")
+  staleToken = true
+  const before = count("getMySupportRequests")
+
+  await act(() => button(container, /^Check the user/).click())
+  await settle()
+
+  expect(button(container, /^Sign out/)).toBeTruthy()
+  expect(csrfCalls).toBe(1)
+  expect(count("getMySupportRequests") - before).toBe(1)
+  expect(fullLoads()).toBe(0)
+})
+
+test("a write refused while the session lives isn't resent or called signed out", async () => {
+  const container = await render(SupportWithHeader, "/")
+  type(container.querySelector("#support-message"), "Please help")
+  await settle()
+  staleToken = true
+
+  await submit(container.querySelector("form"))
+
+  expect(count("createSupportRequest")).toBe(1)
+  expect(container.textContent).not.toContain("Sign in to participate.")
+  expect(button(container, /^Sign out/)).toBeTruthy()
+})
+
+test("a stale token hiding a different user starts the page empty for them", async () => {
+  const container = await render(AccountData, "/")
+  expect(container.querySelector("#data")?.textContent).toBe("First user's request")
+  staleToken = true
+  signedInAs = { ...student, id: "00000000-0000-4000-8000-000000000009" }
+  held = new Set(["getMySupportRequests"])
+  sawSecondUser = true
+
+  await act(() => button(container, /^Check the user/).click())
+  await settle()
+
+  expect(container.querySelector("#data")?.textContent).toBe("empty")
+  await act(async () => release())
+  await settle()
+  expect(container.querySelector("#data")?.textContent).toBe("Second user's request")
+})
+
+test("a getMe the network fails reloads the token once and keeps the user", async () => {
+  const container = await render(AccountData, "/")
+  getMeDown = true
+  const before = count("getMe")
+
+  await act(() => button(container, /^Check the user/).click())
+  await settle()
+  await settle()
+
+  expect(count("getMe") - before).toBe(2)
+  expect(csrfCalls).toBe(1)
+  expect(button(container, /^Sign out/)).toBeTruthy()
+  expect(fullLoads()).toBe(0)
+})
+
+test("a token that can't be reloaded keeps the user and loads no page", async () => {
+  const container = await render(AccountData, "/")
+  staleToken = true
+  csrfFailures = 99
+  const before = count("getMe")
+
+  await act(() => button(container, /^Check the user/).click())
+  await settle()
+  await settle()
+
+  expect(count("getMe") - before).toBe(1)
+  expect(csrfCalls).toBe(1)
+  expect(button(container, /^Sign out/)).toBeTruthy()
+  expect(fullLoads()).toBe(0)
+})
+
+test("a write that fails on a server fault asks nothing of the session", async () => {
+  const container = await render(SupportWithHeader, "/")
+  type(container.querySelector("#support-message"), "Please help")
+  await settle()
+  const before = count("getMe")
+  serverDown = true
+
+  await submit(container.querySelector("form"))
+
+  expect(count("getMe")).toBe(before)
+  expect(csrfCalls).toBe(0)
+  expect(button(container, /^Sign out/)).toBeTruthy()
+  expect(fullLoads()).toBe(0)
+})
+
 // Keep last: it starts the whole app, which stays mounted.
 test("startup can't loop: a page with no token that can't get one stays put", async () => {
   csrfFailures = 99
@@ -890,7 +1110,8 @@ test("startup can't loop: a page with no token that can't get one stays put", as
   })
   await settle()
 
-  expect(csrfCalls).toBe(1)
+  // One for the page, which has no token, and one when `getMe` is refused for it.
+  expect(csrfCalls).toBe(2)
   expect(assign).not.toHaveBeenCalled()
   expect(reload).not.toHaveBeenCalled()
   expect(app.textContent).not.toBe("")

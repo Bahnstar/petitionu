@@ -9,7 +9,7 @@ import type { ContentReportReason } from "@petitionu/domain"
 import { api, serverError } from "@/lib/api"
 import { formErrors } from "@/lib/form-errors"
 import { cn } from "@/lib/utils"
-import { useAuth } from "../../contexts/auth-context"
+import { usePageUser } from "../../contexts/auth-context"
 
 const reasons: { value: ContentReportReason; label: string }[] = [
   { value: "spam", label: "Spam" },
@@ -27,7 +27,7 @@ export function ReportContent({
   commentId?: string
   className?: string
 }) {
-  const { user } = useAuth()
+  const user = usePageUser()
   const id = useId()
   const [expanded, setExpanded] = useState(false)
   const [reason, setReason] = useState<ContentReportReason>("spam")

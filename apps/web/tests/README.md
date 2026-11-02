@@ -7,7 +7,8 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
   headers, server and transport failures, related cache refreshes and owner form timing.
 - `petition-comments.test.tsx` (`bun run test:comments`): the petition page's conversation in
   happy-dom with a stubbed `fetch`: threads, the notice for a removed parent, the inline reply
-  form, and who is offered Reply.
+  form, who is offered Reply, an open form's text moving to the notice when its comment leaves
+  the page, and a stale tab's writes ending with the sign-in message with their text intact.
 - `auth-pages.test.tsx` (`bun run test:auth`): the auth pages in happy-dom with a stubbed
   `fetch`. Confirmation, magic-link and reset links use their token only after the button is
   clicked.
@@ -23,8 +24,10 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
   the app's retry rule: failed queries aren't repeated once the server has answered, and each
   form shows every error against its field, a malformed `classroomId` shows the not-found view,
   a failed sign-out says so and stays on the page, sign-out doesn't wait for refetches, an auth
-  change clears the previous user's cached data, sign-out clears petition drafts, and a CSRF
-  reload that fails twice after an auth action loads the page in full, never from startup.
+  change clears the previous user's cached data, sign-out clears petition drafts, a CSRF
+  reload that fails twice after an auth action loads the page in full, never from startup, and a
+  tab whose session changed elsewhere recovers without resending anything, signing anyone out over
+  a real outage, or losing what was typed.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 

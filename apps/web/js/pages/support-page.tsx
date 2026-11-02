@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import type { SupportRequestKind } from "@petitionu/domain"
 import { api, serverError } from "@/lib/api"
 import { formErrors } from "@/lib/form-errors"
-import { useAuth } from "../contexts/auth-context"
+import { useAuth, usePageUser } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
 export default function SupportPage() {
@@ -169,7 +169,8 @@ export default function SupportPage() {
   }
 
   useDocumentTitle("Support")
-  const { user, isLoading } = useAuth()
+  const { isLoading } = useAuth()
+  const user = usePageUser()
   const client = useQueryClient()
   const [kind, setKind] = useState<SupportRequestKind>("support")
   const [message, setMessage] = useState("")
