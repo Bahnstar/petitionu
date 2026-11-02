@@ -187,13 +187,14 @@ describe("looking up an emailed link", () => {
 
       const answers = []
       for (const [purpose, token] of [
+        // First: any magic lookup also sweeps expired rows, which would hide this one.
+        ["magic", expiredMagic],
         ["confirm", "garbage"],
         ["confirm", expiredConfirm],
         ["confirm", unknownUser],
         ["confirm", forged],
         ["magic", "garbage"],
         ["magic", usedToken],
-        ["magic", expiredMagic],
       ] as const) {
         const reader = yield* makeBrowser(app)
         answers.push(yield* reader.linkDetails(purpose, token))

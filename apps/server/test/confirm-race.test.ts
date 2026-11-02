@@ -70,6 +70,9 @@ const recordOrder = (app: TestApp) =>
          INSERT INTO test_events (event) VALUES (TG_ARGV[0]);
          RETURN NULL;
        END $$ LANGUAGE plpgsql`,
+      `CREATE TRIGGER test_locked AFTER INSERT ON verification FOR EACH ROW
+       WHEN (NEW.identifier LIKE 'revoke-unproven-account-access:%')
+       EXECUTE FUNCTION test_log('locked')`,
       `CREATE TRIGGER test_verified AFTER UPDATE ON users FOR EACH ROW
        WHEN (NOT OLD.email_verified AND NEW.email_verified) EXECUTE FUNCTION test_log('verified')`,
       `CREATE TRIGGER test_password_removed AFTER DELETE ON account FOR EACH ROW
@@ -127,7 +130,23 @@ describe("the address counts as proved", () => {
       const events = yield* recordOrder(app)
       const user = yield* registerUser(app)
       yield* yield* proofs["a Confirm click"]!(app, user.email)
-      assert.deepStrictEqual((yield* events).slice(0, 2), ["password removed", "verified"])
+      assert.deepStrictEqual((yield* events).slice(0, 3), [
+        "locked",
+        "password removed",
+        "verified",
+      ])
+    }),
+  )
+
+  // The same lock as removing it, so a concurrent click can't end the session this one starts.
+  // bcrypt blocks this process, so a test can't overlap two clicks the way two servers would.
+  it.live("under the same lock when a Confirm click keeps the password", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const events = yield* recordOrder(app)
+      const user = yield* registerUser(app)
+      yield* confirmWithPassword(app, yield* makeBrowser(app), user.email)
+      assert.deepStrictEqual((yield* events).slice(0, 2), ["locked", "verified"])
     }),
   )
 
@@ -137,7 +156,11 @@ describe("the address counts as proved", () => {
       const events = yield* recordOrder(app)
       const user = yield* registerUser(app)
       yield* yield* proofs["a magic link"]!(app, user.email)
-      assert.deepStrictEqual((yield* events).slice(0, 2), ["password removed", "verified"])
+      assert.deepStrictEqual((yield* events).slice(0, 3), [
+        "locked",
+        "password removed",
+        "verified",
+      ])
     }),
   )
 
@@ -229,38 +252,6 @@ describe("concurrent Confirm clicks", () => {
           [200, 200],
         )
         assert.strictEqual(yield* sessions(app, user.id), 2)
-      }),
-    { timeout: 60_000 },
-  )
-
-  it.live(
-    "that keep the password never end a session one of them started",
-    () =>
-      Effect.gen(function* () {
-        const app = yield* makeTestApp()
-        yield* slowRevocation(app, "session")
-        for (let round = 0; round < 3; round++) {
-          const user = yield* registerUser(app)
-          const browsers = yield* Effect.all(Array.from({ length: 5 }, () => makeBrowser(app)))
-
-          const clicks = yield* Effect.all(
-            browsers.map((browser, index) =>
-              Effect.andThen(
-                Effect.sleep(`${index * 20} millis`),
-                confirmWithPassword(app, browser, user.email),
-              ),
-            ),
-            { concurrency: "unbounded" },
-          )
-
-          assert.isTrue(
-            clicks.every((click) => click.status === 200),
-            JSON.stringify(clicks.map((click) => click.status)),
-          )
-          const started = browsers.filter((browser) => browser.cookie("session_token"))
-          assert.isNotEmpty(started)
-          assert.strictEqual(yield* sessions(app, user.id), started.length, `round ${round}`)
-        }
       }),
     { timeout: 60_000 },
   )
