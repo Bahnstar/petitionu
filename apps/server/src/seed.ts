@@ -199,10 +199,18 @@ const seed = Effect.gen(function* () {
     `
   }
 
+  const [cafe] = yield* sql<{ id: string }>`
+    INSERT INTO comment (petition_id, user_id, text)
+    VALUES (${library}, ${users.classmate}, 'Could the cafe stay open too? Coffee helps.')
+    RETURNING id
+  `
   yield* sql`
     INSERT INTO comment (petition_id, user_id, text)
-    VALUES (${library}, ${users.classmate}, 'Could the cafe stay open too? Coffee helps.'),
-      (${library}, ${users.admin}, 'Facilities is reviewing staffing for finals week.')
+    VALUES (${library}, ${users.admin}, 'Facilities is reviewing staffing for finals week.')
+  `
+  yield* sql`
+    INSERT INTO comment (petition_id, user_id, text, parent_comment_id)
+    VALUES (${library}, ${users.student}, 'Yes please, even until midnight.', ${cafe!.id})
   `
   const [spam] = yield* sql<{ id: string }>`
     INSERT INTO comment (petition_id, user_id, text)
