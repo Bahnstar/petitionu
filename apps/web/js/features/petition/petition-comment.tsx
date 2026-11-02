@@ -10,11 +10,13 @@ import { formErrors } from "@/lib/form-errors"
 import { formatDate } from "@/lib/utils"
 import { ReportContent } from "../moderation/report-content"
 import { PetitionCommentForm } from "./petition-comment-form"
-import { mutatePetition, replyMutationKey } from "./petition-mutations"
+import { commentWriteKey, mutatePetition } from "./petition-mutations"
 
 type Mode = "view" | "edit" | "delete" | "reply"
 type Comment = PetitionDetailDto["comments"][number]
 type PetitionTarget = { id: string; classroomId?: string | null }
+/** What someone has written in a comment's open form. A comment has one form open at a time. */
+type OpenText = { kind: "reply" | "edit"; text: string }
 
 /**
  * Comments grouped under their top-level comment, oldest first. Replies arrive with the id of a
@@ -43,25 +45,52 @@ export function PetitionThreads({
   comments: readonly Comment[]
   canReply: boolean
 }) {
-  const [refused, setRefused] = useState<readonly { commentId: string; text: string }[]>([])
+  const queryClient = useQueryClient()
+  const [refused, setRefused] = useState<readonly (OpenText & { id: number })[]>([])
+  const lastRefusedId = useRef(0)
+  const openTexts = useRef(new Map<string, OpenText>())
+
+  const refuse = (kept: OpenText) => {
+    const id = (lastRefusedId.current += 1)
+    setRefused((all) => [...all, { ...kept, id }])
+  }
+
+  // A comment's last report outlives it, which is how its text gets here. A write still under way
+  // settles its own text: it may yet succeed, and if not `onGone` hears from the comment.
+  useEffect(() => {
+    const onPage = new Set(comments.map((comment) => comment.id))
+    for (const [id, open] of openTexts.current) {
+      if (onPage.has(id)) continue
+      openTexts.current.delete(id)
+      const writing = queryClient.isMutating({ mutationKey: commentWriteKey(id) }) > 0
+      if (open.text.trim() && !writing) refuse(open)
+    }
+  }, [comments, queryClient])
+
   const renderComment = (comment: Comment) => (
     <PetitionComment
       key={comment.id}
       petition={petition}
       comment={comment}
       canReply={canReply}
-      onParentGone={(text) => setRefused((all) => [...all, { commentId: comment.id, text }])}
+      onOpenText={(open) => {
+        if (open) openTexts.current.set(comment.id, open)
+        else openTexts.current.delete(comment.id)
+      }}
+      onGone={(kept) => {
+        openTexts.current.delete(comment.id)
+        refuse(kept)
+      }}
     />
   )
   return (
     <>
-      {refused.map(({ commentId, text }) => (
-        <RefusedReply
-          key={commentId}
+      {refused.map(({ id, kind, text }) => (
+        <RefusedText
+          key={id}
+          kind={kind}
           text={text}
-          onDismiss={() =>
-            setRefused((all) => all.filter((reply) => reply.commentId !== commentId))
-          }
+          onDismiss={() => setRefused((all) => all.filter((kept) => kept.id !== id))}
         />
       ))}
       <div className="petition-thread">
@@ -84,21 +113,24 @@ export function PetitionThreads({
   )
 }
 
-/** A reply whose parent went away: the text outlives the form, so the writer can copy it. */
-function RefusedReply({ text, onDismiss }: { text: string; onDismiss: () => void }) {
+/** Text whose comment went away: it outlives the form, so the writer can copy it. */
+function RefusedText({ kind, text, onDismiss }: OpenText & { onDismiss: () => void }) {
   const fieldId = useId()
   const field = useRef<HTMLTextAreaElement>(null)
 
+  // Picks up focus the form lost with its comment, but never takes it from another form.
   useEffect(() => {
-    field.current?.focus()
+    if (!document.activeElement || document.activeElement === document.body) field.current?.focus()
   }, [])
 
   return (
     <div role="alert" className="mt-6 space-y-3 rounded-xl border p-4">
       <p className="text-sm">
-        The comment you were replying to is no longer available, so your reply wasn’t posted.
+        {kind === "reply"
+          ? "The comment you were replying to is no longer available, so your reply wasn’t posted."
+          : "The comment you were editing is no longer available, so your edit wasn’t saved."}
       </p>
-      <Label htmlFor={fieldId}>Your reply</Label>
+      <Label htmlFor={fieldId}>{kind === "reply" ? "Your reply" : "Your edit"}</Label>
       <Textarea ref={field} id={fieldId} rows={3} value={text} readOnly />
       <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
         Dismiss
@@ -115,36 +147,58 @@ function PetitionComment({
   petition,
   comment,
   canReply,
-  onParentGone,
+  onOpenText,
+  onGone,
 }: {
   petition: PetitionTarget
   comment: Comment
   canReply: boolean
-  onParentGone: (text: string) => void
+  /** Hears the open form's text as it changes, and nothing once no form is open. */
+  onOpenText: (open: OpenText | null) => void
+  /** Gets text that a failed write can no longer leave in a form. */
+  onGone: (kept: OpenText) => void
 }) {
   const queryClient = useQueryClient()
   const replyButton = useRef<HTMLButtonElement>(null)
+  const unmounted = useRef(false)
   const [mode, setMode] = useState<Mode>("view")
-  const [draft, setDraft] = useState(comment.text ?? "")
+  const [draft, setDraft] = useState("")
+  // A write outlives the comment it's about. Nothing shows its failure then, so the text moves.
+  const keepIfGone = (kept: OpenText) => {
+    if (unmounted.current) onGone(kept)
+  }
   const edit = useMutation({
+    mutationKey: commentWriteKey(comment.id),
     mutationFn: (text: string) =>
       mutatePetition(queryClient, { kind: "editComment", petition, commentId: comment.id, text }),
     onSuccess: () => setMode("view"),
+    onError: (_error, text) => keepIfGone({ kind: "edit", text }),
   })
   // A deleted comment leaves the refreshed list, which unmounts this one.
   const remove = useMutation({
     mutationFn: () =>
       mutatePetition(queryClient, { kind: "deleteComment", petition, commentId: comment.id }),
   })
-  const posting = useIsMutating({ mutationKey: replyMutationKey(comment.id) }) > 0
+  const posting = useIsMutating({ mutationKey: commentWriteKey(comment.id) }) > 0
   const editId = `comment-${comment.id}-edit`
   const authorName = comment.author || "A campus community member"
   const editErrors = formErrors(edit.error, ["text"])
+  const openText = mode === "reply" || mode === "edit" ? { kind: mode, text: draft } : null
+
+  useEffect(() => {
+    unmounted.current = false
+    return () => {
+      unmounted.current = true
+    }
+  }, [])
+
+  // No cleanup: when this comment leaves the page, the report it leaves behind is the text.
+  useEffect(() => onOpenText(openText))
 
   function open(next: Mode) {
     edit.reset()
     remove.reset()
-    setDraft(comment.text ?? "")
+    setDraft(next === "edit" ? (comment.text ?? "") : "")
     setMode(next)
   }
 
@@ -205,7 +259,7 @@ function PetitionComment({
   // The form holds the post's text and result, so it stays open until the post settles. The
   // cache knows at once; `posting` only once the page has rendered the post.
   function toggleReply() {
-    if (queryClient.isMutating({ mutationKey: replyMutationKey(comment.id) }) > 0) return
+    if (queryClient.isMutating({ mutationKey: commentWriteKey(comment.id) }) > 0) return
     if (mode === "reply") closeReply()
     else open("reply")
   }
@@ -302,12 +356,15 @@ function PetitionComment({
             commentId: comment.id,
             author: authorName,
             accepting: canReply,
+            text: draft,
+            onTextChange: setDraft,
             onClose: closeReply,
             onCancel: toggleReply,
             onParentGone: (text) => {
               setMode("view")
-              onParentGone(text)
+              onGone({ kind: "reply", text })
             },
+            onPostFailed: (text) => keepIfGone({ kind: "reply", text }),
           }}
         />
       ) : null}
