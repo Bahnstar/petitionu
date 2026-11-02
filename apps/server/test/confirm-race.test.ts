@@ -2,7 +2,14 @@ import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp, type TestApp } from "./support/harness.ts"
-import { clickConfirm, defaultPassword, registerUser, withEmailTo } from "./support/users.ts"
+import {
+  clickConfirm,
+  confirmWithPassword,
+  defaultPassword,
+  lastEmailedToken,
+  registerUser,
+  withEmailTo,
+} from "./support/users.ts"
 
 const newPassword = "a brand new passphrase"
 
@@ -149,15 +156,15 @@ describe("concurrent Confirm clicks", () => {
   // Without Better Auth's lock, a later click reads the user as unverified, then revokes after the
   // first click has created its session. Holding revocation open, with clicks arriving throughout,
   // makes that overlap happen rather than hoping for it.
-  const slowRevocation = (app: TestApp) =>
+  const slowRevocation = (app: TestApp, table: "account" | "session" = "account", seconds = 0.05) =>
     Effect.gen(function* () {
       for (const statement of [
         `CREATE FUNCTION test_slow() RETURNS trigger AS $$
          BEGIN
-           PERFORM pg_sleep(0.05);
+           PERFORM pg_sleep(${seconds});
            RETURN NULL;
          END $$ LANGUAGE plpgsql`,
-        `CREATE TRIGGER test_slow BEFORE DELETE ON account
+        `CREATE TRIGGER test_slow BEFORE DELETE ON ${table}
          FOR EACH STATEMENT EXECUTE FUNCTION test_slow()`,
       ]) {
         yield* app.sql.unsafe(statement).pipe(Effect.orDie)
@@ -179,6 +186,68 @@ describe("concurrent Confirm clicks", () => {
               Effect.andThen(
                 Effect.sleep(`${index * 6} millis`),
                 clickConfirm(app, browser, user.email, { removePassword: true }),
+              ),
+            ),
+            { concurrency: "unbounded" },
+          )
+
+          assert.isTrue(
+            clicks.every((click) => click.status === 200),
+            JSON.stringify(clicks.map((click) => click.status)),
+          )
+          const started = browsers.filter((browser) => browser.cookie("session_token"))
+          assert.isNotEmpty(started)
+          assert.strictEqual(yield* sessions(app, user.id), started.length, `round ${round}`)
+        }
+      }),
+    { timeout: 60_000 },
+  )
+
+  // Better Auth's lock lasts 5 s, but a click stops waiting for it after 2 s.
+  it.live(
+    "that keep the password all succeed when the first holds the lock for a while",
+    () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        yield* slowRevocation(app, "session", 3.5)
+        const user = yield* registerUser(app)
+        const token = yield* lastEmailedToken(app, user.email)
+        const browsers = yield* Effect.all([makeBrowser(app), makeBrowser(app)])
+
+        const clicks = yield* Effect.all(
+          browsers.map((browser, index) =>
+            Effect.andThen(
+              Effect.sleep(`${index * 500} millis`),
+              browser.confirmWithPassword(token, user.password),
+            ),
+          ),
+          { concurrency: "unbounded" },
+        )
+
+        assert.deepStrictEqual(
+          clicks.map((click) => click.status),
+          [200, 200],
+        )
+        assert.strictEqual(yield* sessions(app, user.id), 2)
+      }),
+    { timeout: 60_000 },
+  )
+
+  it.live(
+    "that keep the password never end a session one of them started",
+    () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        yield* slowRevocation(app, "session")
+        for (let round = 0; round < 3; round++) {
+          const user = yield* registerUser(app)
+          const browsers = yield* Effect.all(Array.from({ length: 5 }, () => makeBrowser(app)))
+
+          const clicks = yield* Effect.all(
+            browsers.map((browser, index) =>
+              Effect.andThen(
+                Effect.sleep(`${index * 20} millis`),
+                confirmWithPassword(app, browser, user.email),
               ),
             ),
             { concurrency: "unbounded" },

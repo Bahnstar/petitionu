@@ -16,6 +16,7 @@ const linkEndpoints = [
   "/api/auth/verify-email",
   "/api/auth/magic-link/verify",
   "/api/auth/link-details",
+  "/api/auth/verify-email/password",
 ]
 
 let requests: Recorded[] = []
@@ -52,11 +53,20 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (token === "slow") await new Promise((resolve) => setTimeout(resolve, 60))
     return Response.json({
       email: "owner@example.edu",
+      needsPassword: token === "has-password",
       signedInAs: token === "attacker" ? "me@example.edu" : null,
     })
   }
+  if (url.pathname === "/api/auth/verify-email/password") {
+    const { password } = JSON.parse(body ?? "{}") as { password: string }
+    if (password === "tried too often") return Response.json({ message: "No" }, { status: 429 })
+    if (password !== "the password") {
+      return Response.json({ code: "INVALID_PASSWORD", message: "Incorrect" }, { status: 400 })
+    }
+    return Response.json({ status: true, user: null })
+  }
   if (url.pathname === "/api/auth/verify-email") {
-    if (url.searchParams.get("token") === "elsewhere") {
+    if (["has-password", "changed"].includes(url.searchParams.get("token") ?? "")) {
       if (!url.searchParams.has("removePassword")) {
         return Response.json(
           { code: "CONFIRM_REMOVES_PASSWORD", message: "Confirming here removes the password" },
@@ -264,30 +274,92 @@ test("/auth/confirm says nothing about the password when the server keeps it", a
   }
 })
 
-for (const [name, user] of [
-  ["signed out", null],
-  ["signed in as someone else", { id: "u2" }],
-] as const) {
-  test(`/auth/confirm warns a visitor ${name} before removing the password`, async () => {
-    const container = await render("/auth/confirm?token=elsewhere", user)
-    expect(container.textContent).not.toContain("removes its password")
-
-    await act(() => button(container, /^Confirm$/).click())
-    await settle()
-
-    // The first click changed nothing and the page says what the second will do.
-    expect(container.textContent).toContain("confirming here removes its password")
-    expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(false)
-    expect(requests.some((r) => r.url.includes("removePassword"))).toBe(false)
-
-    await act(() => button(container, /^Confirm and remove password/).click())
-    await settle()
-
-    expect(requests.some((r) => r.url.includes("removePassword=true"))).toBe(true)
-    expect(container.textContent).toContain("password has been removed")
-    expect(container.querySelector('a[href="/reset"]')).not.toBeNull()
+/** Types into a controlled input the way a browser does. */
+async function typeInto(input: HTMLInputElement, value: string) {
+  await act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value)
+    input.dispatchEvent(new Event("input", { bubbles: true }))
   })
 }
+
+const passwordField = (container: HTMLElement) =>
+  container.querySelector<HTMLInputElement>('input[type="password"]')!
+
+async function enterPassword(container: HTMLElement, password: string) {
+  await typeInto(passwordField(container), password)
+  await act(() => submit(container))
+  await settle()
+}
+
+const passwordCalls = () => requests.filter((r) => r.url === "/api/auth/verify-email/password")
+
+test("/auth/confirm asks for an account's password before anything is clicked", async () => {
+  const container = await render("/auth/confirm?token=has-password")
+
+  expect(passwordField(container)).not.toBeNull()
+  expect(button(container, /^Keep my password/).type).toBe("submit")
+  expect(container.textContent).toContain("password")
+  expect(requests.some((r) => r.url.startsWith("/api/auth/verify-email"))).toBe(false)
+})
+
+test("/auth/confirm keeps the password when it's right", async () => {
+  const container = await render("/auth/confirm?token=has-password")
+
+  await enterPassword(container, "the password")
+
+  expect(passwordCalls().map((r) => r.body)).toEqual([
+    JSON.stringify({ token: "has-password", password: "the password" }),
+  ])
+  expect(container.textContent).toContain("has now been confirmed")
+  expect(container.textContent).not.toContain("password has been removed")
+  expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(true)
+})
+
+test("/auth/confirm shows a wrong password against the field, and can try again", async () => {
+  const container = await render("/auth/confirm?token=has-password")
+
+  await enterPassword(container, "a guess")
+
+  const field = passwordField(container)
+  expect(field.getAttribute("aria-invalid")).toBe("true")
+  expect(document.getElementById(field.getAttribute("aria-describedby")!)?.textContent).toContain(
+    "Incorrect password",
+  )
+  expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(false)
+
+  await enterPassword(container, "the password")
+  expect(container.textContent).toContain("has now been confirmed")
+})
+
+test("/auth/confirm says when password attempts are limited", async () => {
+  const container = await render("/auth/confirm?token=has-password")
+  await enterPassword(container, "tried too often")
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Too many attempts")
+})
+
+test("/auth/confirm continues without the password only by choice, and points to reset", async () => {
+  const container = await render("/auth/confirm?token=has-password")
+  expect(requests.some((r) => r.url.includes("removePassword"))).toBe(false)
+
+  await act(() => button(container, /^Continue without password/).click())
+  await settle()
+
+  expect(requests.some((r) => r.url.includes("removePassword=true"))).toBe(true)
+  expect(container.textContent).toContain("password has been removed")
+  expect(container.querySelector('a[href="/reset"]')).not.toBeNull()
+})
+
+test("/auth/confirm asks for the password if the server refuses a plain click", async () => {
+  const container = await render("/auth/confirm?token=changed")
+  expect(container.querySelector('input[type="password"]')).toBeNull()
+
+  await act(() => button(container, /^Confirm$/).click())
+  await settle()
+
+  expect(passwordField(container)).not.toBeNull()
+  expect(requests.some((r) => r.url.includes("removePassword"))).toBe(false)
+  expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(false)
+})
 
 test("/sign-in tells an unconfirmed user to confirm and that a new link was sent", async () => {
   const container = await render("/sign-in")
@@ -305,6 +377,8 @@ test("/register doesn't promise an account or send anyone onwards", async () => 
   await settle()
 
   expect(container.textContent).toContain("Check your email")
+  // The password can be proved from any device, so the email can be opened anywhere.
+  expect(container.textContent).not.toContain("this browser")
   expect(container.textContent).not.toContain("Continue to PetitionU")
   expect(container.textContent).not.toContain("account is ready")
 })

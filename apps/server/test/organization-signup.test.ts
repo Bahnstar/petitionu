@@ -214,7 +214,7 @@ describe("campus assignment on confirmation", () => {
         const domain = schoolDomain()
         const user = yield* registerUser(app, { email: `alex@${domain}` })
         const token = yield* lastEmailedToken(app, user.email)
-        yield* user.browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
+        yield* user.browser.confirmWithPassword(token, user.password)
 
         const stored = yield* app.sql<{ confirmed: boolean; pending: string | null }>`
           SELECT confirmed_at IS NOT NULL AS confirmed, pending_organization_id AS pending

@@ -78,6 +78,42 @@ describe("looking up an emailed link", () => {
     }),
   )
 
+  it.live("says whether confirming would need the account's password", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const browser = yield* makeBrowser(app)
+      const lookup = (email: string) =>
+        Effect.andThen(lastEmailedToken(app, email), (token) =>
+          browser.linkDetails("confirm", token),
+        )
+
+      const registered = yield* registerUser(app)
+      assert.isTrue((yield* lookup(registered.email)).body.needsPassword)
+
+      const passwordless = yield* registerUser(app)
+      yield* app.sql`DELETE FROM account WHERE user_id = ${passwordless.id}`.pipe(Effect.orDie)
+      assert.isFalse((yield* lookup(passwordless.email)).body.needsPassword)
+
+      const confirmed = yield* createUser(app, { stage: "confirmed" })
+      assert.isFalse((yield* lookup(confirmed.email)).body.needsPassword)
+
+      const magic = yield* browser.linkDetails("magic", yield* magicToken(app, registered.email))
+      assert.isFalse(magic.body.needsPassword)
+    }),
+  )
+
+  it.live("leaves a Confirm link working after the lookup", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* registerUser(app)
+      const token = yield* lastEmailedToken(app, user.email)
+      const browser = yield* makeBrowser(app)
+
+      yield* browser.linkDetails("confirm", token)
+      assert.strictEqual((yield* browser.confirmWithPassword(token, user.password)).status, 200)
+    }),
+  )
+
   it.live("says when the link would replace the account this browser is signed in to", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()

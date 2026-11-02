@@ -65,7 +65,7 @@ describe("users from before the rewrite", () => {
       assert.strictEqual(result.status, 403)
       assert.strictEqual(result.body.code, "EMAIL_NOT_VERIFIED")
 
-      yield* confirmEmail(app, browser, email)
+      yield* confirmEmail(app, browser, email, { password: credentials.password })
       const me = yield* browser.rpc((api) => api.getMe())
       if (!me.success) return assert.fail(JSON.stringify(me))
       assert.isTrue(me.data.emailVerified)

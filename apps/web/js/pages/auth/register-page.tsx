@@ -50,9 +50,7 @@ export default function RegisterPage() {
           </Link>
         }
       >
-        <AuthNotice>
-          We sent an email to {register.data}. Open it in this browser to finish.
-        </AuthNotice>
+        <AuthNotice>We sent an email to {register.data}. Open it to finish.</AuthNotice>
       </AuthPage>
     )
   }

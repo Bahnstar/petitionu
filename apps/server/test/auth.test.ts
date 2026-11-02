@@ -43,7 +43,7 @@ describe("registration and password sign-in", () => {
       assert.strictEqual(page.status, 200)
       assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: false })
 
-      const confirm = yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
+      const confirm = yield* browser.confirmWithPassword(token, defaultPassword)
       assert.strictEqual(confirm.status, 200)
       yield* browser.reloadCsrf
       const confirmed = yield* browser.rpc((api) => api.getMe())
@@ -110,7 +110,7 @@ describe("becoming confirmed", () => {
       const app = yield* makeTestApp({ userConfirmed: flaky })
       const user = yield* registerUser(app)
       const token = yield* lastEmailedToken(app, user.email)
-      yield* user.browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
+      yield* user.browser.confirmWithPassword(token, user.password)
       yield* user.browser.reloadCsrf
       assert.deepStrictEqual(ran, [user.id])
 

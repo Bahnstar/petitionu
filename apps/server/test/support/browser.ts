@@ -22,6 +22,11 @@ export interface Browser {
     purpose: "confirm" | "magic",
     token: string,
   ): Effect.Effect<{ readonly status: number; readonly body: any }>
+  /** Submits the Confirm page's password; returns status and body. */
+  confirmWithPassword(
+    token: string,
+    password: string,
+  ): Effect.Effect<{ readonly status: number; readonly body: any }>
   /** The cookie value named `name` (any prefix), if set. */
   cookie(name: string): string | undefined
   /** The cookie header this browser sends. */
@@ -136,6 +141,16 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
         return { status: response.status, body: yield* json(response) }
       })
 
+    const confirmWithPassword = (token: string, password: string) =>
+      Effect.gen(function* () {
+        const response = yield* request("/api/auth/verify-email/password", {
+          method: "POST",
+          headers: { ...appRequestHeaders, "content-type": "application/json" },
+          body: JSON.stringify({ token, password }),
+        })
+        return { status: response.status, body: yield* json(response) }
+      })
+
     const reloadCsrf = Effect.gen(function* () {
       const response = yield* request("/rpc/csrf-token")
       const body = (yield* json(response)) as { token: string }
@@ -175,6 +190,7 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       auth,
       authGet,
       linkDetails,
+      confirmWithPassword,
       cookie,
       cookieHeader,
       reloadCsrf,

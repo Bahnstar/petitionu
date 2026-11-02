@@ -160,8 +160,6 @@ describe("emailed link endpoints", () => {
 })
 
 describe("plain HTTP", () => {
-  // `Secure` cookies are dropped on a plain HTTP name, so no account may be started from one: the
-  // password-holder cookie would be lost, and its owner couldn't keep the password on Confirm.
   it.live("can't register: only the https origin is accepted", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
@@ -180,33 +178,6 @@ describe("plain HTTP", () => {
       assert.strictEqual(response.status, 403)
       assert.isEmpty(response.headers.getSetCookie())
       assert.isEmpty(yield* app.sql`SELECT 1 FROM users WHERE email = ${email}`.pipe(Effect.orDie))
-    }),
-  )
-
-  it.live("a registering browser's cookie is one a browser will accept as `__Host-`", () =>
-    Effect.gen(function* () {
-      const app = yield* makeTestApp()
-      const email = uniqueEmail()
-      const browser = yield* makeBrowser(app)
-      const response = yield* browser.request("/api/auth/sign-up/email", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password: "correct horse battery",
-          passwordConfirmation: "correct horse battery",
-          name: "",
-        }),
-      })
-
-      const cookie = response.headers
-        .getSetCookie()
-        .find((header) => header.startsWith("__Host-petitionu.password-holder="))
-      assert.match(cookie ?? "", /; Secure/i)
-      assert.match(cookie ?? "", /; Path=\//i)
-      assert.match(cookie ?? "", /; HttpOnly/i)
-      assert.match(cookie ?? "", /; SameSite=Lax/i)
-      assert.notMatch(cookie ?? "", /; Domain=/i)
     }),
   )
 })
@@ -232,8 +203,7 @@ describe("other ways to sign a browser in from another site", () => {
     name: "",
   }
 
-  // The browser that used a password keeps it when confirming, so a page must not be able to
-  // register an address, or try its password, from the owner's own browser.
+  // A page must not be able to register an address, or try its password, from a visitor's browser.
   for (const path of ["/sign-up/email", "/sign-in/email"]) {
     it.live(`${path} rejects a cross-site POST`, () =>
       Effect.gen(function* () {

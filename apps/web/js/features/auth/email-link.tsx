@@ -12,6 +12,8 @@ export const emailLinkKey = "emailLink"
 
 interface LinkDetails {
   readonly email: string
+  /** Whether the account has a password that confirming would have to prove or remove. */
+  readonly needsPassword: boolean
   /** The other account this browser would leave, if using the link signs in. */
   readonly signedInAs: string | null
 }
