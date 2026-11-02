@@ -1,4 +1,5 @@
 import { appRequestHeaders } from "@petitionu/domain"
+import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Link, useSearchParams } from "react-router-dom"
 import { Loader2, MailCheck } from "lucide-react"
@@ -12,6 +13,7 @@ import {
   AuthPage,
   throwLinkError,
 } from "@/js/features/auth/auth-page"
+import { SwitchAccount, useEmailLink } from "@/js/features/auth/email-link"
 import { takeRememberedReturnTo, useReturnTo } from "@/js/features/auth/return-to"
 
 const invalidLink = "This confirmation link is invalid or has expired."
@@ -60,6 +62,8 @@ export default function ConfirmEmailPage() {
   const token = params.get("token")
   const landedReturnTo = useReturnTo()
   const { afterAuthChange } = useAuth()
+  const link = useEmailLink("confirm", token, invalidLink)
+  const [switching, setSwitching] = useState(false)
 
   const confirm = useMutation({
     mutationFn: async (input: {
@@ -91,20 +95,41 @@ export default function ConfirmEmailPage() {
     return <EmailConfirmed passwordRemoved returnTo={landedReturnTo} />
   }
 
+  if (link.data?.signedInAs && !switching) {
+    return (
+      <SwitchAccount
+        email={link.data.email}
+        signedInAs={link.data.signedInAs}
+        onSwitch={() => setSwitching(true)}
+      />
+    )
+  }
+
   const warned = confirm.data?.confirmed === false
   const confirmLabel = warned ? "Confirm and remove password" : "Confirm"
 
   return (
     <AuthPage
       title="Confirm your email"
-      description="Confirm that this is your email address to finish setting up your account."
+      description={
+        link.data ? (
+          <>
+            Confirm that <strong>{link.data.email}</strong> is your email address to finish setting
+            up your account.
+          </>
+        ) : (
+          "Confirm that this is your email address to finish setting up your account."
+        )
+      }
       links={
         <Link to="/sign-in" className="auth-link">
           {warned ? "Sign in to keep your password" : "Back to sign in"}
         </Link>
       }
     >
-      <AuthError message={token ? (confirm.error?.message ?? null) : invalidLink} />
+      <AuthError
+        message={token ? (link.error?.message ?? confirm.error?.message ?? null) : invalidLink}
+      />
       {warned && (
         <AuthNotice>
           This account was registered in a different browser, so confirming here removes its
@@ -112,12 +137,12 @@ export default function ConfirmEmailPage() {
           you didn&apos;t, confirm below. You can set a password afterwards.
         </AuthNotice>
       )}
-      {token && (
+      {link.data && (
         <Button
           type="button"
           className="w-full"
           disabled={confirm.isPending}
-          onClick={() => confirm.mutate({ token, removePassword: warned })}
+          onClick={() => token && confirm.mutate({ token, removePassword: warned })}
         >
           {confirm.isPending ? (
             <Loader2 className="animate-spin" aria-hidden="true" />

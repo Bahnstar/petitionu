@@ -68,6 +68,9 @@ function answer(tag: string) {
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
   const url = new URL(request.url)
+  if (url.pathname === "/api/auth/link-details") {
+    return Response.json({ email: "student@example.edu", signedInAs: null })
+  }
   if (url.pathname === "/rpc/csrf-token") {
     csrfCalls += 1
     if (csrfFailures > 0) {

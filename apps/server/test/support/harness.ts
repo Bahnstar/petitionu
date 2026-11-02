@@ -74,10 +74,12 @@ export const makeMigratedTestDatabaseIn = (timeZone: string) =>
 /** The public origin tests use: `PUBLIC_HOST` is `petitionu.test`. */
 export const testOrigin = "https://petitionu.test"
 
+export const authSecret = "test-better-auth-secret-0123456789abcdef"
+
 /** Configuration every test app gets; `makeTestApp({ env })` overrides it. */
 export const testEnv = {
   PUBLIC_HOST: "petitionu.test",
-  BETTER_AUTH_SECRET: "test-better-auth-secret-0123456789abcdef",
+  BETTER_AUTH_SECRET: authSecret,
   CSRF_SECRET: "test-csrf-secret-0123456789abcdef0123456789",
   // Tests drain the school verification queue themselves (see `jobs.ts`).
   JOB_WORKERS: "false",

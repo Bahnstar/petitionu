@@ -4,6 +4,7 @@ import { reloadCSRFToken, type MeDto } from "@petitionu/domain"
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
 import { ROUTES } from "@/lib/routes"
+import { emailLinkKey } from "../features/auth/email-link"
 import { clearAllPetitionDrafts } from "../lib/petition-draft"
 
 export type CurrentUser = MeDto
@@ -15,7 +16,8 @@ interface AuthChange {
 }
 
 const currentUserKey = ["currentUser"]
-const isPageQuery = (query: Query) => query.queryKey[0] !== currentUserKey[0]
+const isPageQuery = (query: Query) =>
+  query.queryKey[0] !== currentUserKey[0] && query.queryKey[0] !== emailLinkKey
 
 /**
  * Recovers from a CSRF token that can't be reloaded: the server renders a fresh one into the page,

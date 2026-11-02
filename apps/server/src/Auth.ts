@@ -18,6 +18,7 @@ import {
   magicLinkEmail,
   passwordResetEmail,
 } from "./Email.ts"
+import { emailLinks } from "./EmailLinks.ts"
 import { Mailer } from "./Mailer.ts"
 
 export class AuthConfigError extends Schema.TaggedError<AuthConfigError>()("AuthConfigError", {
@@ -50,7 +51,7 @@ const passwordConfirmation = (path: string, body: PasswordBody) => {
 }
 
 /** Endpoints a link's token acts on; only the SPA's pages may call them. */
-const linkEndpoints = new Set(["/verify-email", "/magic-link/verify"])
+const linkEndpoints = new Set(["/verify-email", "/magic-link/verify", "/link-details"])
 
 /**
  * Whether a request is the app's own `fetch`. A crafted link, or one in user content, arrives as
@@ -281,6 +282,7 @@ export class Auth extends Context.Service<
             "/sign-in/magic-link": { window: 60, max: 3 },
             "/magic-link/verify": { window: 60, max: 5 },
             "/verify-email": { window: 60, max: 5 },
+            "/link-details": { window: 60, max: 20 },
             "/send-verification-email": { window: 60, max: 3 },
             "/change-password": { window: 60, max: 5 },
           },
@@ -342,6 +344,7 @@ export class Auth extends Context.Service<
             ),
         },
         plugins: [
+          emailLinks(),
           magicLink({
             disableSignUp: false,
             expiresIn: 10 * 60,

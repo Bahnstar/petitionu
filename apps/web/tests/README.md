@@ -9,8 +9,8 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
   happy-dom with a stubbed `fetch`: threads, the notice for a removed parent, the inline reply
   form, and who is offered Reply.
 - `auth-pages.test.tsx` (`bun run test:auth`): the auth pages in happy-dom with a stubbed
-  `fetch`. Confirmation, magic-link and reset links use their token only after the button is
-  clicked.
+  `fetch`. Confirmation and magic-link pages show the link's address first, make switching
+  accounts a deliberate choice, and like the reset page use their token only after the click.
 - `profile-password.test.tsx` (`bun run test:profile`): the profile page's password card in
   happy-dom with a stubbed `fetch`: the change form's own checks, Better Auth's wrong-password
   error, the CSRF reload after a change, and the reset link offered to accounts without one.

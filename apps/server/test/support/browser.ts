@@ -17,6 +17,11 @@ export interface Browser {
   auth(path: string, body?: unknown): Effect.Effect<{ readonly status: number; readonly body: any }>
   /** GETs a Better Auth endpoint like the app's own `fetch`; returns status and body. */
   authGet(path: string): Effect.Effect<{ readonly status: number; readonly body: any }>
+  /** Asks what an emailed link is for, as its page does on load. */
+  linkDetails(
+    purpose: "confirm" | "magic",
+    token: string,
+  ): Effect.Effect<{ readonly status: number; readonly body: any }>
   /** The cookie value named `name` (any prefix), if set. */
   cookie(name: string): string | undefined
   /** The cookie header this browser sends. */
@@ -121,6 +126,16 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
         return { status: response.status, body: yield* json(response) }
       })
 
+    const linkDetails = (purpose: "confirm" | "magic", token: string) =>
+      Effect.gen(function* () {
+        const response = yield* request("/api/auth/link-details", {
+          method: "POST",
+          headers: { ...appRequestHeaders, "content-type": "application/json" },
+          body: JSON.stringify({ purpose, token }),
+        })
+        return { status: response.status, body: yield* json(response) }
+      })
+
     const reloadCsrf = Effect.gen(function* () {
       const response = yield* request("/rpc/csrf-token")
       const body = (yield* json(response)) as { token: string }
@@ -159,6 +174,7 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       request,
       auth,
       authGet,
+      linkDetails,
       cookie,
       cookieHeader,
       reloadCsrf,

@@ -8,10 +8,15 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 interface Recorded {
   readonly url: string
   readonly method: string
+  readonly body?: string
 }
 
 const appRequestHeader = "x-petitionu-app"
-const linkEndpoints = ["/api/auth/verify-email", "/api/auth/magic-link/verify"]
+const linkEndpoints = [
+  "/api/auth/verify-email",
+  "/api/auth/magic-link/verify",
+  "/api/auth/link-details",
+]
 
 let requests: Recorded[] = []
 const originalFetch = globalThis.fetch
@@ -20,7 +25,8 @@ const originalFetch = globalThis.fetch
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
   const url = new URL(request.url)
-  requests.push({ url: url.pathname + url.search, method: request.method })
+  const body = request.method === "POST" ? await request.clone().text() : undefined
+  requests.push({ url: url.pathname + url.search, method: request.method, ...(body && { body }) })
   // As the server does: these endpoints refuse a request without the app's header.
   if (linkEndpoints.includes(url.pathname) && !request.headers.get(appRequestHeader)) {
     return Response.json({ message: "Open the link from your email" }, { status: 403 })
@@ -35,6 +41,19 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (url.pathname === "/api/auth/sign-up/email") {
     return Response.json({ token: null, user: { id: "u1" } })
+  }
+  if (url.pathname === "/api/auth/link-details") {
+    const { token } = JSON.parse(body ?? "{}") as { token: string }
+    if (token === "invalid") {
+      return Response.json({ code: "INVALID_LINK", message: "Invalid" }, { status: 400 })
+    }
+    if (token === "limited") return Response.json({ message: "Slow down" }, { status: 429 })
+    if (token === "broken") return Response.json({ message: "Down" }, { status: 500 })
+    if (token === "slow") await new Promise((resolve) => setTimeout(resolve, 60))
+    return Response.json({
+      email: "owner@example.edu",
+      signedInAs: token === "attacker" ? "me@example.edu" : null,
+    })
   }
   if (url.pathname === "/api/auth/verify-email") {
     if (url.searchParams.get("token") === "elsewhere") {
@@ -79,7 +98,11 @@ afterEach(() => {
 
 const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20)))
 
-async function render(path: string, currentUser: { readonly id: string } | null = null) {
+async function render(
+  path: string,
+  currentUser: { readonly id: string } | null = null,
+  { wait = true } = {},
+) {
   const container = document.createElement("div")
   document.body.append(container)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -102,7 +125,7 @@ async function render(path: string, currentUser: { readonly id: string } | null 
       </QueryClientProvider>,
     ),
   )
-  await settle()
+  if (wait) await settle()
   return container
 }
 
@@ -121,28 +144,111 @@ function submit(container: HTMLElement) {
     .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
 }
 
-const touching = (token: string) => requests.filter((r) => r.url.includes(token))
+const touching = (token: string) =>
+  requests.filter((r) => r.url.includes(token) || r.body?.includes(token))
+
+const lookup = (purpose: string, token: string) => ({
+  url: "/api/auth/link-details",
+  method: "POST",
+  body: JSON.stringify({ purpose, token }),
+})
+
+const hasButton = (container: HTMLElement) => container.querySelector("button") !== null
 
 for (const page of [
-  { path: "/auth/confirm", button: /^Confirm/, endpoint: "/api/auth/verify-email" },
-  { path: "/auth/magic", button: /^Sign in/, endpoint: "/api/auth/magic-link/verify" },
+  {
+    path: "/auth/confirm",
+    purpose: "confirm",
+    button: /^Confirm/,
+    endpoint: "/api/auth/verify-email",
+    invalid: "This confirmation link is invalid or has expired.",
+  },
+  {
+    path: "/auth/magic",
+    purpose: "magic",
+    button: /^Sign in/,
+    endpoint: "/api/auth/magic-link/verify",
+    invalid: "This sign-in link is invalid or has expired",
+  },
 ]) {
-  test(`${page.path} uses the token only after the button is clicked`, async () => {
+  test(`${page.path} only reads the token until the button is clicked`, async () => {
     const container = await render(`${page.path}?token=tok-123`)
-    expect(touching("tok-123")).toEqual([])
+    // The page may ask what the link is for, but nothing that uses the token happens.
+    expect(touching("tok-123")).toEqual([lookup(page.purpose, "tok-123")])
     expect(requests.filter((r) => r.url.startsWith(page.endpoint))).toEqual([])
 
     await act(() => button(container, page.button).click())
     await settle()
 
-    expect(touching("tok-123")).toEqual([{ url: `${page.endpoint}?token=tok-123`, method: "GET" }])
+    expect(touching("tok-123")).toEqual([
+      lookup(page.purpose, "tok-123"),
+      { url: `${page.endpoint}?token=tok-123`, method: "GET" },
+    ])
     // The CSRF token is bound to the session, so the page reloads it after signing in.
     expect(requests.some((r) => r.url === "/rpc/csrf-token")).toBe(true)
     expect(document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")).toBe(
       "fresh-token",
     )
   })
+
+  test(`${page.path} shows the address the link is for before the click`, async () => {
+    const container = await render(`${page.path}?token=tok-123`)
+    expect(container.textContent).toContain("owner@example.edu")
+    expect(container.textContent).not.toContain("signed in as")
+  })
+
+  test(`${page.path} offers nothing to click until it knows the address`, async () => {
+    const container = await render(`${page.path}?token=slow`, null, { wait: false })
+    expect(hasButton(container)).toBe(false)
+    await settle()
+    await settle()
+    await settle()
+    await settle()
+    expect(button(container, page.button).disabled).toBe(false)
+  })
+
+  test(`${page.path} says a rejected link is invalid, as it always has`, async () => {
+    const container = await render(`${page.path}?token=invalid`)
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(page.invalid)
+    expect(hasButton(container)).toBe(false)
+  })
+
+  for (const [token, message] of [
+    ["limited", "Too many attempts"],
+    ["broken", "Something went wrong"],
+  ] as const) {
+    test(`${page.path} offers no click when the lookup fails: ${token}`, async () => {
+      const container = await render(`${page.path}?token=${token}`)
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(message)
+      expect(hasButton(container)).toBe(false)
+    })
+  }
+
+  test(`${page.path} makes switching accounts a deliberate choice`, async () => {
+    const container = await render(`${page.path}?token=attacker`, { id: "me" })
+
+    const notice = container.querySelector('[role="alert"]')?.textContent
+    expect(notice).toContain("signed in as me@example.edu")
+    expect(notice).toContain("owner@example.edu")
+    expect(container.querySelector(".auth-link")?.textContent).toContain("Stay signed in")
+    expect(() => button(container, page.button)).toThrow()
+
+    await act(() => button(container, /^Switch to owner@example.edu/).click())
+    await settle()
+    expect(requests.filter((r) => r.url.startsWith(page.endpoint))).toEqual([])
+
+    await act(() => button(container, page.button).click())
+    await settle()
+    expect(requests.filter((r) => r.url.startsWith(page.endpoint))).toHaveLength(1)
+  })
 }
+
+test("/auth/magic doesn't look its link up again once signed in", async () => {
+  const container = await render("/auth/magic?token=tok-123")
+  await act(() => button(container, /^Sign in/).click())
+  await settle()
+  expect(requests.filter((r) => r.url === "/api/auth/link-details")).toHaveLength(1)
+})
 
 test("/auth/confirm says nothing about the password when the server keeps it", async () => {
   for (const user of [null, { id: "u1" }]) {
