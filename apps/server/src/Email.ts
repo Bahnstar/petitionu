@@ -46,6 +46,15 @@ export const confirmationEmail = (input: LinkEmailInput): Email => ({
   html: linkBody("Click this link to confirm your email:", emailUrl(input.publicHost, input.path)),
 })
 
+export const accountExistsEmail = (input: LinkEmailInput): Email => ({
+  to: input.to,
+  subject: "You already have an account",
+  html: linkBody(
+    "Someone tried to register with this address, but it already has an account. If that was you, click this link to sign in or reset your password:",
+    emailUrl(input.publicHost, input.path),
+  ),
+})
+
 export const passwordResetEmail = (input: LinkEmailInput): Email => ({
   to: input.to,
   subject: "Reset your password",

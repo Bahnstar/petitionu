@@ -155,9 +155,8 @@ const createFirstUser = Effect.fnUntraced(function* (target: string, role: Role)
  * Sets a user's role, whoever holds which role today, so this is how the first superadmin gets
  * made. `create` adds the account instead, on a system without users.
  *
- * Sign-up doesn't prove the address, and an unconfirmed account can already sign in, so someone
- * who registered the operator's address first would receive the role. `admin` and `superadmin`
- * therefore need a confirmed account. A created account has no password: the first magic-link
+ * Sign-up doesn't prove the address, so someone who registered the operator's address first
+ * would receive the role. `admin` and `superadmin` therefore need a confirmed account. A created account has no password: the first magic-link
  * or password-reset sign-in proves the address and confirms it.
  *
  * The change that would leave no superadmin needs `force`. Every run locks the superadmin rows

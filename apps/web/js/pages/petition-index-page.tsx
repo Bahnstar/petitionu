@@ -286,9 +286,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
   function renderParticipationMessage(action: string) {
     return (
       <p className="mb-6 text-sm leading-7 text-muted-foreground">
-        Confirm your email and{" "}
         <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">
-          complete your profile
+          Complete your profile
         </Link>{" "}
         to {action}.
       </p>

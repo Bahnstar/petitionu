@@ -271,9 +271,8 @@ export function PetitionOwnerControls({
       </h2>
       {!canPublishUpdate ? (
         <p className="text-sm text-muted-foreground">
-          Confirm your email and{" "}
           <Link to="/ash-typescript/profile" className="underline underline-offset-4">
-            complete your profile
+            Complete your profile
           </Link>{" "}
           to post updates.
         </p>

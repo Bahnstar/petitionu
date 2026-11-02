@@ -38,7 +38,6 @@ describe("password reset", () => {
       const confirmations = recordConfirmations()
       const app = yield* makeTestApp({ userConfirmed: confirmations.layer })
       const user = yield* createUser(app, { stage: "unconfirmed" })
-      const otherDevice = yield* signIn(app, user.email)
 
       const { browser, response, link, token } = yield* requestReset(app, user.email)
       assert.strictEqual(response.status, 200)
@@ -60,7 +59,6 @@ describe("password reset", () => {
       assert.deepStrictEqual(confirmations.confirmed, [{ userId: user.id, confirmedAtSet: true }])
 
       assert.isFalse(yield* signedIn(user.browser))
-      assert.isFalse(yield* signedIn(otherDevice))
       const oldPassword = yield* (yield* makeBrowser(app)).auth("/sign-in/email", {
         email: user.email,
         password: defaultPassword,

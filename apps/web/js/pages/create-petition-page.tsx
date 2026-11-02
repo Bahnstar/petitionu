@@ -43,8 +43,7 @@ function PetitionForm({ classroomId }: { classroomId: string | null }) {
     if (user && !canParticipate) {
       return (
         <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">
-          Confirm your email and complete your campus profile to publish. Your draft will stay here
-          while you do.{" "}
+          Complete your campus profile to publish. Your draft will stay here while you do.{" "}
           <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">
             Complete your profile
           </Link>

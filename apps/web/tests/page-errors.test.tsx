@@ -78,6 +78,9 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (url.pathname === "/api/auth/get-session") return Response.json(null)
   if (url.pathname === "/api/auth/sign-out") return signOut()
+  if (url.searchParams.get("token") === "removes-password") {
+    return Response.json({ status: true, user: null, passwordRemoved: true })
+  }
   if (url.pathname.startsWith("/api/auth/")) {
     return Response.json({ status: true, token: "session", user: { id: "u1" }, session: {} })
   }
@@ -801,7 +804,6 @@ const clickThrough = (name: RegExp) => async (container: HTMLElement) => {
 // Each of these URLs is spent or wrong once the action is done, so none may simply reload.
 for (const flow of [
   { name: "sign-in", path: `/sign-in?${returnTo}`, finish: finishSignIn, navigates: true },
-  { name: "registration", path: `/register?${returnTo}`, finish: finishRegistration },
   { name: "password reset", path: `/reset?token=tok-1&${returnTo}`, finish: fillPasswords },
   {
     name: "magic link",
@@ -844,6 +846,36 @@ for (const flow of [
     if (flow.navigates) expect(container.querySelector("#where")?.textContent).toBe(destination)
   })
 }
+
+test("registration stays on its check-your-email screen: it has no token to reload", async () => {
+  const container = await render(AuthPages, `/register?${returnTo}`)
+  csrfFailures = 2
+
+  await finishRegistration(container)
+
+  expect(csrfCalls).toBe(0)
+  expect(assign).not.toHaveBeenCalled()
+  expect(reload).not.toHaveBeenCalled()
+  expect(container.textContent).toContain("Check your email")
+})
+
+test("a confirmation that removed the password still says so after a full page load", async () => {
+  localStorage.setItem("petitionu:return-to", destination)
+  const container = await render(AuthPages, "/auth/confirm?token=removes-password")
+  csrfFailures = 2
+
+  await clickThrough(/^Confirm/)(container)
+
+  expect(assign).toHaveBeenCalledTimes(1)
+  const landing = String(assign.mock.calls[0]![0])
+  expect(landing).toStartWith("/auth/confirm?")
+  expect(landing).not.toContain("token")
+
+  const landed = await render(AuthPages, landing)
+  expect(landed.textContent).toContain("password has been removed")
+  expect(landed.querySelector('a[href="/reset"]')).not.toBeNull()
+  expect(landed.querySelector(`a[href="${destination}"]`)).not.toBeNull()
+})
 
 // Keep last: it starts the whole app, which stays mounted.
 test("startup can't loop: a page with no token that can't get one stays put", async () => {

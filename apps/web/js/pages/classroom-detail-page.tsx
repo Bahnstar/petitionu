@@ -100,9 +100,8 @@ export default function ClassroomDetailPage() {
     if (currentUser && (!currentUser.emailVerified || !currentUser.profileComplete)) {
       return (
         <p className="mb-6 rounded-xl bg-secondary p-4 text-sm">
-          Confirm your email and{" "}
           <Link to="/ash-typescript/profile" className="font-medium underline underline-offset-4">
-            complete your profile
+            Complete your profile
           </Link>{" "}
           to participate.
         </p>

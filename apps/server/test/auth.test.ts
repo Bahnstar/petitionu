@@ -34,25 +34,21 @@ describe("registration and password sign-in", () => {
         }),
       )
       assert.strictEqual(signUp.status, 200, JSON.stringify(signUp.body))
-      yield* browser.reloadCsrf
-      const registered = yield* browser.rpc((api) => api.getMe())
-      assert.isTrue(registered.success, JSON.stringify(registered))
-      if (!registered.success) return
-      assert.strictEqual(registered.data.email, email)
-      assert.isFalse(registered.data.emailVerified)
+      assert.isUndefined(browser.cookie("session_token"))
+      assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: false })
 
       assert.strictEqual(link.origin, "https://petitionu.test")
       assert.strictEqual(link.pathname, "/auth/confirm")
       const page = yield* browser.request(`${link.pathname}${link.search}`)
       assert.strictEqual(page.status, 200)
-      const afterVisit = yield* browser.rpc((api) => api.getMe())
-      assert.deepInclude(afterVisit, { success: true })
-      if (afterVisit.success) assert.isFalse(afterVisit.data.emailVerified)
+      assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: false })
 
       const confirm = yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
       assert.strictEqual(confirm.status, 200)
+      yield* browser.reloadCsrf
       const confirmed = yield* browser.rpc((api) => api.getMe())
       if (!confirmed.success) return assert.fail(JSON.stringify(confirmed))
+      assert.strictEqual(confirmed.data.email, email)
       assert.isTrue(confirmed.data.emailVerified)
 
       const signOut = yield* browser.auth("/sign-out")
@@ -115,6 +111,7 @@ describe("becoming confirmed", () => {
       const user = yield* registerUser(app)
       const token = yield* lastEmailedToken(app, user.email)
       yield* user.browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
+      yield* user.browser.reloadCsrf
       assert.deepStrictEqual(ran, [user.id])
 
       // The failed run rolled back; the next request from the user completes it.
