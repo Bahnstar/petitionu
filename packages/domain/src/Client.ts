@@ -35,6 +35,12 @@ export interface ApiClientOptions {
   readonly fetch?: typeof globalThis.fetch
   /** HTTP headers added to every request, read per request. Defaults to `buildCSRFHeaders()`. */
   readonly headers?: () => Record<string, string>
+  /**
+   * Hears that the server's CSRF check refused a call, so the procedure never ran. What it returns
+   * replaces the call's `unknown` error. Don't resend from here: the token no longer matching means
+   * the session changed, so the call could run as somebody else.
+   */
+  readonly onRefused?: (tag: string) => Promise<ReadonlyArray<RpcErrorEntry> | undefined>
 }
 
 interface MetaElement {
@@ -134,15 +140,19 @@ const payloadErrors = (
 /** The server's answer to a body over its limit. A payload can pass its schema and still be. */
 const bodyTooLargeStatus = 413
 
-const isBodyTooLarge = (error: unknown) =>
+/** The server's answer to a CSRF token that isn't this session's. */
+const refusedStatus = 403
+
+const responseStatus = (error: unknown) =>
   error instanceof RpcClientError &&
   error.reason._tag === "HttpError" &&
-  error.reason.cause instanceof HttpClientError.StatusCodeError &&
-  error.reason.cause.response.status === bodyTooLargeStatus
+  error.reason.cause instanceof HttpClientError.StatusCodeError
+    ? error.reason.cause.response.status
+    : undefined
 
 const toErrors = (cause: Cause.Cause<unknown>): ReadonlyArray<RpcErrorEntry> => {
   const error = Cause.squash(cause)
-  if (isBodyTooLarge(error)) {
+  if (responseStatus(error) === bodyTooLargeStatus) {
     return [{ type: "invalid", message: "This is too long to send. Shorten it and try again." }]
   }
   if (!isTaggedFailure(error)) {
@@ -174,12 +184,15 @@ export const makeApiClient = (options: ApiClientOptions = {}): ApiClient => {
     Layer.provide(
       RpcClient.layerProtocolHttp({
         url: options.url ?? "/rpc",
-        // The protocol reads any response as RPC messages, so a 413's body would be lost. Its
-        // client already fails with `HttpClientError`, which `filterStatus` can't show in the type.
+        // The protocol reads any response as RPC messages, so a 413 or 403 would lose its status.
+        // Its client already fails with `HttpClientError`, which `filterStatus` can't show in the
+        // type.
         transformClient: <E, R>(client: HttpClient.HttpClient.With<E, R>) =>
           client.pipe(
             HttpClient.mapRequest((request) => HttpClientRequest.setHeaders(request, headers())),
-            HttpClient.filterStatus((status) => status !== bodyTooLargeStatus),
+            HttpClient.filterStatus(
+              (status) => status !== bodyTooLargeStatus && status !== refusedStatus,
+            ),
           ) as HttpClient.HttpClient.With<E, R>,
       }),
     ),
@@ -200,7 +213,11 @@ export const makeApiClient = (options: ApiClientOptions = {}): ApiClient => {
         ).pipe(
           Effect.map((data): RpcResult<unknown> => ({ success: true, data })),
           Effect.catchCause((cause) =>
-            Effect.succeed<RpcResult<unknown>>({ success: false, errors: toErrors(cause) }),
+            Effect.promise(async (): Promise<RpcResult<unknown>> => {
+              const refused = responseStatus(Cause.squash(cause)) === refusedStatus
+              const errors = refused ? await options.onRefused?.(tag) : undefined
+              return { success: false, errors: errors ?? toErrors(cause) }
+            }),
           ),
         ),
       )

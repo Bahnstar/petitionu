@@ -5,7 +5,7 @@ import { FieldError, fieldErrorProps } from "@/components/ui/field-error"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { formErrors } from "@/lib/form-errors"
-import { useAuth } from "../../contexts/auth-context"
+import { usePageUser } from "../../contexts/auth-context"
 import { commentWriteKey, mutatePetition, ReplyParentGone } from "./petition-mutations"
 
 /** A new comment's text lives in its form; a reply's in the comment it answers. */
@@ -40,7 +40,7 @@ export function PetitionCommentForm({
     onPostFailed: (text: string) => void
   }
 }) {
-  const { user } = useAuth()
+  const user = usePageUser()
   const queryClient = useQueryClient()
   const [text, setText] = useFormText(reply)
   const textarea = useRef<HTMLTextAreaElement>(null)

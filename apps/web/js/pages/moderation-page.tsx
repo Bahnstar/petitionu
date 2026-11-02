@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import type { ContentReportOutcome } from "@petitionu/domain"
 import { api, serverError } from "@/lib/api"
 import { formErrors } from "@/lib/form-errors"
-import { useAuth } from "../contexts/auth-context"
+import { useAuth, usePageUser } from "../contexts/auth-context"
 import { useDocumentTitle } from "../hooks/use-document-title"
 
 function ReportResolution({ id, onResolved }: { id: string; onResolved: () => void }) {
@@ -248,7 +248,8 @@ export default function ModerationPage() {
   }
 
   useDocumentTitle("Moderation")
-  const { user, isLoading } = useAuth()
+  const { isLoading } = useAuth()
+  const user = usePageUser()
   const client = useQueryClient()
   const [tab, setTab] = useState<"reports" | "support">("reports")
   const [showReviewed, setShowReviewed] = useState(false)

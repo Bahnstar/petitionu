@@ -476,7 +476,7 @@ test("an open reply's text moves to the notice when its comment leaves the page"
 
   expect(noticeTexts(container)).toEqual(["Half written"])
   expect(notices(container)[0]?.textContent).toContain("your reply wasn’t posted")
-  expect(document.activeElement).toBe(notices(container)[0]!.querySelector("textarea"))
+  expect(document.activeElement === notices(container)[0]!.querySelector("textarea")).toBe(true)
 })
 
 test("an open edit's text moves to the notice, worded as an edit", async () => {
@@ -526,12 +526,12 @@ test("a comment leaving doesn't take focus from a form someone is typing in", as
   const other = commentWith(container, "The second comment")
   await openForm(other, "Reply", "Still typing")
   const typing = other.querySelector("textarea")!
-  expect(document.activeElement).toBe(typing)
+  expect(document.activeElement === typing).toBe(true)
 
   await removeComment(firstId)
 
   expect(noticeTexts(container)).toEqual(["Half written"])
-  expect(document.activeElement).toBe(typing)
+  expect(document.activeElement === typing).toBe(true)
 })
 
 for (const [why, text] of [
@@ -649,6 +649,57 @@ test("an edit that fails after its comment left is kept", async () => {
   await removeComment(replyId)
   await release()
   expect(noticeTexts(container)).toEqual(["Reworded"])
+})
+
+test("a stale tab's comment ends with the sign-in message, its text and the page intact", async () => {
+  const container = await render()
+  const form = container.querySelector<HTMLFormElement>("#petition-comment-form")!
+  await act(() => typeReply(form, "Typed before it ended"))
+  sessionEnded = true
+
+  await act(() => form.requestSubmit())
+  await settle()
+
+  expect(form.querySelector("[role=alert]")?.textContent).toBe("Sign in to participate.")
+  expect(form.querySelector("textarea")?.value).toBe("Typed before it ended")
+  expect(form.isConnected).toBe(true)
+  expect(client.getQueryData(["currentUser"])).toBeNull()
+  expect(refusedCalls).toEqual(["createComment", "getMe"])
+  expect(csrfCalls).toBe(1)
+  expect(threads(container)[0]).toContain("The first comment")
+})
+
+test("a stale tab's reply and edit keep their text, and the next try hears the server", async () => {
+  const container = await render()
+  const first = commentWith(container, "The first comment")
+  const own = commentWith(container, "A reply to the first")
+  const replyForm = await openForm(first, "Reply", "My reply")
+  const editForm = await openForm(own, "Edit", "My edit")
+  sessionEnded = true
+
+  await act(() => replyForm.requestSubmit())
+  await settle()
+  expect(replyForm.querySelector("[role=alert]")?.textContent).toBe("Sign in to participate.")
+  expect(replyForm.querySelector("textarea")?.value).toBe("My reply")
+  expect(replyForm.querySelector("[role=status]")).toBeNull()
+  expect(editForm.querySelector("textarea")?.value).toBe("My edit")
+
+  await act(() => editForm.requestSubmit())
+  await settle()
+  expect(editForm.querySelector("[role=alert]")?.textContent).toBe("Sign in to participate.")
+  expect(csrfCalls).toBe(1)
+  expect(notices(container)).toEqual([])
+})
+
+test("a stale tab's signature says to sign in, not to finish a profile", async () => {
+  const container = await render()
+  sessionEnded = true
+  const form = container.querySelector("#petition-signature-panel form")!
+
+  await act(() => buttonIn(form, "Sign this petition")!.click())
+  await settle()
+
+  expect(form.querySelector("[role=alert]")?.textContent).toBe("Sign in to participate.")
 })
 
 const noReply: Array<[string, Partial<Petition>, typeof user]> = [

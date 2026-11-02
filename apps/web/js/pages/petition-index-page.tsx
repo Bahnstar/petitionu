@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDocumentTitle } from "../hooks/use-document-title"
-import { useAuth } from "../contexts/auth-context"
+import { useAuth, usePageUser } from "../contexts/auth-context"
 import { ROUTES } from "@/lib/routes"
 import { Loader2, Undo2 } from "lucide-react"
 
@@ -103,7 +103,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
   }
 
   const now = useCurrentTime()
-  const { user, isLoading: authLoading } = useAuth()
+  const { isLoading: authLoading } = useAuth()
+  const user = usePageUser()
   const queryClient = useQueryClient()
   const [signatureReason, setSignatureReason] = useState("")
   const [shareMessage, setShareMessage] = useState("")
@@ -543,7 +544,8 @@ function PetitionContent({ petition }: { petition: Petition }) {
 
 export default function PetitionIndexPage() {
   const { id } = useParams()
-  const { user, isLoading: authLoading } = useAuth()
+  const { isLoading: authLoading } = useAuth()
+  const user = usePageUser()
   const petitionQuery = useQuery({
     queryKey: ["petition", id, user?.id ?? null],
     enabled: !authLoading && !!id,
