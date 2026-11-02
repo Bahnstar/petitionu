@@ -1,5 +1,5 @@
 import { appRequestHeaders } from "@petitionu/domain"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Link, useSearchParams } from "react-router-dom"
 import { KeyRound, Loader2, MailCheck } from "lucide-react"
@@ -20,9 +20,40 @@ import { takeRememberedReturnTo, useReturnTo } from "@/js/features/auth/return-t
 
 const invalidLink = "This confirmation link is invalid or has expired."
 
+const passwordRemovedKey = "petitionu:password-removed"
+
+/**
+ * Carries the password-removed notice over a full page load. Session storage belongs to this tab
+ * on this origin, so unlike a query string a crafted link can't set it. Returns whether it stuck.
+ */
+function rememberPasswordRemoved() {
+  try {
+    sessionStorage.setItem(passwordRemovedKey, "1")
+    return true
+  } catch {
+    return false /* Storage can be disabled; the notice is then lost with the page. */
+  }
+}
+
+function passwordWasRemoved() {
+  try {
+    return sessionStorage.getItem(passwordRemovedKey) !== null
+  } catch {
+    return false
+  }
+}
+
+function forgetPasswordRemoved() {
+  try {
+    sessionStorage.removeItem(passwordRemovedKey)
+  } catch {
+    /* Storage can be disabled. */
+  }
+}
+
 /** Where a full page load lands after a removal, so the user still hears about it. */
 const passwordRemovedPath = (returnTo: string) =>
-  `/auth/confirm?${new URLSearchParams({ password_removed: "1", return_to: returnTo })}`
+  `/auth/confirm?${new URLSearchParams({ return_to: returnTo })}`
 
 interface ConfirmResponse {
   readonly passwordRemoved?: boolean
@@ -73,6 +104,8 @@ export default function ConfirmEmailPage() {
   const [switching, setSwitching] = useState(false)
   const [refused, setRefused] = useState(false)
   const [password, setPassword] = useState("")
+  const [removedBeforeLoad] = useState(passwordWasRemoved)
+  useEffect(forgetPasswordRemoved, [])
 
   const confirm = useMutation({
     mutationFn: async (input: {
@@ -100,15 +133,16 @@ export default function ConfirmEmailPage() {
       throwLinkError(error, invalidLink)
       const returnTo = takeRememberedReturnTo()
       const passwordRemoved = data?.passwordRemoved === true
-      await afterAuthChange({
-        destination: passwordRemoved ? passwordRemovedPath(returnTo) : returnTo,
-      })
+      const notice = passwordRemoved && rememberPasswordRemoved()
+      await afterAuthChange({ destination: notice ? passwordRemovedPath(returnTo) : returnTo })
+      // Still here, so there was no full page load and this page says it itself.
+      forgetPasswordRemoved()
       return { confirmed: true, passwordRemoved, returnTo }
     },
   })
 
   if (confirm.data?.confirmed) return <EmailConfirmed {...confirm.data} />
-  if (params.has("password_removed")) {
+  if (removedBeforeLoad && !token) {
     return <EmailConfirmed passwordRemoved returnTo={landedReturnTo} />
   }
 
