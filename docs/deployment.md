@@ -61,6 +61,8 @@ curl --fail http://127.0.0.1:8080/healthz
 ENV_FILE=/tmp/petitionu.env docker compose -p petitionu-trial --env-file /tmp/petitionu.env down -v
 ```
 
+That trial only reaches `/healthz`. Auth and RPC requests are accepted only from `https://PUBLIC_HOST`, so a browser on `http://127.0.0.1:8080` can open pages but gets `Invalid origin` at sign-up and sign-in, and no account is created. To try the app in a browser, use the development setup in `GETTING_STARTED.md` on `http://localhost:5173`, or put TLS in front. Cookies are `Secure`, which browsers accept over plain HTTP only on localhost.
+
 ## Deploy on Railway
 
 Connect the repository and select the branch containing `railway.json` and `Dockerfile`. Set Root Directory to `/` and leave Build Command blank. Railway reads the Docker build, the pre-deploy migration (`node apps/server/dist/migrate.js`), the start command (`node apps/server/dist/serve.js`) and the `/healthz` check from `railway.json`. Remove conflicting dashboard overrides.
