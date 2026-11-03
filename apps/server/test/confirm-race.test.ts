@@ -286,6 +286,17 @@ const passwordSignIn = (app: TestApp, user: { email: string; password: string })
 
 const lockRows = `identifier LIKE 'revoke-unproven-account-access:%'`
 
+/** Waits for a click to hold Better Auth's lock: how long that takes depends on bcrypt. */
+const lockTaken: (app: TestApp) => Effect.Effect<void> = (app) =>
+  Effect.gen(function* () {
+    const rows = yield* app.sql
+      .unsafe(`SELECT 1 FROM verification WHERE ${lockRows}`)
+      .pipe(Effect.orDie)
+    if (rows.length > 0) return
+    yield* Effect.sleep("10 millis")
+    yield* lockTaken(app)
+  })
+
 /**
  * Runs `click` as a process killed mid-confirmation would: it fails before changing anything, and
  * Better Auth's lock stays behind, live for another minute.
@@ -339,7 +350,7 @@ describe("a click that loses Better Auth's lock", () => {
             [
               clickConfirm(app, holder, user.email, { removePassword: true }),
               Effect.andThen(
-                Effect.sleep("100 millis"),
+                lockTaken(app),
                 clickConfirm(app, loser, user.email, { removePassword: true }),
               ),
               Effect.andThen(
@@ -433,7 +444,7 @@ describe("a click that loses Better Auth's lock", () => {
           [
             confirmWithPassword(app, keeper, user.email),
             Effect.andThen(
-              Effect.sleep("400 millis"),
+              lockTaken(app),
               clickConfirm(app, remover, user.email, { removePassword: true }),
             ),
           ],
