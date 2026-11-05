@@ -87,6 +87,7 @@ const petitionDto = {
   organizationId: null,
   hasSigned: false,
   canManage: true,
+  isAuthor: true,
   goal: 100,
   signaturesCount: 0,
   daysLeft: 0,

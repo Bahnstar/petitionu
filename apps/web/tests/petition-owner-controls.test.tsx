@@ -36,7 +36,7 @@ afterEach(() => {
 
 const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20)))
 
-async function renderEditForm(deadline: Date | null) {
+async function renderEditForm(deadline: Date | null, isAuthor = true) {
   const container = document.createElement("div")
   document.body.append(container)
   const root = createRoot(container)
@@ -56,6 +56,7 @@ async function renderEditForm(deadline: Date | null) {
                 deadline: shown,
                 allowComments: true,
                 isAnonymous: false,
+                isAuthor,
                 status: "open",
                 classroomId: null,
               }}
@@ -71,7 +72,8 @@ async function renderEditForm(deadline: Date | null) {
   return { form, show }
 }
 
-const openEditForm = async (deadline: Date | null) => (await renderEditForm(deadline)).form
+const openEditForm = async (deadline: Date | null, isAuthor = true) =>
+  (await renderEditForm(deadline, isAuthor)).form
 
 function setDeadline(form: HTMLFormElement, value: string) {
   const input = form.querySelector<HTMLInputElement>("#edit-petition-deadline")!
@@ -132,4 +134,19 @@ test("a cleared deadline is sent as null", async () => {
   const sent = await submit(form)
 
   expect(sent.deadline).toBeNull()
+})
+
+test("the author can hide their name", async () => {
+  const form = await openEditForm(null)
+  expect(form.querySelector("#edit-petition-anonymous")).not.toBeNull()
+  expect((await submit(form)).isAnonymous).toBe(false)
+})
+
+test("a professor editing a student's petition can't touch or send its anonymity", async () => {
+  const form = await openEditForm(null, false)
+  expect(form.querySelector("#edit-petition-anonymous")).toBeNull()
+  expect(form.textContent).not.toContain("Hiding your name")
+  const payload = await submit(form)
+  expect(payload).not.toHaveProperty("isAnonymous")
+  expect(payload).toMatchObject({ title: "A better campus", goal: 100, allowComments: true })
 })

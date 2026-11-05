@@ -21,6 +21,7 @@ type Petition = Pick<
   | "deadline"
   | "allowComments"
   | "isAnonymous"
+  | "isAuthor"
   | "status"
   | "classroomId"
 >
@@ -38,6 +39,13 @@ function localDeadline(value: Petition["deadline"]) {
 function deadlineChange(input: string, opened: string) {
   if (input === opened) return {}
   return { deadline: input ? new Date(input).toISOString() : null }
+}
+
+// Anonymity is the author's alone: the server refuses the key from anyone else, a classroom's
+// professor included, even with its current value.
+function anonymityChange(isAuthor: boolean, isAnonymous: boolean) {
+  if (!isAuthor) return {}
+  return { isAnonymous }
 }
 
 export function PetitionOwnerControls({
@@ -130,20 +138,24 @@ export function PetitionOwnerControls({
             />
             Allow comments
           </Label>
-          <Label className="flex items-center gap-3">
-            <input
-              id="edit-petition-anonymous"
-              type="checkbox"
-              className="size-4 accent-primary"
-              checked={edit.isAnonymous}
-              onChange={(event) => setEdit({ ...edit, isAnonymous: event.target.checked })}
-            />
-            Hide my name as the petition creator
-          </Label>
-          <p className="text-xs leading-6 text-muted-foreground">
-            Hiding your name changes the creator label to “Anonymous.” It does not hide your name on
-            comments. People may already have seen or shared your name.
-          </p>
+          {petition.isAuthor ? (
+            <>
+              <Label className="flex items-center gap-3">
+                <input
+                  id="edit-petition-anonymous"
+                  type="checkbox"
+                  className="size-4 accent-primary"
+                  checked={edit.isAnonymous}
+                  onChange={(event) => setEdit({ ...edit, isAnonymous: event.target.checked })}
+                />
+                Hide my name as the petition creator
+              </Label>
+              <p className="text-xs leading-6 text-muted-foreground">
+                Hiding your name changes the creator label to “Anonymous.” It does not hide your
+                name on comments. People may already have seen or shared your name.
+              </p>
+            </>
+          ) : null}
         </>
       )
     }
@@ -326,7 +338,7 @@ export function PetitionOwnerControls({
                   goal: Number(edit.goal),
                   ...deadlineChange(edit.deadline, edit.openedDeadline),
                   allowComments: edit.allowComments,
-                  isAnonymous: edit.isAnonymous,
+                  ...anonymityChange(petition.isAuthor, edit.isAnonymous),
                 },
               })
             else if (mode === "update") {
