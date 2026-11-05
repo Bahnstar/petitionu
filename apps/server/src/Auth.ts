@@ -1,3 +1,4 @@
+import { appRequestHeader, appRequestHeaders } from "@petitionu/domain"
 import bcrypt from "bcryptjs"
 import { betterAuth } from "better-auth"
 import { APIError, createAuthMiddleware } from "better-auth/api"
@@ -17,6 +18,7 @@ import {
   magicLinkEmail,
   passwordResetEmail,
 } from "./Email.ts"
+import { emailLinks } from "./EmailLinks.ts"
 import { Mailer } from "./Mailer.ts"
 
 export class AuthConfigError extends Schema.TaggedError<AuthConfigError>()("AuthConfigError", {
@@ -24,12 +26,6 @@ export class AuthConfigError extends Schema.TaggedError<AuthConfigError>()("Auth
 }) {}
 
 type PasswordBody = Readonly<Record<string, unknown>>
-
-/** What an endpoint returned: a success's user or a failure's body, as an after-hook sees it. */
-type AuthResult = Record<string, unknown> & {
-  readonly user?: { readonly id?: string } | null
-  readonly body?: { readonly code?: string }
-}
 
 /**
  * The password and confirmation a request must match: sign-up and reset always send one; a
@@ -48,28 +44,32 @@ const passwordConfirmation = (path: string, body: PasswordBody) => {
   return undefined
 }
 
-/** Endpoints a link's token signs in through; only the SPA's pages may call them. */
-const linkEndpoints = new Set(["/verify-email", "/magic-link/verify"])
+/** Endpoints a link's token acts on; only the SPA's pages may call them. */
+const linkEndpoints = new Set([
+  "/verify-email",
+  "/verify-email/password",
+  "/magic-link/verify",
+  "/link-details",
+])
 
 /**
  * Whether a request is the app's own `fetch`. A crafted link, or one in user content, arrives as
  * a navigation, an image or from another site, and could sign a browser into the attacker's
- * account. A client that sends no fetch metadata is refused too, which includes browsers too old
- * to send it: those users confirm by password reset instead.
+ * account. None of those can set a header, and another site's `fetch` with one needs a CORS
+ * preflight the server doesn't grant, so the header holds in every browser. Older browsers send
+ * no fetch metadata, so `sec-fetch-site` only refuses when it's there.
  */
-const isAppFetch = (headers: Headers | undefined) =>
-  headers?.get("sec-fetch-site") === "same-origin" && headers.get("sec-fetch-dest") === "empty"
-
-/**
- * Signed cookie naming the account whose password this browser last used, at sign-up or at a
- * sign-in refused for an unconfirmed address. It only ever decides whether confirming keeps the
- * password, so it lasts as long as a confirmation link.
- */
-const passwordHolderCookie = "__Host-petitionu.password-holder"
+const isAppFetch = (headers: Headers | undefined) => {
+  const site = headers?.get("sec-fetch-site")
+  return (
+    headers?.get(appRequestHeader) === appRequestHeaders[appRequestHeader] &&
+    (site === null || site === "same-origin")
+  )
+}
 
 const confirmationLifetime = 60 * 60
 
-/** A confirmation refused because it would remove the password; the page warns and retries. */
+/** A confirmation refused because it would remove the password; the page asks for it instead. */
 const confirmRemovesPassword = "CONFIRM_REMOVES_PASSWORD"
 
 /** Origin of the Vite dev server, trusted only when `NODE_ENV=development`. */
@@ -176,21 +176,19 @@ export class Auth extends Context.Service<
       const confirmed = (user: { id: string; emailVerified: boolean }) =>
         user.emailVerified ? run(finishConfirmation(user.id)) : Promise.resolve()
 
-      // The account named by a `/verify-email` request's password-holder cookie, by request.
-      const passwordHolders = new WeakMap<Request, string>()
       const removedPasswords = new WeakSet<Request>()
 
       // Runs before a user's first verification, and must finish before `email_verified` flips:
       // a sign-in reads the user, then the password, so one that sees the flip can't see the old
-      // password. Sign-up doesn't prove the address, so a password may be someone else's. The
-      // browser that used it keeps it. Any other click removes it, as a magic link does, after
-      // the page has warned the user: the first click is refused without changing anything.
+      // password. Sign-up doesn't prove the address, so the password may be someone else's, and
+      // only knowing it shows otherwise (`/verify-email/password`). Without that, confirming
+      // removes it, as a magic link does, once the user has chosen to: a click that hasn't is
+      // refused without changing anything. A click that loses Better Auth's lock can get the user
+      // back unverified, with the password still there, and Better Auth would flip
+      // `email_verified` regardless, so this refuses it. The password is checked again here
+      // because the click holding the lock may have kept it.
       const revokeUnprovenAccess = async (user: { id: string }, request?: Request) => {
         const context = await auth.$context
-        if (request && passwordHolders.get(request) === user.id) {
-          await context.internalAdapter.deleteUserSessions(user.id)
-          return
-        }
         const account = await context.internalAdapter.findCredentialAccount(user.id)
         const accepted = request && new URL(request.url).searchParams.has("removePassword")
         if (account && !accepted) {
@@ -200,8 +198,12 @@ export class Auth extends Context.Service<
           })
         }
         const ctx = { context } as Parameters<typeof revokeUnprovenAccountAccess>[0]
-        await revokeUnprovenAccountAccess(ctx, user.id)
-        if (account && request) removedPasswords.add(request)
+        const promoted = await revokeUnprovenAccountAccess(ctx, user.id)
+        if (!promoted?.emailVerified) {
+          throw new APIError("SERVICE_UNAVAILABLE", { message: "Try again" })
+        }
+        const remaining = await context.internalAdapter.findCredentialAccount(user.id)
+        if (account && !remaining && request) removedPasswords.add(request)
       }
 
       // The user whose password a `/reset-password` request just reset, keyed by request.
@@ -274,6 +276,8 @@ export class Auth extends Context.Service<
             "/sign-in/magic-link": { window: 60, max: 3 },
             "/magic-link/verify": { window: 60, max: 5 },
             "/verify-email": { window: 60, max: 5 },
+            "/verify-email/password": { window: 60, max: 5 },
+            "/link-details": { window: 60, max: 20 },
             "/send-verification-email": { window: 60, max: 3 },
             "/change-password": { window: 60, max: 5 },
           },
@@ -335,6 +339,7 @@ export class Auth extends Context.Service<
             ),
         },
         plugins: [
+          emailLinks(),
           magicLink({
             disableSignUp: false,
             expiresIn: 10 * 60,
@@ -361,10 +366,6 @@ export class Auth extends Context.Service<
             if (linkEndpoints.has(ctx.path) && !isAppFetch(ctx.headers)) {
               throw new APIError("FORBIDDEN", { message: "Open the link from your email" })
             }
-            if (ctx.path === "/verify-email" && ctx.request) {
-              const holder = await ctx.getSignedCookie(passwordHolderCookie, ctx.context.secret)
-              if (holder) passwordHolders.set(ctx.request, holder)
-            }
             const confirmation = passwordConfirmation(ctx.path, (ctx.body ?? {}) as PasswordBody)
             if (confirmation && confirmation.password !== confirmation.confirmation) {
               throw new APIError("BAD_REQUEST", {
@@ -378,27 +379,12 @@ export class Auth extends Context.Service<
             return
           }),
           after: createAuthMiddleware(async (ctx) => {
-            const returned = ctx.context.returned as AuthResult | undefined
-            // A sign-up always names the account: a registered address gets a made-up id that
-            // matches nobody, so the response doesn't reveal it. A refused sign-in does too, or
-            // the new link it sends would remove the password that was just proved.
-            const refused =
-              ctx.path === "/sign-in/email" && returned?.body?.code === "EMAIL_NOT_VERIFIED"
-            const holder = refused
-              ? (await ctx.context.internalAdapter.findUserByEmail(String(ctx.body.email)))?.user.id
-              : ctx.path === "/sign-up/email" && returned?.user?.id
-            if (holder) {
-              await ctx.setSignedCookie(passwordHolderCookie, holder, ctx.context.secret, {
-                httpOnly: true,
-                secure: true,
-                sameSite: "lax",
-                path: "/",
-                maxAge: confirmationLifetime,
-              })
-            }
             if (ctx.path === "/verify-email" && ctx.request) {
               return removedPasswords.has(ctx.request)
-                ? ctx.json({ ...returned, passwordRemoved: true })
+                ? ctx.json({
+                    ...(ctx.context.returned as Record<string, unknown>),
+                    passwordRemoved: true,
+                  })
                 : undefined
             }
             // A successful reset signs the user in with a new session (every other one is revoked).

@@ -17,7 +17,7 @@ describe("organization concurrency", () => {
       // Each confirmation runs in its own transaction on its own connection.
       const confirmations = yield* Effect.forEach(
         users,
-        (user, i) => user.browser.authGet(`/verify-email?token=${encodeURIComponent(tokens[i]!)}`),
+        (user, i) => user.browser.confirmWithPassword(tokens[i]!, user.password),
         { concurrency: "unbounded" },
       )
       assert.deepStrictEqual(

@@ -1,12 +1,14 @@
 import { assert, describe, it } from "@effect/vitest"
+import { appRequestHeaders } from "@petitionu/domain"
 import { Effect, Layer } from "effect"
 import { UserConfirmed } from "../src/Confirmation.ts"
 import { type Browser, makeBrowser } from "./support/browser.ts"
 import { recordConfirmations } from "./support/confirmations.ts"
-import { makeTestApp, type TestApp, testOrigin } from "./support/harness.ts"
+import { makeTestApp, type TestApp } from "./support/harness.ts"
 import {
   clickConfirm,
   confirmEmail,
+  confirmWithPassword,
   createUser,
   defaultPassword,
   emailsTo,
@@ -109,6 +111,32 @@ describe("an unconfirmed account", () => {
       assert.strictEqual(yield* sessionCount(app, user.id), 0)
     }),
   )
+
+  it.live("leaves nothing in a browser that registers or is refused", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const email = uniqueEmail()
+      const browser = yield* makeBrowser(app)
+      const send = (path: string, body: unknown) =>
+        browser.request(`/api/auth${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        })
+
+      const registered = yield* send("/sign-up/email", {
+        email,
+        password: defaultPassword,
+        passwordConfirmation: defaultPassword,
+        name: "",
+      })
+      const refused = yield* send("/sign-in/email", { email, password: defaultPassword })
+
+      assert.strictEqual(refused.status, 403)
+      assert.isEmpty(registered.headers.getSetCookie())
+      assert.isEmpty(refused.headers.getSetCookie())
+    }),
+  )
 })
 
 describe("an address registered by someone else", () => {
@@ -180,50 +208,45 @@ describe("an address registered by someone else", () => {
     }),
   )
 
-  for (const [name, tamper] of [
-    ["made up", (value: string) => `${value.slice(0, 36)}.${"A".repeat(43)}=`],
-    ["for another account", (_value: string, other: string) => other],
-  ] as const) {
-    it.live(`isn't kept by a password-holder cookie that is ${name}`, () =>
-      Effect.gen(function* () {
-        const app = yield* makeTestApp()
-        const attacker = yield* registerUser(app)
-        const other = yield* registerUser(app)
-        const token = yield* lastEmailedToken(app, attacker.email)
-        const cookieName = "__Host-petitionu.password-holder"
-        const value = tamper(
-          attacker.browser.cookie(cookieName)!,
-          other.browser.cookie(cookieName)!,
-        )
+  it.live("can't be kept by registering in the browser the owner confirms in", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const attacker = yield* registerUser(app)
+      // A second try at signing in, as an attacker waiting at a shared computer might.
+      yield* withEmailTo(
+        app,
+        attacker.email,
+        attacker.browser.auth("/sign-in/email", {
+          email: attacker.email,
+          password: defaultPassword,
+        }),
+      )
 
-        const response = yield* app.request(
-          `${testOrigin}/api/auth/verify-email?token=${encodeURIComponent(token)}`,
-          {
-            headers: {
-              cookie: `${cookieName}=${value}`,
-              "sec-fetch-site": "same-origin",
-              "sec-fetch-dest": "empty",
-            },
-          },
-        )
+      const warned = yield* clickConfirm(app, attacker.browser, attacker.email)
+      assert.strictEqual(warned.status, 409)
+      assert.isUndefined(attacker.browser.cookie("session_token"))
 
-        assert.strictEqual(response.status, 409)
-      }),
-    )
-  }
+      const confirmed = yield* clickConfirm(app, attacker.browser, attacker.email, {
+        removePassword: true,
+      })
+      assert.isTrue(confirmed.body.passwordRemoved)
+      assert.strictEqual((yield* passwordSignIn(app, attacker.email)).status, 401)
+    }),
+  )
 })
 
 describe("confirming your own registration", () => {
-  it.live("in the browser you registered in keeps your password, with no warning", () =>
+  it.live("with the password keeps it, on a device that has never seen the account", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
       const user = yield* registerUser(app)
+      const laptop = yield* makeBrowser(app)
 
-      const response = yield* clickConfirm(app, user.browser, user.email)
+      const response = yield* confirmWithPassword(app, laptop, user.email)
       assert.strictEqual(response.status, 200)
       assert.notProperty(response.body, "passwordRemoved")
 
-      const me = yield* signedIn(user.browser)
+      const me = yield* signedIn(laptop)
       assert.strictEqual(me?.id, user.id)
       assert.isTrue(me?.emailVerified)
       assert.isTrue(me?.hasPassword)
@@ -231,46 +254,81 @@ describe("confirming your own registration", () => {
     }),
   )
 
-  it.live("after signing in on a second device keeps your password there too", () =>
+  it.live("in the browser you registered in still asks for the password", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
       const user = yield* registerUser(app)
-      const phone = yield* makeBrowser(app)
-      yield* withEmailTo(
-        app,
-        user.email,
-        phone.auth("/sign-in/email", { email: user.email, password: defaultPassword }),
-      )
 
-      yield* confirmEmail(app, phone, user.email)
+      const asked = yield* clickConfirm(app, user.browser, user.email)
+      assert.strictEqual(asked.status, 409)
+      assert.strictEqual(asked.body.code, "CONFIRM_REMOVES_PASSWORD")
 
-      assert.isTrue((yield* signedIn(phone))?.hasPassword)
-      assert.strictEqual((yield* passwordSignIn(app, user.email)).status, 200)
-    }),
-  )
-
-  it.live("in another browser warns first and changes nothing until you accept", () =>
-    Effect.gen(function* () {
-      const app = yield* makeTestApp()
-      const user = yield* registerUser(app)
-      const phone = yield* makeBrowser(app)
-
-      const warned = yield* clickConfirm(app, phone, user.email)
-      assert.strictEqual(warned.status, 409)
-      assert.strictEqual(warned.body.code, "CONFIRM_REMOVES_PASSWORD")
-      assert.isUndefined(phone.cookie("session_token"))
-      const [row] = yield* app.sql<{ verified: boolean }>`
-        SELECT email_verified AS verified FROM users WHERE id = ${user.id}
-      `.pipe(Effect.orDie)
-      assert.isFalse(row!.verified)
-
-      // The warning is not the end of the road: the registering browser still keeps the password.
       yield* confirmEmail(app, user.browser, user.email)
       assert.isTrue((yield* signedIn(user.browser))?.hasPassword)
     }),
   )
 
-  it.live("in another browser, accepted, removes the password and says so; a reset restores", () =>
+  it.live("with the wrong password is a field error and leaves the link usable", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* registerUser(app)
+      const laptop = yield* makeBrowser(app)
+
+      const wrong = yield* confirmWithPassword(app, laptop, user.email, "not the password")
+      assert.strictEqual(wrong.status, 400)
+      assert.strictEqual(wrong.body.code, "INVALID_PASSWORD")
+      assert.isUndefined(laptop.cookie("session_token"))
+      const [row] = yield* app.sql<{ verified: boolean }>`
+        SELECT email_verified AS verified FROM users WHERE id = ${user.id}
+      `.pipe(Effect.orDie)
+      assert.isFalse(row!.verified)
+      assert.strictEqual(yield* sessionCount(app, user.id), 0)
+
+      assert.strictEqual((yield* confirmWithPassword(app, laptop, user.email)).status, 200)
+    }),
+  )
+
+  it.live("stops guessing the password after five tries a minute", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* registerUser(app)
+      const laptop = yield* makeBrowser(app)
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const wrong = yield* confirmWithPassword(app, laptop, user.email, `guess ${attempt}`)
+        assert.strictEqual(wrong.status, 400)
+      }
+      assert.strictEqual((yield* confirmWithPassword(app, laptop, user.email)).status, 429)
+    }),
+  )
+
+  it.live("stops trying links after five a minute", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const browser = yield* makeBrowser(app)
+      const statuses = []
+      for (let attempt = 0; attempt < 6; attempt++) {
+        statuses.push((yield* browser.authGet("/verify-email?token=garbage")).status)
+      }
+      assert.deepStrictEqual(statuses, [401, 401, 401, 401, 401, 429])
+    }),
+  )
+
+  it.live("with the password ends a session the account somehow already has", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { stage: "unconfirmed" })
+      const laptop = yield* makeBrowser(app)
+
+      yield* confirmEmail(app, laptop, user.email)
+
+      assert.isUndefined(yield* signedIn(user.browser))
+      assert.strictEqual((yield* signedIn(laptop))?.id, user.id)
+      assert.strictEqual(yield* sessionCount(app, user.id), 1)
+    }),
+  )
+
+  it.live("without the password removes it and says so; a reset restores one", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
       const user = yield* registerUser(app)
@@ -286,7 +344,7 @@ describe("confirming your own registration", () => {
     }),
   )
 
-  it.live("doesn't warn or remove anything for an account with no password", () =>
+  it.live("doesn't ask or remove anything for an account with no password", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
       const user = yield* registerUser(app)
@@ -295,6 +353,58 @@ describe("confirming your own registration", () => {
       const response = yield* clickConfirm(app, yield* makeBrowser(app), user.email)
       assert.strictEqual(response.status, 200)
       assert.notProperty(response.body, "passwordRemoved")
+    }),
+  )
+})
+
+describe("sending the password to confirm", () => {
+  it.live("refuses anything but the app's own request", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* registerUser(app)
+      const token = yield* lastEmailedToken(app, user.email)
+      const browser = yield* makeBrowser(app)
+      const send = (headers: Record<string, string>) =>
+        browser.request("/api/auth/verify-email/password", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...headers },
+          body: JSON.stringify({ token, password: defaultPassword }),
+        })
+
+      for (const headers of [
+        {},
+        { ...appRequestHeaders, "sec-fetch-site": "cross-site" },
+        { ...appRequestHeaders, "sec-fetch-site": "same-site" },
+      ]) {
+        assert.strictEqual((yield* send(headers)).status, 403, JSON.stringify(headers))
+      }
+      assert.isUndefined(browser.cookie("session_token"))
+      assert.strictEqual((yield* send(appRequestHeaders)).status, 200)
+    }),
+  )
+
+  it.live("answers a link that can't be used as the page's lookup does", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const browser = yield* makeBrowser(app)
+      const lookup = yield* browser.linkDetails("confirm", "garbage")
+      const response = yield* browser.confirmWithPassword("garbage", defaultPassword)
+      assert.deepStrictEqual(response, lookup)
+    }),
+  )
+
+  it.live("doesn't test passwords against a confirmed account, or sign it in", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const user = yield* createUser(app, { stage: "confirmed" })
+      const browser = yield* makeBrowser(app)
+
+      const wrong = yield* confirmWithPassword(app, browser, user.email, "not the password")
+      const right = yield* confirmWithPassword(app, browser, user.email)
+
+      assert.deepStrictEqual(wrong, right)
+      assert.strictEqual(right.status, 200)
+      assert.isUndefined(browser.cookie("session_token"))
     }),
   )
 })
@@ -346,9 +456,6 @@ describe("registering an address that has an account", () => {
 
       assert.strictEqual(existing.status, created.status)
       assert.deepStrictEqual(neutral(existing.body), neutral(created.body))
-      const cookieName = "__Host-petitionu.password-holder"
-      assert.isDefined(first.cookie(cookieName))
-      assert.isDefined(second.cookie(cookieName))
 
       assert.strictEqual(email.subject, "You already have an account")
       assert.strictEqual(link.pathname, "/sign-in")
@@ -368,9 +475,9 @@ describe("registering an address that has an account", () => {
       assert.strictEqual(result.status, 200)
       assert.strictEqual((yield* passwordSignIn(app, user.email, newPassword)).status, 401)
 
-      // The second registrant's cookie names a made-up account, so it keeps nothing.
-      const click = yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}`)
-      assert.strictEqual(click.status, 409)
+      // The second registrant's password isn't the account's, so it keeps nothing.
+      const wrong = yield* browser.confirmWithPassword(token, newPassword)
+      assert.strictEqual(wrong.status, 400)
     }),
   )
 })

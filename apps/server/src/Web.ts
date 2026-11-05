@@ -57,6 +57,8 @@ export const ShellRoutes = HttpRouter.use(
       }
       const response = HttpServerResponse.html(template.value.replace(headMarker, head.html)).pipe(
         HttpServerResponse.setHeader("cache-control", "no-store"),
+        // Auth pages act on one click, so another site mustn't be able to frame them.
+        HttpServerResponse.setHeader("content-security-policy", "frame-ancestors 'none'"),
       )
       return head.decorate ? head.decorate(response) : response
     })

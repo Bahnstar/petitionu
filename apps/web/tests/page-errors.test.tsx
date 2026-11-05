@@ -68,6 +68,13 @@ function answer(tag: string) {
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
   const url = new URL(request.url)
+  if (url.pathname === "/api/auth/link-details") {
+    return Response.json({
+      email: "student@example.edu",
+      needsPassword: false,
+      signedInAs: null,
+    })
+  }
   if (url.pathname === "/rpc/csrf-token") {
     csrfCalls += 1
     if (csrfFailures > 0) {
@@ -875,6 +882,38 @@ test("a confirmation that removed the password still says so after a full page l
   expect(landed.textContent).toContain("password has been removed")
   expect(landed.querySelector('a[href="/reset"]')).not.toBeNull()
   expect(landed.querySelector(`a[href="${destination}"]`)).not.toBeNull()
+
+  // It's said once: reloading that page has nothing to report.
+  const reloaded = await render(AuthPages, landing)
+  expect(reloaded.textContent).not.toContain("password has been removed")
+})
+
+test("a link can't claim a password was removed", async () => {
+  for (const crafted of ["/auth/confirm?password_removed=1", "/auth/confirm?password_removed"]) {
+    const container = await render(AuthPages, crafted)
+    expect(container.textContent).not.toContain("password has been removed")
+    expect(container.textContent).toContain("invalid or has expired")
+  }
+})
+
+test("a removal that needed no full page load leaves nothing for a later visit", async () => {
+  const container = await render(AuthPages, "/auth/confirm?token=removes-password")
+  await clickThrough(/^Confirm/)(container)
+  expect(container.textContent).toContain("password has been removed")
+
+  const later = await render(AuthPages, "/auth/confirm")
+  expect(later.textContent).not.toContain("password has been removed")
+})
+
+test("a confirmation that kept the password claims nothing after a full page load", async () => {
+  localStorage.setItem("petitionu:return-to", destination)
+  const container = await render(AuthPages, "/auth/confirm?token=tok-1")
+  csrfFailures = 2
+  await clickThrough(/^Confirm/)(container)
+  expect(assign.mock.calls).toEqual([[destination]])
+
+  const later = await render(AuthPages, "/auth/confirm")
+  expect(later.textContent).not.toContain("password has been removed")
 })
 
 // Keep last: it starts the whole app, which stays mounted.

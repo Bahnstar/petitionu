@@ -59,7 +59,7 @@ export const emailsTo = (app: TestApp, to: string) =>
 
 /**
  * Registers through the real sign-up endpoint. The new user is unconfirmed and not signed in;
- * `browser` is the one that registered, so confirming there keeps the password.
+ * `browser` is the one that registered.
  */
 export const registerUser = (
   app: TestApp,
@@ -79,8 +79,8 @@ export const registerUser = (
   })
 
 /**
- * Clicks Confirm on the page the last confirmation email links to. `removePassword` also accepts
- * the warning shown to a browser that didn't use the password.
+ * Clicks a button on the page the last confirmation email links to: Confirm, or with
+ * `removePassword` Continue without password.
  */
 export const clickConfirm = (
   app: TestApp,
@@ -94,15 +94,31 @@ export const clickConfirm = (
     return yield* browser.authGet(`/verify-email?token=${encodeURIComponent(token)}${accept}`)
   })
 
-/** Clicks Confirm, and accepts the warning if `removePassword`; fails unless it confirms. */
+/** Enters a password on the page the last confirmation email links to. */
+export const confirmWithPassword = (
+  app: TestApp,
+  browser: Browser,
+  email: string,
+  password = defaultPassword,
+) =>
+  Effect.gen(function* () {
+    return yield* browser.confirmWithPassword(yield* lastEmailedToken(app, email), password)
+  })
+
+/**
+ * Confirms from the emailed link and fails unless it works: with the account's password, or
+ * without it if `removePassword`.
+ */
 export const confirmEmail = (
   app: TestApp,
   browser: Browser,
   email: string,
-  options: { readonly removePassword?: boolean } = {},
+  options: { readonly removePassword?: boolean; readonly password?: string } = {},
 ) =>
   Effect.gen(function* () {
-    const response = yield* clickConfirm(app, browser, email, options)
+    const response = options.removePassword
+      ? yield* clickConfirm(app, browser, email, options)
+      : yield* confirmWithPassword(app, browser, email, options.password)
     if (response.status !== 200) return yield* fail("confirmation failed", response)
     yield* browser.reloadCsrf
   })

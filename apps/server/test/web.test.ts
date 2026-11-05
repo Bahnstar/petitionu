@@ -32,6 +32,21 @@ describe("static files", () => {
 })
 
 describe("SPA shell", () => {
+  it.live("can't be framed, so a page's buttons can't be clicked from under another site", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      for (const path of ["/ash-typescript", "/auth/confirm?token=x", "/auth/magic?token=x"]) {
+        const response = yield* app.request(path)
+        assert.strictEqual(response.status, 200, path)
+        assert.strictEqual(
+          response.headers.get("content-security-policy"),
+          "frame-ancestors 'none'",
+          path,
+        )
+      }
+    }),
+  )
+
   it.live("serves the shell for the app root and any route under it", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()

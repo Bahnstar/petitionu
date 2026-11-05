@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
+import { appRequestHeader, appRequestHeaders } from "@petitionu/domain"
 import { Effect } from "effect"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp, type TestApp, testOrigin } from "./support/harness.ts"
@@ -39,6 +40,29 @@ const crossSiteRequests = {
     "sec-fetch-dest": "empty",
   },
   "a client that sends no fetch metadata": {},
+  "a same-origin `fetch` without the app's header": {
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "a preflighted `fetch` from another site": {
+    ...appRequestHeaders,
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "a preflighted `fetch` from a sibling subdomain": {
+    ...appRequestHeaders,
+    "sec-fetch-site": "same-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  },
+  "the app's header on a request the browser says the user started": {
+    ...appRequestHeaders,
+    "sec-fetch-site": "none",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document",
+  },
 }
 
 /** A link the attacker can get from their own account, one that signs the opener in. */
@@ -96,12 +120,46 @@ describe("emailed link endpoints", () => {
         assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: true })
       }),
     )
+
+    // Older Safari sends no `Sec-Fetch-*` at all, so the app's header has to be enough.
+    it.live(`/${route} works from a browser that sends no fetch metadata`, () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        const link = yield* craft(app)
+        const browser = yield* makeBrowser(app)
+
+        const response = yield* browser.request(link, { headers: appRequestHeaders })
+
+        assert.strictEqual(response.status, 200)
+        yield* browser.reloadCsrf
+        assert.deepInclude(yield* browser.rpc((api) => api.getMe()), { success: true })
+      }),
+    )
+
+    it.live(`/${route} grants no CORS preflight for the app's header`, () =>
+      Effect.gen(function* () {
+        const app = yield* makeTestApp()
+        const link = yield* craft(app)
+
+        const preflight = yield* app.request(`${testOrigin}${link}`, {
+          method: "OPTIONS",
+          headers: {
+            origin: evilOrigin,
+            "access-control-request-method": "GET",
+            "access-control-request-headers": appRequestHeader,
+          },
+        })
+
+        assert.isFalse(preflight.ok, String(preflight.status))
+        assert.isFalse(preflight.headers.has("access-control-allow-origin"))
+        assert.isFalse(preflight.headers.has("access-control-allow-headers"))
+        assert.isFalse(preflight.headers.has("access-control-allow-credentials"))
+      }),
+    )
   }
 })
 
 describe("plain HTTP", () => {
-  // `Secure` cookies are dropped on a plain HTTP name, so no account may be started from one: the
-  // password-holder cookie would be lost, and its owner couldn't keep the password on Confirm.
   it.live("can't register: only the https origin is accepted", () =>
     Effect.gen(function* () {
       const app = yield* makeTestApp()
@@ -120,33 +178,6 @@ describe("plain HTTP", () => {
       assert.strictEqual(response.status, 403)
       assert.isEmpty(response.headers.getSetCookie())
       assert.isEmpty(yield* app.sql`SELECT 1 FROM users WHERE email = ${email}`.pipe(Effect.orDie))
-    }),
-  )
-
-  it.live("a registering browser's cookie is one a browser will accept as `__Host-`", () =>
-    Effect.gen(function* () {
-      const app = yield* makeTestApp()
-      const email = uniqueEmail()
-      const browser = yield* makeBrowser(app)
-      const response = yield* browser.request("/api/auth/sign-up/email", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password: "correct horse battery",
-          passwordConfirmation: "correct horse battery",
-          name: "",
-        }),
-      })
-
-      const cookie = response.headers
-        .getSetCookie()
-        .find((header) => header.startsWith("__Host-petitionu.password-holder="))
-      assert.match(cookie ?? "", /; Secure/i)
-      assert.match(cookie ?? "", /; Path=\//i)
-      assert.match(cookie ?? "", /; HttpOnly/i)
-      assert.match(cookie ?? "", /; SameSite=Lax/i)
-      assert.notMatch(cookie ?? "", /; Domain=/i)
     }),
   )
 })
@@ -172,8 +203,7 @@ describe("other ways to sign a browser in from another site", () => {
     name: "",
   }
 
-  // The browser that used a password keeps it when confirming, so a page must not be able to
-  // register an address, or try its password, from the owner's own browser.
+  // A page must not be able to register an address, or try its password, from a visitor's browser.
   for (const path of ["/sign-up/email", "/sign-in/email"]) {
     it.live(`${path} rejects a cross-site POST`, () =>
       Effect.gen(function* () {

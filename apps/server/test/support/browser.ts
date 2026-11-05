@@ -1,4 +1,4 @@
-import { type ApiClient, makeApiClient } from "@petitionu/domain"
+import { type ApiClient, appRequestHeaders, makeApiClient } from "@petitionu/domain"
 import { Effect } from "effect"
 import { type TestApp, testOrigin } from "./harness.ts"
 
@@ -17,6 +17,16 @@ export interface Browser {
   auth(path: string, body?: unknown): Effect.Effect<{ readonly status: number; readonly body: any }>
   /** GETs a Better Auth endpoint like the app's own `fetch`; returns status and body. */
   authGet(path: string): Effect.Effect<{ readonly status: number; readonly body: any }>
+  /** Asks what an emailed link is for, as its page does on load. */
+  linkDetails(
+    purpose: "confirm" | "magic",
+    token: string,
+  ): Effect.Effect<{ readonly status: number; readonly body: any }>
+  /** Submits the Confirm page's password; returns status and body. */
+  confirmWithPassword(
+    token: string,
+    password: string,
+  ): Effect.Effect<{ readonly status: number; readonly body: any }>
   /** The cookie value named `name` (any prefix), if set. */
   cookie(name: string): string | undefined
   /** The cookie header this browser sends. */
@@ -112,10 +122,31 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       Effect.gen(function* () {
         const response = yield* request(`/api/auth${path}`, {
           headers: {
+            ...appRequestHeaders,
             "sec-fetch-site": "same-origin",
             "sec-fetch-mode": "cors",
             "sec-fetch-dest": "empty",
           },
+        })
+        return { status: response.status, body: yield* json(response) }
+      })
+
+    const linkDetails = (purpose: "confirm" | "magic", token: string) =>
+      Effect.gen(function* () {
+        const response = yield* request("/api/auth/link-details", {
+          method: "POST",
+          headers: { ...appRequestHeaders, "content-type": "application/json" },
+          body: JSON.stringify({ purpose, token }),
+        })
+        return { status: response.status, body: yield* json(response) }
+      })
+
+    const confirmWithPassword = (token: string, password: string) =>
+      Effect.gen(function* () {
+        const response = yield* request("/api/auth/verify-email/password", {
+          method: "POST",
+          headers: { ...appRequestHeaders, "content-type": "application/json" },
+          body: JSON.stringify({ token, password }),
         })
         return { status: response.status, body: yield* json(response) }
       })
@@ -158,6 +189,8 @@ export const makeBrowser = (app: TestApp): Effect.Effect<Browser> =>
       request,
       auth,
       authGet,
+      linkDetails,
+      confirmWithPassword,
       cookie,
       cookieHeader,
       reloadCsrf,
