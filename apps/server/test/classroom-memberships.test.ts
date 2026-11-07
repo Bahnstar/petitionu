@@ -7,10 +7,13 @@ import {
   createProfessor,
   createStudent,
   failure,
+  insertClassroom,
   ok,
   seedMembership,
+  setClassroomArchived,
 } from "./support/classrooms.ts"
 import { makeTestApp, type TestApp, testOrigin } from "./support/harness.ts"
+import type { TestUser } from "./support/users.ts"
 
 const join = (user: { readonly browser: Browser }, joinCode: string) =>
   user.browser.rpc((api) => api.joinClassroomByCode({ joinCode }))
@@ -26,7 +29,9 @@ const setup = Effect.gen(function* () {
 
 const membershipStatus = (app: TestApp, id: string) =>
   Effect.map(
-    app.sql<{ status: string }>`SELECT status FROM classroom_memberships WHERE id = ${id}`,
+    app.sql<{
+      status: string
+    }>`SELECT status FROM classroom_memberships WHERE id = ${id}`,
     (rows) => rows[0]?.status,
   ).pipe(Effect.orDie)
 
@@ -44,7 +49,10 @@ describe("joining a classroom", () => {
       assert.strictEqual(membership.role, "student")
       assert.strictEqual(membership.status, "active")
       assert.isNotNull(membership.joinedAt)
-      assert.deepStrictEqual(membership.classroom, { id: classroom.id, name: "Civics" })
+      assert.deepStrictEqual(membership.classroom, {
+        id: classroom.id,
+        name: "Civics",
+      })
 
       const joined = yield* ok(
         yield* student.browser.rpc((api) => api.getClassroomById({ id: classroom.id })),
@@ -144,7 +152,11 @@ describe("joining a classroom", () => {
           _tag: "Request",
           id: "1",
           tag: "joinClassroomByCode",
-          payload: { joinCode: classroom.joinCode, role: "ta", userId: professor.id },
+          payload: {
+            joinCode: classroom.joinCode,
+            role: "ta",
+            userId: professor.id,
+          },
           headers: [],
         }),
       })
@@ -172,7 +184,10 @@ describe("invitations and requests", () => {
       const { app, professor, student, classroom } = yield* setup
       const invited = yield* ok(
         yield* professor.browser.rpc((api) =>
-          api.inviteToClassroom({ classroomId: classroom.id, email: student.email.toUpperCase() }),
+          api.inviteToClassroom({
+            classroomId: classroom.id,
+            email: student.email.toUpperCase(),
+          }),
         ),
       )
       assert.strictEqual(invited.status, "pending")
@@ -201,7 +216,10 @@ describe("invitations and requests", () => {
       const { professor, classroom } = yield* setup
       const errors = yield* failure(
         yield* professor.browser.rpc((api) =>
-          api.inviteToClassroom({ classroomId: classroom.id, email: "nobody@example.edu" }),
+          api.inviteToClassroom({
+            classroomId: classroom.id,
+            email: "nobody@example.edu",
+          }),
         ),
       )
       assert.deepStrictEqual(errors, [
@@ -233,7 +251,12 @@ describe("invitations and requests", () => {
         .pipe(Effect.orDie, Effect.forkChild)
       yield* Deferred.await(locked)
       const invite = yield* ta.browser
-        .rpc((api) => api.inviteToClassroom({ classroomId: classroom.id, email: invitee.email }))
+        .rpc((api) =>
+          api.inviteToClassroom({
+            classroomId: classroom.id,
+            email: invitee.email,
+          }),
+        )
         .pipe(Effect.forkChild)
       yield* Effect.sleep("300 millis")
       yield* Deferred.succeed(demote, undefined)
@@ -354,7 +377,11 @@ describe("teaching assistants", () => {
       const invitee = yield* createStudent(app)
       const inviteTa = yield* failure(
         yield* ta.browser.rpc((api) =>
-          api.inviteToClassroom({ classroomId: classroom.id, email: invitee.email, role: "ta" }),
+          api.inviteToClassroom({
+            classroomId: classroom.id,
+            email: invitee.email,
+            role: "ta",
+          }),
         ),
       )
       assert.strictEqual(inviteTa[0]!.type, "forbidden")
@@ -380,7 +407,10 @@ describe("teaching assistants", () => {
 
       const invited = yield* ok(
         yield* ta.browser.rpc((api) =>
-          api.inviteToClassroom({ classroomId: classroom.id, email: student.email }),
+          api.inviteToClassroom({
+            classroomId: classroom.id,
+            email: student.email,
+          }),
         ),
       )
       assert.strictEqual(invited.invitedById, ta.id)
@@ -410,7 +440,11 @@ describe("teaching assistants", () => {
       const { professor, student, classroom } = yield* setup
       const invited = yield* ok(
         yield* professor.browser.rpc((api) =>
-          api.inviteToClassroom({ classroomId: classroom.id, email: student.email, role: "ta" }),
+          api.inviteToClassroom({
+            classroomId: classroom.id,
+            email: student.email,
+            role: "ta",
+          }),
         ),
       )
       assert.strictEqual(invited.role, "ta")
@@ -489,6 +523,247 @@ describe("rosters and leaving", () => {
         assert.strictEqual(errors[0]!.type, "forbidden")
         assert.strictEqual(yield* membershipStatus(app, id), status)
       }
+    }),
+  )
+})
+
+describe("membership eligibility", () => {
+  /** The roster entry `id` as `user` reads it, or undefined when it isn't on their roster. */
+  const rosterEntry = (user: TestUser, classroomId: string, id: string) =>
+    Effect.gen(function* () {
+      const roster = yield* ok(
+        yield* user.browser.rpc((api) => api.getMembershipsForClassroom({ classroomId })),
+      )
+      const pending = yield* ok(
+        yield* user.browser.rpc((api) => api.getPendingMemberships({ classroomId })),
+      )
+      const entry = roster.find((m) => m.id === id)
+      const pendingEntry = pending.find((m) => m.id === id)
+      if (entry?.status === "pending") assert.deepStrictEqual(pendingEntry, entry)
+      return entry
+    })
+
+  const eligibility = (entry: {
+    readonly canApprove: boolean
+    readonly canRemove: boolean
+    readonly canChangeRole: boolean
+  }) => ({
+    canApprove: entry.canApprove,
+    canRemove: entry.canRemove,
+    canChangeRole: entry.canChangeRole,
+  })
+
+  /**
+   * Seeds two pending requests and an active student, then checks that what `actor` is told
+   * about each matches what the write does: approve one request, decline the other, promote
+   * the student, then remove them. A membership off the actor's roster must be not found.
+   */
+  const agrees = (
+    app: TestApp,
+    actor: TestUser,
+    classroomId: string,
+    expected: { readonly manages: boolean; readonly changesRoles: boolean },
+    archived: boolean,
+  ) =>
+    Effect.gen(function* () {
+      const [a, b, c] = yield* Effect.all(Array.from({ length: 3 }, () => createStudent(app)))
+      const toApprove = yield* seedMembership(app, classroomId, a!.id, "pending")
+      const toDecline = yield* seedMembership(app, classroomId, b!.id, "pending")
+      const active = yield* seedMembership(app, classroomId, c!.id, "active")
+
+      const writes = [
+        [
+          toApprove,
+          (id: string) => actor.browser.rpc((api) => api.approveMembership({ id })),
+          "canApprove",
+        ],
+        [
+          toDecline,
+          (id: string) => actor.browser.rpc((api) => api.removeFromClassroom({ id })),
+          "canRemove",
+        ],
+        [
+          active,
+          (id: string) => actor.browser.rpc((api) => api.promoteToTa({ id })),
+          "canChangeRole",
+        ],
+        [
+          active,
+          (id: string) => actor.browser.rpc((api) => api.removeFromClassroom({ id })),
+          "canRemove",
+        ],
+      ] as const
+
+      for (const [id, write, flag] of writes) {
+        const entry = yield* rosterEntry(actor, classroomId, id)
+        if (expected.manages) {
+          assert.isDefined(entry)
+          const isPending = entry!.status === "pending"
+          assert.deepStrictEqual(eligibility(entry!), {
+            canApprove: isPending && !archived,
+            canRemove: true,
+            canChangeRole: expected.changesRoles && !isPending,
+          })
+        } else {
+          assert.isUndefined(entry)
+        }
+        const result = yield* write(id)
+        if (entry?.[flag]) {
+          yield* ok(result)
+        } else {
+          const errors = yield* failure(result)
+          assert.strictEqual(errors[0]!.type, entry === undefined ? "not_found" : "forbidden")
+        }
+      }
+    })
+
+  it.live("roster eligibility agrees with the writes for every actor, archived or not", () =>
+    Effect.gen(function* () {
+      const { app, professor, student, classroom } = yield* setup
+      const [activeTa, pendingTa, removedTa, outsider] = yield* Effect.all(
+        Array.from({ length: 4 }, () => createStudent(app)),
+      )
+      yield* seedMembership(app, classroom.id, activeTa!.id, "active", "ta")
+      const pendingTaRow = yield* seedMembership(app, classroom.id, pendingTa!.id, "pending", "ta")
+      const removedTaRow = yield* seedMembership(app, classroom.id, removedTa!.id, "removed", "ta")
+      const studentRow = yield* seedMembership(app, classroom.id, student.id, "active")
+
+      const actors = [
+        [professor, { manages: true, changesRoles: true }],
+        [activeTa!, { manages: true, changesRoles: false }],
+        [pendingTa!, { manages: false, changesRoles: false }],
+        [removedTa!, { manages: false, changesRoles: false }],
+        [student, { manages: false, changesRoles: false }],
+        [outsider!, { manages: false, changesRoles: false }],
+      ] as const
+
+      for (const archived of [false, true]) {
+        yield* setClassroomArchived(app, classroom.id, archived)
+        for (const [actor, expected] of actors) {
+          yield* agrees(app, actor, classroom.id, expected, archived)
+        }
+      }
+
+      // Each actor's own membership: only an active student may leave it.
+      const none = {
+        canApprove: false,
+        canRemove: false,
+        canChangeRole: false,
+      }
+      for (const [user, row, expected] of [
+        [pendingTa!, pendingTaRow, none],
+        [removedTa!, removedTaRow, none],
+        [student, studentRow, { ...none, canRemove: true }],
+      ] as const) {
+        const own = yield* rosterEntry(user, classroom.id, row)
+        assert.deepStrictEqual(eligibility(own!), expected)
+      }
+    }),
+  )
+
+  it.live("only active members change role, and a removed membership can't be removed again", () =>
+    Effect.gen(function* () {
+      const { app, professor, student, classroom } = yield* setup
+      const pending = yield* seedMembership(app, classroom.id, student.id, "pending")
+      const other = yield* createStudent(app)
+      const removed = yield* seedMembership(app, classroom.id, other.id, "removed")
+
+      const pendingEntry = yield* rosterEntry(professor, classroom.id, pending)
+      assert.deepStrictEqual(eligibility(pendingEntry!), {
+        canApprove: true,
+        canRemove: true,
+        canChangeRole: false,
+      })
+      const removedEntry = yield* rosterEntry(professor, classroom.id, removed)
+      assert.deepStrictEqual(eligibility(removedEntry!), {
+        canApprove: false,
+        canRemove: false,
+        canChangeRole: false,
+      })
+      for (const result of [
+        yield* professor.browser.rpc((api) => api.promoteToTa({ id: pending })),
+        yield* professor.browser.rpc((api) => api.promoteToTa({ id: removed })),
+        yield* professor.browser.rpc((api) => api.demoteToStudent({ id: removed })),
+        yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: removed })),
+      ]) {
+        assert.strictEqual((yield* failure(result))[0]!.type, "forbidden")
+      }
+      assert.strictEqual(yield* membershipStatus(app, pending), "pending")
+    }),
+  )
+
+  it.live("an unconfirmed professor is offered no membership changes", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app, { stage: "unconfirmed" })
+      const classroom = yield* insertClassroom(app, {
+        professorId: professor.id,
+      })
+      const student = yield* createStudent(app)
+      const pending = yield* seedMembership(app, classroom.id, student.id, "pending")
+      const entry = yield* rosterEntry(professor, classroom.id, pending)
+      assert.deepStrictEqual(eligibility(entry!), {
+        canApprove: false,
+        canRemove: false,
+        canChangeRole: false,
+      })
+      for (const result of [
+        yield* professor.browser.rpc((api) => api.approveMembership({ id: pending })),
+        yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: pending })),
+        yield* professor.browser.rpc((api) => api.promoteToTa({ id: pending })),
+      ]) {
+        assert.strictEqual((yield* failure(result))[0]!.type, "forbidden")
+      }
+    }),
+  )
+
+  it.live("eligibility follows TA demotion, removal and archiving", () =>
+    Effect.gen(function* () {
+      const { app, professor, student, classroom } = yield* setup
+      const ta = yield* createStudent(app)
+      const taRow = yield* seedMembership(app, classroom.id, ta.id, "active", "ta")
+      const pending = yield* seedMembership(app, classroom.id, student.id, "pending")
+      const asTa = yield* rosterEntry(ta, classroom.id, pending)
+      assert.deepStrictEqual(eligibility(asTa!), {
+        canApprove: true,
+        canRemove: true,
+        canChangeRole: false,
+      })
+
+      // Demoted: the request leaves the roster, and the write the old entry offered fails.
+      yield* ok(yield* professor.browser.rpc((api) => api.demoteToStudent({ id: taRow })))
+      assert.isUndefined(yield* rosterEntry(ta, classroom.id, pending))
+      const demoted = yield* failure(
+        yield* ta.browser.rpc((api) => api.approveMembership({ id: pending })),
+      )
+      assert.strictEqual(demoted[0]!.type, "not_found")
+
+      // Removed after a promotion back: the same.
+      yield* ok(yield* professor.browser.rpc((api) => api.promoteToTa({ id: taRow })))
+      assert.isTrue((yield* rosterEntry(ta, classroom.id, pending))!.canApprove)
+      yield* ok(yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: taRow })))
+      assert.isUndefined(yield* rosterEntry(ta, classroom.id, pending))
+      const removed = yield* failure(
+        yield* ta.browser.rpc((api) => api.approveMembership({ id: pending })),
+      )
+      assert.strictEqual(removed[0]!.type, "not_found")
+      assert.strictEqual(yield* membershipStatus(app, pending), "pending")
+
+      // Archiving withdraws approval but not declining; unarchiving restores it.
+      yield* ok(yield* professor.browser.rpc((api) => api.archiveClassroom({ id: classroom.id })))
+      const archived = yield* rosterEntry(professor, classroom.id, pending)
+      assert.isFalse(archived!.canApprove)
+      assert.isTrue(archived!.canRemove)
+      yield* ok(yield* professor.browser.rpc((api) => api.unarchiveClassroom({ id: classroom.id })))
+      const approved = yield* ok(
+        yield* professor.browser.rpc((api) => api.approveMembership({ id: pending })),
+      )
+      // A write returns the membership with the caller's eligibility after the change.
+      assert.deepStrictEqual(eligibility(approved), {
+        canApprove: false,
+        canRemove: true,
+        canChangeRole: true,
+      })
     }),
   )
 })

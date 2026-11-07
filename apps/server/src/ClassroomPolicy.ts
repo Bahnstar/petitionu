@@ -47,9 +47,11 @@ export const membershipVisible = (sql: SqlClient.SqlClient, actorId: string) => 
 export const authorizeCreateClassroom = (user: SignedIn) =>
   user.role === "professor" || user.role === "admin" ? Effect.void : Effect.fail(forbidden)
 
+export const isConfirmed = (user: SignedIn) => user.confirmedAt !== null
+
 /** Unconfirmed users can't create, change or remove memberships. */
 export const requireConfirmed = (user: SignedIn) =>
-  user.confirmedAt === null ? Effect.fail(forbidden) : Effect.void
+  isConfirmed(user) ? Effect.void : Effect.fail(forbidden)
 
 /** The columns of a membership being changed that the decisions look at. */
 export interface MembershipTarget {
@@ -81,10 +83,42 @@ export const canInvite = (
 export const canApprove = (user: SignedIn, target: MembershipTarget) =>
   isStaff(user, target) && target.status === "pending" && !target.archived
 
-/** Removing: staff remove anyone; an active student may leave. */
+/**
+ * Removing or declining a membership not already removed: staff remove anyone, an active TA
+ * included; an active student may leave.
+ */
 export const canRemove = (user: SignedIn, target: MembershipTarget) =>
-  isStaff(user, target) ||
-  (target.userId === user.id && target.role === "student" && target.status === "active")
+  target.status !== "removed" &&
+  (isStaff(user, target) ||
+    (target.userId === user.id && target.role === "student" && target.status === "active"))
 
-/** Promoting and demoting TAs: the professor only. */
-export const canChangeRole = isProfessor
+/** Promoting and demoting an active member: the professor only. */
+export const canChangeRole = (user: SignedIn, target: MembershipTarget) =>
+  isProfessor(user, target) && target.status === "active"
+
+/**
+ * What the actor may do to a classroom, for the classroom DTO. Editing, archiving and the join
+ * code are the professor's (`isProfessor`); managing members needs a confirmed professor or
+ * active TA, as the membership writes enforce. Each membership's `membershipEligibility` says
+ * which actions apply to it.
+ */
+export const classroomEligibility = (
+  user: SignedIn,
+  target: Pick<MembershipTarget, "professorId" | "actorIsTa">,
+) => ({
+  canManageClassroom: isProfessor(user, target),
+  canManageMembers: isConfirmed(user) && isStaff(user, target),
+})
+
+/**
+ * What the actor may do to a membership, for the membership DTO: the same decisions the writes
+ * make after `requireConfirmed`.
+ */
+export const membershipEligibility = (user: SignedIn, target: MembershipTarget) => {
+  const confirmed = isConfirmed(user)
+  return {
+    canApprove: confirmed && canApprove(user, target),
+    canRemove: confirmed && canRemove(user, target),
+    canChangeRole: confirmed && canChangeRole(user, target),
+  }
+}

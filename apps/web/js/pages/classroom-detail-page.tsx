@@ -84,7 +84,7 @@ export default function ClassroomDetailPage() {
         {!classroom?.archived &&
           currentUser?.emailVerified &&
           currentUser.profileComplete &&
-          (classroom?.allowStudentPetitions || isProfessor) && (
+          (classroom?.allowStudentPetitions || canManageClassroom) && (
             <Button asChild>
               <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -204,6 +204,8 @@ export default function ClassroomDetailPage() {
     onSuccess: () => {
       setSuccess("Classroom archived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
+      // Archiving withdraws approval of pending requests.
+      queryClient.invalidateQueries({ queryKey: ["classroomMemberships", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
@@ -219,6 +221,8 @@ export default function ClassroomDetailPage() {
     onSuccess: () => {
       setSuccess("Classroom unarchived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
+      // Unarchiving offers approval of pending requests again.
+      queryClient.invalidateQueries({ queryKey: ["classroomMemberships", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
@@ -273,22 +277,16 @@ export default function ClassroomDetailPage() {
   const classroom = classroomQuery.data
   const petitions = petitionsQuery.data || []
   const memberships = membershipsQuery.data || []
-  const isProfessor = classroom?.professorId === currentUserId
-  const isActiveTa =
-    !!currentUserId &&
-    memberships.some(
-      (membership) =>
-        membership.user?.id === currentUserId &&
-        membership.role === "ta" &&
-        membership.status === "active",
-    )
-
-  const canManage = isProfessor || isActiveTa
+  // The server says what this user may do, with the same rules it enforces.
+  const canManageClassroom = classroom?.canManageClassroom ?? false
+  const canManage = classroom?.canManageMembers ?? false
+  // The membership this user may leave: their own active one, as a student or a TA. The member
+  // list doesn't offer Remove on it, because leaving also has to take the user off the page.
   const ownMembership = memberships.find(
     (membership) =>
-      membership.user?.id === currentUserId &&
-      membership.role === "student" &&
-      membership.status === "active",
+      membership.user.id === currentUserId &&
+      membership.status === "active" &&
+      membership.canRemove,
   )
   const pendingCount = memberships.filter((membership) => membership.status === "pending").length
 
@@ -332,7 +330,7 @@ export default function ClassroomDetailPage() {
           {!classroom?.archived &&
             currentUser?.emailVerified &&
             currentUser.profileComplete &&
-            (classroom?.allowStudentPetitions || isProfessor) && (
+            (classroom?.allowStudentPetitions || canManageClassroom) && (
               <Button asChild>
                 <Link to={ROUTES.createPetitionWithClassroom(id!)}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -388,7 +386,7 @@ export default function ClassroomDetailPage() {
         memberships={memberships}
         classroomId={id!}
         canManage={canManage}
-        canChangeRoles={isProfessor}
+        currentUserId={currentUserId}
       />
     )
   }
@@ -420,7 +418,7 @@ export default function ClassroomDetailPage() {
           </div>
         </div>
 
-        {isProfessor && (
+        {canManageClassroom && (
           <div className="flex items-center gap-2">
             {classroom?.archived ? (
               <Button
@@ -470,7 +468,7 @@ export default function ClassroomDetailPage() {
 
   function renderJoinCode() {
     return (
-      isProfessor && (
+      canManageClassroom && (
         <Card className="gap-0 rounded-2xl border-[#e8d9c3] bg-[#f7e8d2] p-6 shadow-none">
           <h3 className="mb-4 font-display text-2xl font-normal text-foreground">Join code</h3>
           <p className="mb-3 text-sm text-muted-foreground">
@@ -542,8 +540,7 @@ export default function ClassroomDetailPage() {
 
   function renderLeaveClassroom() {
     return (
-      ownMembership &&
-      !isProfessor && (
+      ownMembership && (
         <div id="leave-classroom" className="mb-6">
           <Button
             variant="outline"
