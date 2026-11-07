@@ -6,8 +6,10 @@ import {
   createProfessor,
   createStudent,
   failure,
+  insertClassroom,
   ok,
   seedMembership,
+  setClassroomArchived,
 } from "./support/classrooms.ts"
 import { makeBrowser } from "./support/browser.ts"
 import { makeTestApp, type TestApp } from "./support/harness.ts"
@@ -59,7 +61,11 @@ describe("classrooms", () => {
         name: "Civics",
         memberCount: 0,
         petitionCount: 0,
-        professor: { id: professor.id, firstName: "Pat", lastName: "Professor" },
+        professor: {
+          id: professor.id,
+          firstName: "Pat",
+          lastName: "Professor",
+        },
       })
     }),
   )
@@ -134,17 +140,26 @@ describe("classrooms", () => {
 
       const unconfirmed = yield* createProfessor(app, { stage: "unconfirmed" })
       assert.deepStrictEqual(yield* failure(yield* create(unconfirmed)), [
-        { type: "invalid", message: "Confirm your email before participating." },
+        {
+          type: "invalid",
+          message: "Confirm your email before participating.",
+        },
       ])
       const confirmed = yield* createProfessor(app, { stage: "confirmed" })
       assert.deepStrictEqual(yield* failure(yield* create(confirmed)), [
-        { type: "invalid", message: "Complete your campus profile before participating." },
+        {
+          type: "invalid",
+          message: "Complete your campus profile before participating.",
+        },
       ])
       yield* app.sql`UPDATE users SET first_name = '  ' WHERE id = ${professor.id}`.pipe(
         Effect.orDie,
       )
       assert.deepStrictEqual(yield* failure(yield* create(professor)), [
-        { type: "invalid", message: "Complete your campus profile before participating." },
+        {
+          type: "invalid",
+          message: "Complete your campus profile before participating.",
+        },
       ])
 
       const guest = yield* makeBrowser(app)
@@ -167,7 +182,11 @@ describe("classrooms", () => {
         { type: "invalid", field: "name", message: "is required" },
       ])
       assert.deepStrictEqual(yield* failure(yield* create("x".repeat(256))), [
-        { type: "invalid", field: "name", message: "length must be less than or equal to 255" },
+        {
+          type: "invalid",
+          field: "name",
+          message: "length must be less than or equal to 255",
+        },
       ])
       assert.deepStrictEqual(yield* failure(yield* create("Civics", "x".repeat(2001))), [
         {
@@ -386,7 +405,9 @@ describe("classrooms", () => {
       yield* updatePetitionRow(app, hidden.id, { hidden_at: new Date() })
       // Neither of these is in the classroom's list.
       yield* addPetition(null)
-      const elsewhere = yield* createClassroom(professor, { name: "Elsewhere" })
+      const elsewhere = yield* createClassroom(professor, {
+        name: "Elsewhere",
+      })
       yield* addPetition(elsewhere.id)
 
       for (const user of [professor, student, ta, admin]) {
@@ -411,7 +432,9 @@ describe("classrooms", () => {
       const professor = yield* createProfessor(app)
       const first = yield* createClassroom(professor, { name: "Class 00" })
       for (let index = 1; index <= 13; index++) {
-        yield* createClassroom(professor, { name: `Class ${String(index).padStart(2, "0")}` })
+        yield* createClassroom(professor, {
+          name: `Class ${String(index).padStart(2, "0")}`,
+        })
       }
       yield* ok(yield* professor.browser.rpc((api) => api.archiveClassroom({ id: first.id })))
 
@@ -439,6 +462,107 @@ describe("classrooms", () => {
       const all = yield* ok(yield* professor.browser.rpc((api) => api.getMyClassrooms({})))
       assert.strictEqual(all.results.length, 14)
       assert.strictEqual(all.count, 14)
+    }),
+  )
+})
+
+describe("classroom eligibility", () => {
+  /** The caller's eligibility from every reading, which must agree; null when none reads it. */
+  const eligibility = (user: TestUser, id: string) =>
+    Effect.gen(function* () {
+      const byId = yield* user.browser.rpc((api) => api.getClassroomById({ id }))
+      if (!byId.success) {
+        assert.strictEqual(byId.errors[0]!.type, "not_found")
+        const list = yield* ok(yield* user.browser.rpc((api) => api.getClassrooms()))
+        assert.isUndefined(list.find((c) => c.id === id))
+        return null
+      }
+      const flags = (yield* readings(user, id)).map(
+        ({ canManageClassroom, canManageMembers, canChangeRoles }) => ({
+          canManageClassroom,
+          canManageMembers,
+          canChangeRoles,
+        }),
+      )
+      assert.deepStrictEqual(flags[1], flags[0])
+      assert.deepStrictEqual(flags[2], flags[0])
+      return flags[0]!
+    })
+
+  const flags = (
+    canManageClassroom: boolean,
+    canManageMembers: boolean,
+    canChangeRoles: boolean,
+  ) => ({
+    canManageClassroom,
+    canManageMembers,
+    canChangeRoles,
+  })
+
+  it.live("each actor gets their own eligibility, archived or not", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app)
+      const classroom = yield* createClassroom(professor)
+      const [activeTa, pendingTa, removedTa, student, outsider] = yield* Effect.all(
+        Array.from({ length: 5 }, () => createStudent(app)),
+      )
+      yield* seedMembership(app, classroom.id, activeTa!.id, "active", "ta")
+      yield* seedMembership(app, classroom.id, pendingTa!.id, "pending", "ta")
+      yield* seedMembership(app, classroom.id, removedTa!.id, "removed", "ta")
+      yield* seedMembership(app, classroom.id, student!.id, "active")
+
+      for (const archived of [false, true]) {
+        yield* setClassroomArchived(app, classroom.id, archived)
+        assert.deepStrictEqual(yield* eligibility(professor, classroom.id), flags(true, true, true))
+        assert.deepStrictEqual(
+          yield* eligibility(activeTa!, classroom.id),
+          flags(false, true, false),
+        )
+        assert.deepStrictEqual(
+          yield* eligibility(student!, classroom.id),
+          flags(false, false, false),
+        )
+        for (const unrelated of [pendingTa!, removedTa!, outsider!]) {
+          assert.isNull(yield* eligibility(unrelated, classroom.id))
+        }
+      }
+    }),
+  )
+
+  it.live("an unconfirmed professor manages the classroom but not its members", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app, { stage: "unconfirmed" })
+      const classroom = yield* insertClassroom(app, {
+        professorId: professor.id,
+      })
+      assert.deepStrictEqual(yield* eligibility(professor, classroom.id), flags(true, false, false))
+      // As the writes decide: archiving needs only the professor.
+      const archived = yield* ok(
+        yield* professor.browser.rpc((api) => api.archiveClassroom({ id: classroom.id })),
+      )
+      assert.isTrue(archived.canManageClassroom)
+      assert.isFalse(archived.canManageMembers)
+    }),
+  )
+
+  it.live("a TA demoted or removed loses member management at once", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const professor = yield* createProfessor(app)
+      const classroom = yield* createClassroom(professor)
+      const ta = yield* createStudent(app)
+      const membership = yield* seedMembership(app, classroom.id, ta.id, "active", "ta")
+      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, true, false))
+
+      yield* ok(yield* professor.browser.rpc((api) => api.demoteToStudent({ id: membership })))
+      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, false, false))
+
+      yield* ok(yield* professor.browser.rpc((api) => api.promoteToTa({ id: membership })))
+      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, true, false))
+      yield* ok(yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: membership })))
+      assert.isNull(yield* eligibility(ta, classroom.id))
     }),
   )
 })

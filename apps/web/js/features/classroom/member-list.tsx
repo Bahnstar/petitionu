@@ -13,16 +13,11 @@ type Membership = MembershipDto
 interface MemberListProps {
   memberships: ReadonlyArray<Membership>
   classroomId: string
+  /** The classroom's `canManageMembers`; each membership says which actions apply to it. */
   canManage?: boolean
-  canChangeRoles?: boolean
 }
 
-export function MemberList({
-  memberships,
-  classroomId,
-  canManage = false,
-  canChangeRoles = false,
-}: MemberListProps) {
+export function MemberList({ memberships, classroomId, canManage = false }: MemberListProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(0)
@@ -175,31 +170,35 @@ export function MemberList({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    aria-label={`Approve ${membership.memberName || "member"}`}
-                    onClick={() => approveMutation.mutate(membership.id)}
-                    disabled={isLoading}
-                  >
-                    {approveMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    aria-label={`Decline ${membership.memberName || "member"}’s request`}
-                    variant="outline"
-                    onClick={() => removeMutation.mutate(membership.id)}
-                    disabled={isLoading}
-                  >
-                    {removeMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <X className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {membership.canApprove && (
+                    <Button
+                      size="sm"
+                      aria-label={`Approve ${membership.memberName || "member"}`}
+                      onClick={() => approveMutation.mutate(membership.id)}
+                      disabled={isLoading}
+                    >
+                      {approveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+                  {membership.canRemove && (
+                    <Button
+                      size="sm"
+                      aria-label={`Decline ${membership.memberName || "member"}’s request`}
+                      variant="outline"
+                      onClick={() => removeMutation.mutate(membership.id)}
+                      disabled={isLoading}
+                    >
+                      {removeMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -241,7 +240,7 @@ export function MemberList({
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-2">
-                    {canChangeRoles &&
+                    {membership.canChangeRole &&
                       (membership.role === "student" ? (
                         <Button
                           size="sm"
@@ -273,20 +272,22 @@ export function MemberList({
                           )}
                         </Button>
                       ))}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => removeMutation.mutate(membership.id)}
-                      disabled={isLoading}
-                      title="Remove member"
-                      aria-label={`Remove ${membership.memberName || "member"} from classroom`}
-                    >
-                      {removeMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {membership.canRemove && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeMutation.mutate(membership.id)}
+                        disabled={isLoading}
+                        title="Remove member"
+                        aria-label={`Remove ${membership.memberName || "member"} from classroom`}
+                      >
+                        {removeMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

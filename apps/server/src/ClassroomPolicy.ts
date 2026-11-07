@@ -48,8 +48,10 @@ export const authorizeCreateClassroom = (user: SignedIn) =>
   user.role === "professor" || user.role === "admin" ? Effect.void : Effect.fail(forbidden)
 
 /** Unconfirmed users can't create, change or remove memberships. */
+export const isConfirmed = (user: SignedIn) => user.confirmedAt !== null
+
 export const requireConfirmed = (user: SignedIn) =>
-  user.confirmedAt === null ? Effect.fail(forbidden) : Effect.void
+  isConfirmed(user) ? Effect.void : Effect.fail(forbidden)
 
 /** The columns of a membership being changed that the decisions look at. */
 export interface MembershipTarget {
@@ -88,3 +90,31 @@ export const canRemove = (user: SignedIn, target: MembershipTarget) =>
 
 /** Promoting and demoting TAs: the professor only. */
 export const canChangeRole = isProfessor
+
+/**
+ * What the actor may do to a classroom, for the classroom DTO. Editing, archiving and the join
+ * code are the professor's (`isProfessor`); approving and removing members need a confirmed
+ * professor or active TA, and changing roles a confirmed professor, as the membership writes
+ * enforce.
+ */
+export const classroomEligibility = (
+  user: SignedIn,
+  target: Pick<MembershipTarget, "professorId" | "actorIsTa">,
+) => ({
+  canManageClassroom: isProfessor(user, target),
+  canManageMembers: isConfirmed(user) && isStaff(user, target),
+  canChangeRoles: isConfirmed(user) && canChangeRole(user, target),
+})
+
+/**
+ * What the actor may do to a membership, for the membership DTO: the same decisions the writes
+ * make after `requireConfirmed`.
+ */
+export const membershipEligibility = (user: SignedIn, target: MembershipTarget) => {
+  const confirmed = isConfirmed(user)
+  return {
+    canApprove: confirmed && canApprove(user, target),
+    canRemove: confirmed && canRemove(user, target),
+    canChangeRole: confirmed && canChangeRole(user, target),
+  }
+}

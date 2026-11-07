@@ -217,6 +217,7 @@ The main choices:
   - membership invite and approve (professor or active TA; TAs invite students only; approve only pending requests in non-archived classrooms);
   - promote, demote and delete (professor only);
   - remove (professor, active TA, or a student leaving);
+  - eligibility for the browser: every classroom DTO carries the caller's `canManageClassroom` (professor), `canManageMembers` (a confirmed professor or active TA) and `canChangeRoles` (a confirmed professor), and every membership DTO the caller's `canApprove`, `canRemove` and `canChangeRole`. The server computes them with the same decision functions the writes use (`classroomEligibility` and `membershipEligibility` in `ClassroomPolicy.ts`), so an archived classroom offers no approval but still offers decline, and the web app reads these fields instead of the roster;
   - `set_role` (superadmin for anything; admin only for non-superadmins in their own organization, and never granting superadmin);
   - support request and report read and resolve (owner, superadmin, or admin of the same organization);
   - comment edit and delete (the author only; the comment and its petition visible to them and not hidden; a comment they can't see is `NotFound`, someone else's `Forbidden`). Archived classrooms are read-only, so comments there can't be changed either. Edits are checked like new comments; closed petitions don't block them;

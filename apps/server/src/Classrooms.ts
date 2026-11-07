@@ -10,7 +10,7 @@ import {
   NotFound,
   type SignedIn,
 } from "@petitionu/domain"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Option, Schema, Struct } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "effect/sql"
 import {
   activeTa,
@@ -19,10 +19,12 @@ import {
   canChangeRole,
   canInvite,
   canRemove,
+  classroomEligibility,
   classroomVisible,
   forbidden,
   isProfessor,
   type MembershipTarget,
+  membershipEligibility,
   membershipVisible,
   requireConfirmed,
   visibleJoinCode,
@@ -61,6 +63,28 @@ const MembershipTargetRow = Schema.Struct({
   actorIsTa: Schema.Boolean,
 })
 
+/**
+ * A classroom row: the DTO without the caller's eligibility, which `classroomEligibility`
+ * computes from `actorIsTa`.
+ */
+const ClassroomRow = ClassroomDto.mapFields(
+  Struct.omit(["canManageClassroom", "canManageMembers", "canChangeRoles"]),
+).mapFields(Struct.assign({ actorIsTa: Schema.Boolean }))
+
+/**
+ * A membership row: the DTO without the caller's eligibility, which `membershipEligibility`
+ * computes from its classroom's `professorId` and `archived` and `actorIsTa`.
+ */
+const MembershipRow = MembershipDto.mapFields(
+  Struct.omit(["canApprove", "canRemove", "canChangeRole"]),
+).mapFields(
+  Struct.assign({
+    professorId: Schema.String,
+    archived: Schema.Boolean,
+    actorIsTa: Schema.Boolean,
+  }),
+)
+
 const Recipient = Schema.Struct({
   email: Schema.String,
   firstName: Schema.NullOr(Schema.String),
@@ -84,21 +108,37 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       c.professor_id,
       json_build_object('id', pu.id, 'firstName', pu.first_name, 'lastName', pu.last_name)
         AS professor,
-      c.organization_id, c.inserted_at, c.updated_at
+      c.organization_id, c.inserted_at, c.updated_at,
+      ${activeTa(sql, actor.id, sql`c.id`)} AS actor_is_ta
       FROM classrooms c JOIN users pu ON pu.id = c.professor_id`
 
-    const membershipColumns = sql`
+    const membershipColumns = (actor: SignedIn) => sql`
       m.id, m.classroom_id, m.user_id, m.invited_by_id, m.role, m.status,
       m.joined_at, m.inserted_at,
       concat_ws(' ', u.first_name, u.last_name) AS member_name,
       json_build_object('id', u.id) AS "user",
-      json_build_object('id', c.id, 'name', c.name) AS classroom
+      json_build_object('id', c.id, 'name', c.name) AS classroom,
+      c.professor_id, c.archived, ${activeTa(sql, actor.id, sql`m.classroom_id`)} AS actor_is_ta
       FROM classroom_memberships m
       JOIN users u ON u.id = m.user_id
       JOIN classrooms c ON c.id = m.classroom_id`
 
-    const decodeClassrooms = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(ClassroomDto)))
-    const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(MembershipDto)))
+    const decodeClassrooms = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(ClassroomRow)))
+    const decodeMemberships = Schema.decodeUnknownEffect(Schema.Array(Schema.toType(MembershipRow)))
+
+    const toClassroomDto =
+      (actor: SignedIn) =>
+      ({ actorIsTa, ...row }: typeof ClassroomRow.Type): ClassroomDto => ({
+        ...row,
+        ...classroomEligibility(actor, { professorId: row.professorId, actorIsTa }),
+      })
+
+    const toMembershipDto =
+      (actor: SignedIn) =>
+      ({ professorId, archived, actorIsTa, ...row }: typeof MembershipRow.Type): MembershipDto => ({
+        ...row,
+        ...membershipEligibility(actor, { ...row, professorId, archived, actorIsTa }),
+      })
 
     const listClassrooms = (
       actor: SignedIn,
@@ -107,15 +147,19 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     ) =>
       sql`SELECT ${classroomColumns(actor)} WHERE ${where} ORDER BY c.name, c.id ${page}`.pipe(
         Effect.flatMap(decodeClassrooms),
+        Effect.map((rows) => rows.map(toClassroomDto(actor))),
         Effect.orDie,
       )
 
     const listMemberships = (
+      actor: SignedIn,
       where: Statement.Fragment,
       page: Statement.Fragment = sql.literal(""),
     ) =>
-      sql`SELECT ${membershipColumns} WHERE ${where} ORDER BY m.inserted_at, m.id ${page}`.pipe(
+      sql`SELECT ${membershipColumns(actor)} WHERE ${where}
+        ORDER BY m.inserted_at, m.id ${page}`.pipe(
         Effect.flatMap(decodeMemberships),
+        Effect.map((rows) => rows.map(toMembershipDto(actor))),
         Effect.orDie,
       )
 
@@ -124,8 +168,8 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
     const classroomById = (actor: SignedIn, id: string) =>
       listClassrooms(actor, sql`c.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
 
-    const membershipById = (id: string) =>
-      listMemberships(sql`m.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
+    const membershipById = (actor: SignedIn, id: string) =>
+      listMemberships(actor, sql`m.id = ${id}`).pipe(Effect.map((rows) => rows[0]!))
 
     // Decisions ----------------------------------------------------------------------------
 
@@ -208,15 +252,19 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
 
     /**
      * Admits `userId` and inserts the membership. A concurrent insert of the same membership
-     * hits the unique index and reports the row that won.
+     * hits the unique index and reports the row that won. The membership is returned as `actor`
+     * sees it.
      */
-    const insertMembership = (row: {
-      readonly classroomId: string
-      readonly userId: string
-      readonly role: MembershipRole
-      readonly status: "pending" | "active"
-      readonly invitedById: string | null
-    }) =>
+    const insertMembership = (
+      actor: SignedIn,
+      row: {
+        readonly classroomId: string
+        readonly userId: string
+        readonly role: MembershipRole
+        readonly status: "pending" | "active"
+        readonly invitedById: string | null
+      },
+    ) =>
       Effect.gen(function* () {
         yield* admit(row.classroomId, row.userId)
         const joinedAt = row.status === "active" ? sql.literal("(now() AT TIME ZONE 'utc')") : null
@@ -232,7 +280,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           yield* admit(row.classroomId, row.userId)
           return yield* Effect.die(new Error("membership insert conflicted without a row"))
         }
-        return yield* membershipById(inserted[0]!.id)
+        return yield* membershipById(actor, inserted[0]!.id)
       })
 
     const findRecipient = SqlSchema.findOne({
@@ -319,7 +367,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
               SET ${set}, updated_at = (now() AT TIME ZONE 'utc')
               WHERE id = ${target.id}`.pipe(Effect.orDie)
             yield* after(target)
-            return yield* membershipById(target.id)
+            return yield* membershipById(user, target.id)
           }),
         )
       })
@@ -409,13 +457,14 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
       getClassroomMemberships: () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          return yield* listMemberships(membershipVisible(sql, user.id), capped)
+          return yield* listMemberships(user, membershipVisible(sql, user.id), capped)
         }),
 
       getMembershipsForClassroom: ({ classroomId }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           return yield* listMemberships(
+            user,
             sql`m.classroom_id = ${classroomId} AND ${membershipVisible(sql, user.id)}`,
           )
         }),
@@ -424,6 +473,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           return yield* listMemberships(
+            user,
             sql`m.classroom_id = ${classroomId} AND m.status = 'pending'
               AND ${membershipVisible(sql, user.id)}`,
             capped,
@@ -443,7 +493,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
           if (classroom === undefined) {
             return yield* invalidField("joinCode", "Invalid or archived join code")
           }
-          return yield* insertMembership({
+          return yield* insertMembership(user, {
             classroomId: classroom.id,
             userId: user.id,
             role: "student",
@@ -456,7 +506,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           yield* requireConfirmed(user)
-          return yield* insertMembership({
+          return yield* insertMembership(user, {
             classroomId,
             userId: user.id,
             role: "student",
@@ -489,7 +539,7 @@ export const ClassroomHandlers = ClassroomRpcs.toLayer(
               }
               const invitee = yield* findUserByEmail(email.trim()).pipe(Effect.orDie)
               if (Option.isNone(invitee)) return yield* invalidField("email", "User not found")
-              const membership = yield* insertMembership({
+              const membership = yield* insertMembership(user, {
                 classroomId,
                 userId: invitee.value.id,
                 role,

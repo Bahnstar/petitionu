@@ -41,7 +41,7 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:tooling && bun run test:petitions && bun run test:comments && bun run test:auth && bun run test:profile && bun run test:owner-controls && bun run test:wording && bun run test:pages && bun run test:bundle-size && bun run size",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:tooling && bun run test:petitions && bun run test:comments && bun run test:auth && bun run test:profile && bun run test:owner-controls && bun run test:wording && bun run test:pages && bun run test:classroom && bun run test:bundle-size && bun run size",
     "test:tooling": "node tools/verify-tooling.mjs",
     "test:petitions": "bun test tests/petition-mutations.test.mjs",
     "test:comments": "bun test tests/petition-comments.test.tsx",
@@ -50,6 +50,7 @@
     "test:owner-controls": "bun test tests/petition-owner-controls.test.tsx",
     "test:wording": "bun test tests/ui-wording.test.tsx",
     "test:pages": "bun test tests/page-errors.test.tsx",
+    "test:classroom": "bun test tests/classroom-controls.test.tsx",
     "test:bundle-size": "bun test tests/bundle-size.test.mjs",
     "size": "vite build && node tools/check-bundle-size.mjs"
   },
