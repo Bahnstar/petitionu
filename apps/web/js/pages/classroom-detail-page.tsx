@@ -204,9 +204,8 @@ export default function ClassroomDetailPage() {
     onSuccess: () => {
       setSuccess("Classroom archived.")
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
-      // Archiving changes which membership actions are offered (no approvals while archived).
+      // Archiving withdraws approval of pending requests.
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", id] })
-      queryClient.invalidateQueries({ queryKey: ["pendingMemberships", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
@@ -224,7 +223,6 @@ export default function ClassroomDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
       // Unarchiving offers approval of pending requests again.
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", id] })
-      queryClient.invalidateQueries({ queryKey: ["pendingMemberships", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
     },
   })
@@ -282,11 +280,11 @@ export default function ClassroomDetailPage() {
   // The server says what this user may do, with the same rules it enforces.
   const canManageClassroom = classroom?.canManageClassroom ?? false
   const canManage = classroom?.canManageMembers ?? false
-  // The membership this user may leave: their own active student membership.
+  // The membership this user may leave: their own active one, as a student or a TA. The member
+  // list doesn't offer Remove on it, because leaving also has to take the user off the page.
   const ownMembership = memberships.find(
     (membership) =>
       membership.user.id === currentUserId &&
-      membership.role === "student" &&
       membership.status === "active" &&
       membership.canRemove,
   )
@@ -383,7 +381,14 @@ export default function ClassroomDetailPage() {
         </Card>
       )
     }
-    return <MemberList memberships={memberships} classroomId={id!} canManage={canManage} />
+    return (
+      <MemberList
+        memberships={memberships}
+        classroomId={id!}
+        canManage={canManage}
+        currentUserId={currentUserId}
+      />
+    )
   }
 
   function renderClassroomHeader() {

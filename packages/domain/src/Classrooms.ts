@@ -33,12 +33,10 @@ export const ClassroomDto = Schema.Struct({
   /** The caller may edit and archive the classroom and see its join code: its professor. */
   canManageClassroom: Schema.Boolean,
   /**
-   * The caller may approve and remove members: a confirmed professor or active TA. Each
-   * membership's own `canApprove` and `canRemove` say which actions apply to it.
+   * The caller manages members: a confirmed professor or active TA. Each membership's
+   * `canApprove`, `canRemove` and `canChangeRole` say which actions apply to it.
    */
   canManageMembers: Schema.Boolean,
-  /** The caller may promote and demote TAs: a confirmed professor. */
-  canChangeRoles: Schema.Boolean,
 })
 export type ClassroomDto = typeof ClassroomDto.Type
 
@@ -74,9 +72,12 @@ export const MembershipDto = Schema.Struct({
   classroom: Schema.Struct({ id: Schema.String, name: Schema.String }),
   /** The caller may approve it: staff, while it's pending and the classroom isn't archived. */
   canApprove: Schema.Boolean,
-  /** The caller may remove or decline it: staff, or its own active student leaving. */
+  /**
+   * The caller may remove or decline it, unless it's already removed: staff, or its own active
+   * student leaving.
+   */
   canRemove: Schema.Boolean,
-  /** The caller may promote or demote it: the professor. */
+  /** The caller may promote or demote it: the professor, while it's active. */
   canChangeRole: Schema.Boolean,
 })
 export type MembershipDto = typeof MembershipDto.Type

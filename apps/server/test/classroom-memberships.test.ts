@@ -602,7 +602,7 @@ describe("membership eligibility", () => {
           assert.deepStrictEqual(eligibility(entry!), {
             canApprove: isPending && !archived,
             canRemove: true,
-            canChangeRole: expected.changesRoles,
+            canChangeRole: expected.changesRoles && !isPending,
           })
         } else {
           assert.isUndefined(entry)
@@ -658,6 +658,37 @@ describe("membership eligibility", () => {
         const own = yield* rosterEntry(user, classroom.id, row)
         assert.deepStrictEqual(eligibility(own!), expected)
       }
+    }),
+  )
+
+  it.live("only active members change role, and a removed membership can't be removed again", () =>
+    Effect.gen(function* () {
+      const { app, professor, student, classroom } = yield* setup
+      const pending = yield* seedMembership(app, classroom.id, student.id, "pending")
+      const other = yield* createStudent(app)
+      const removed = yield* seedMembership(app, classroom.id, other.id, "removed")
+
+      const pendingEntry = yield* rosterEntry(professor, classroom.id, pending)
+      assert.deepStrictEqual(eligibility(pendingEntry!), {
+        canApprove: true,
+        canRemove: true,
+        canChangeRole: false,
+      })
+      const removedEntry = yield* rosterEntry(professor, classroom.id, removed)
+      assert.deepStrictEqual(eligibility(removedEntry!), {
+        canApprove: false,
+        canRemove: false,
+        canChangeRole: false,
+      })
+      for (const result of [
+        yield* professor.browser.rpc((api) => api.promoteToTa({ id: pending })),
+        yield* professor.browser.rpc((api) => api.promoteToTa({ id: removed })),
+        yield* professor.browser.rpc((api) => api.demoteToStudent({ id: removed })),
+        yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: removed })),
+      ]) {
+        assert.strictEqual((yield* failure(result))[0]!.type, "forbidden")
+      }
+      assert.strictEqual(yield* membershipStatus(app, pending), "pending")
     }),
   )
 

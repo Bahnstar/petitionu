@@ -477,26 +477,18 @@ describe("classroom eligibility", () => {
         assert.isUndefined(list.find((c) => c.id === id))
         return null
       }
-      const flags = (yield* readings(user, id)).map(
-        ({ canManageClassroom, canManageMembers, canChangeRoles }) => ({
-          canManageClassroom,
-          canManageMembers,
-          canChangeRoles,
-        }),
-      )
+      const flags = (yield* readings(user, id)).map(({ canManageClassroom, canManageMembers }) => ({
+        canManageClassroom,
+        canManageMembers,
+      }))
       assert.deepStrictEqual(flags[1], flags[0])
       assert.deepStrictEqual(flags[2], flags[0])
       return flags[0]!
     })
 
-  const flags = (
-    canManageClassroom: boolean,
-    canManageMembers: boolean,
-    canChangeRoles: boolean,
-  ) => ({
+  const flags = (canManageClassroom: boolean, canManageMembers: boolean) => ({
     canManageClassroom,
     canManageMembers,
-    canChangeRoles,
   })
 
   it.live("each actor gets their own eligibility, archived or not", () =>
@@ -514,15 +506,9 @@ describe("classroom eligibility", () => {
 
       for (const archived of [false, true]) {
         yield* setClassroomArchived(app, classroom.id, archived)
-        assert.deepStrictEqual(yield* eligibility(professor, classroom.id), flags(true, true, true))
-        assert.deepStrictEqual(
-          yield* eligibility(activeTa!, classroom.id),
-          flags(false, true, false),
-        )
-        assert.deepStrictEqual(
-          yield* eligibility(student!, classroom.id),
-          flags(false, false, false),
-        )
+        assert.deepStrictEqual(yield* eligibility(professor, classroom.id), flags(true, true))
+        assert.deepStrictEqual(yield* eligibility(activeTa!, classroom.id), flags(false, true))
+        assert.deepStrictEqual(yield* eligibility(student!, classroom.id), flags(false, false))
         for (const unrelated of [pendingTa!, removedTa!, outsider!]) {
           assert.isNull(yield* eligibility(unrelated, classroom.id))
         }
@@ -537,7 +523,7 @@ describe("classroom eligibility", () => {
       const classroom = yield* insertClassroom(app, {
         professorId: professor.id,
       })
-      assert.deepStrictEqual(yield* eligibility(professor, classroom.id), flags(true, false, false))
+      assert.deepStrictEqual(yield* eligibility(professor, classroom.id), flags(true, false))
       // As the writes decide: archiving needs only the professor.
       const archived = yield* ok(
         yield* professor.browser.rpc((api) => api.archiveClassroom({ id: classroom.id })),
@@ -554,13 +540,13 @@ describe("classroom eligibility", () => {
       const classroom = yield* createClassroom(professor)
       const ta = yield* createStudent(app)
       const membership = yield* seedMembership(app, classroom.id, ta.id, "active", "ta")
-      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, true, false))
+      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, true))
 
       yield* ok(yield* professor.browser.rpc((api) => api.demoteToStudent({ id: membership })))
-      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, false, false))
+      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, false))
 
       yield* ok(yield* professor.browser.rpc((api) => api.promoteToTa({ id: membership })))
-      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, true, false))
+      assert.deepStrictEqual(yield* eligibility(ta, classroom.id), flags(false, true))
       yield* ok(yield* professor.browser.rpc((api) => api.removeFromClassroom({ id: membership })))
       assert.isNull(yield* eligibility(ta, classroom.id))
     }),

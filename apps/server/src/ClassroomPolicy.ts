@@ -47,9 +47,9 @@ export const membershipVisible = (sql: SqlClient.SqlClient, actorId: string) => 
 export const authorizeCreateClassroom = (user: SignedIn) =>
   user.role === "professor" || user.role === "admin" ? Effect.void : Effect.fail(forbidden)
 
-/** Unconfirmed users can't create, change or remove memberships. */
 export const isConfirmed = (user: SignedIn) => user.confirmedAt !== null
 
+/** Unconfirmed users can't create, change or remove memberships. */
 export const requireConfirmed = (user: SignedIn) =>
   isConfirmed(user) ? Effect.void : Effect.fail(forbidden)
 
@@ -83,19 +83,24 @@ export const canInvite = (
 export const canApprove = (user: SignedIn, target: MembershipTarget) =>
   isStaff(user, target) && target.status === "pending" && !target.archived
 
-/** Removing: staff remove anyone; an active student may leave. */
+/**
+ * Removing or declining a membership not already removed: staff remove anyone, an active TA
+ * included; an active student may leave.
+ */
 export const canRemove = (user: SignedIn, target: MembershipTarget) =>
-  isStaff(user, target) ||
-  (target.userId === user.id && target.role === "student" && target.status === "active")
+  target.status !== "removed" &&
+  (isStaff(user, target) ||
+    (target.userId === user.id && target.role === "student" && target.status === "active"))
 
-/** Promoting and demoting TAs: the professor only. */
-export const canChangeRole = isProfessor
+/** Promoting and demoting an active member: the professor only. */
+export const canChangeRole = (user: SignedIn, target: MembershipTarget) =>
+  isProfessor(user, target) && target.status === "active"
 
 /**
  * What the actor may do to a classroom, for the classroom DTO. Editing, archiving and the join
- * code are the professor's (`isProfessor`); approving and removing members need a confirmed
- * professor or active TA, and changing roles a confirmed professor, as the membership writes
- * enforce.
+ * code are the professor's (`isProfessor`); managing members needs a confirmed professor or
+ * active TA, as the membership writes enforce. Each membership's `membershipEligibility` says
+ * which actions apply to it.
  */
 export const classroomEligibility = (
   user: SignedIn,
@@ -103,7 +108,6 @@ export const classroomEligibility = (
 ) => ({
   canManageClassroom: isProfessor(user, target),
   canManageMembers: isConfirmed(user) && isStaff(user, target),
-  canChangeRoles: isConfirmed(user) && canChangeRole(user, target),
 })
 
 /**

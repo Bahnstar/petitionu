@@ -15,9 +15,16 @@ interface MemberListProps {
   classroomId: string
   /** The classroom's `canManageMembers`; each membership says which actions apply to it. */
   canManage?: boolean
+  /** The viewer: their own membership is left through the page's Leave button, not Remove. */
+  currentUserId?: string
 }
 
-export function MemberList({ memberships, classroomId, canManage = false }: MemberListProps) {
+export function MemberList({
+  memberships,
+  classroomId,
+  canManage = false,
+  currentUserId,
+}: MemberListProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(0)
@@ -37,7 +44,6 @@ export function MemberList({ memberships, classroomId, canManage = false }: Memb
       queryClient.invalidateQueries({ queryKey: ["classroomMemberships", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["classroom", classroomId] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
-      queryClient.invalidateQueries({ queryKey: ["pendingMemberships", classroomId] })
     },
   })
 
@@ -272,7 +278,7 @@ export function MemberList({ memberships, classroomId, canManage = false }: Memb
                           )}
                         </Button>
                       ))}
-                    {membership.canRemove && (
+                    {membership.canRemove && membership.userId !== currentUserId && (
                       <Button
                         size="sm"
                         variant="ghost"

@@ -31,7 +31,8 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
 - `classroom-controls.test.tsx` (`bun run test:classroom`): the classroom page in happy-dom with
   a stubbed `fetch`: member controls follow the server's eligibility fields, never the roster
   (a TA's controls show without their own row, and a roster row saying "TA" grants nothing), an
-  archived classroom offers Decline but not Approve, and archiving refreshes the roster.
+  archived classroom offers Decline but not Approve, archiving refreshes the roster, and a TA
+  leaves through Leave classroom rather than Remove on their own row.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 

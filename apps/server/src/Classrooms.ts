@@ -68,7 +68,7 @@ const MembershipTargetRow = Schema.Struct({
  * computes from `actorIsTa`.
  */
 const ClassroomRow = ClassroomDto.mapFields(
-  Struct.omit(["canManageClassroom", "canManageMembers", "canChangeRoles"]),
+  Struct.omit(["canManageClassroom", "canManageMembers"]),
 ).mapFields(Struct.assign({ actorIsTa: Schema.Boolean }))
 
 /**

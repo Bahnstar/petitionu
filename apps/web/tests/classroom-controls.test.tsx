@@ -27,7 +27,7 @@ const ta: typeof MeDto.Encoded = {
   hasPassword: true,
 }
 
-type Eligibility = Pick<ClassroomDto, "canManageClassroom" | "canManageMembers" | "canChangeRoles">
+type Eligibility = Pick<ClassroomDto, "canManageClassroom" | "canManageMembers">
 
 const classroom = (eligibility: Eligibility, archived = false): typeof ClassroomDto.Encoded => ({
   id: classroomId,
@@ -71,9 +71,9 @@ const membership = (
   }
 }
 
-const staff = { canManageClassroom: false, canManageMembers: true, canChangeRoles: false }
-const professor = { canManageClassroom: true, canManageMembers: true, canChangeRoles: true }
-const nobody = { canManageClassroom: false, canManageMembers: false, canChangeRoles: false }
+const staff = { canManageClassroom: false, canManageMembers: true }
+const professor = { canManageClassroom: true, canManageMembers: true }
+const nobody = { canManageClassroom: false, canManageMembers: false }
 
 /** What the stubbed server answers; any other procedure gets an empty list. */
 interface Answers {
@@ -275,4 +275,32 @@ test("archiving refreshes the roster, so Approve goes away", async () => {
   const names = buttons(container)
   expect(names).not.toContain("Approve Member 1")
   expect(names).toContain("Decline Member 1’s request")
+})
+
+test("a TA leaves through Leave classroom, not Remove on their own row", async () => {
+  answers = {
+    getClassroomById: classroom(staff),
+    getMembershipsForClassroom: [
+      membership(1, {
+        userId: taId,
+        role: "ta",
+        status: "active",
+        canApprove: false,
+        canRemove: true,
+        canChangeRole: false,
+      }),
+      membership(2, {
+        role: "student",
+        status: "active",
+        canApprove: false,
+        canRemove: true,
+        canChangeRole: false,
+      }),
+    ],
+  }
+  const container = await render()
+  const names = buttons(container)
+  expect(names).toContain("Leave classroom")
+  expect(names).not.toContain("Remove Member 1 from classroom")
+  expect(names).toContain("Remove Member 2 from classroom")
 })
