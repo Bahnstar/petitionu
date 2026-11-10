@@ -2,7 +2,7 @@ import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
 import { ActorMiddleware, RequireUser, Role } from "./Actor.ts"
 import { Forbidden, Invalid, NotFound } from "./Errors.ts"
-import { Uuid } from "./Inputs.ts"
+import { PlainText, Uuid } from "./Inputs.ts"
 import { PetitionDto } from "./Petitions.ts"
 import { Timestamp } from "./Timestamps.ts"
 
@@ -82,8 +82,15 @@ export const getUserById = Rpc.make("getUserById", {
   error: NotFound,
 })
 
-/** The users the caller may see: themself, everyone for a superadmin, their campus for an admin. */
-export const getUsers = Rpc.make("getUsers", { success: Schema.Array(UserDto) })
+/**
+ * The users the caller may see: themself, everyone for a superadmin, their campus for an admin.
+ * `search` keeps those whose name or email contains it, ignoring case, so a list longer than the
+ * row limit can still reach everyone.
+ */
+export const getUsers = Rpc.make("getUsers", {
+  payload: { search: Schema.optionalKey(PlainText) },
+  success: Schema.Array(UserDto),
+})
 
 export const setUserRole = Rpc.make("setUserRole", {
   payload: { id: Uuid, role: Role },
