@@ -13,6 +13,7 @@ import CreatePetitionPage from "./pages/create-petition-page"
 import ClassroomsPage from "./pages/classrooms-page"
 import ClassroomDetailPage from "./pages/classroom-detail-page"
 import CreateClassroomPage from "./pages/create-classroom-page"
+import EditClassroomPage from "./pages/edit-classroom-page"
 import { NotFoundPage } from "./pages/not-found-page"
 import { Layout } from "./components/layout"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -70,6 +71,10 @@ export const App = () => {
                       <Route
                         path={`${defaultPath}/classrooms/:id`}
                         element={<ClassroomDetailPage />}
+                      />
+                      <Route
+                        path={`${defaultPath}/classrooms/:id/edit`}
+                        element={<EditClassroomPage />}
                       />
                       <Route path={`${defaultPath}/moderation`} element={<ModerationPage />} />
                       <Route path={`${defaultPath}/support`} element={<SupportPage />} />

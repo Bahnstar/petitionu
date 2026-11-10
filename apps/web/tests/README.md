@@ -33,6 +33,11 @@ The suites run under `bun test` and are part of `bun run check` (and so `bun run
   (a TA's controls show without their own row, and a roster row saying "TA" grants nothing), an
   archived classroom offers Decline but not Approve, archiving refreshes the roster, and a TA
   leaves through Leave classroom rather than Remove on their own row.
+- `classroom-form.test.tsx` (`bun run test:classroom-form`): the create and edit classroom forms
+  in happy-dom with a stubbed `fetch`: the petition setting is a labelled switch, the counters
+  use the domain's limits, a save is sent once with the form disabled meanwhile, the server's
+  field errors land on their fields, a new classroom's page shows its join code, and only the
+  callers the server lets edit are offered Edit and the form.
 - `bundle-size.test.mjs` (`bun run test:bundle-size`): the bundle-size budget script against
   temporary builds.
 

@@ -10,6 +10,7 @@ import {
   Plus,
   Archive,
   Loader2,
+  Pencil,
 } from "lucide-react"
 import { useState } from "react"
 import { isUuid } from "@petitionu/domain"
@@ -18,6 +19,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { api, serverError } from "@/lib/api"
 import { MemberList } from "../features/classroom/member-list"
+import { useClassroomNotice, type ClassroomNotice } from "../features/classroom/classroom-notice"
 import { PetitionCard } from "../features/petition/petition-card"
 import { useAuth } from "../contexts/auth-context"
 import type { ClassroomDto } from "@petitionu/domain"
@@ -76,6 +78,10 @@ function ClassroomCounts({
   )
 }
 
+/** The status line for a notice the page was opened with. */
+const noticeMessage = (notice: ClassroomNotice | null) =>
+  notice?.kind === "updated" ? "Classroom changes saved." : ""
+
 export default function ClassroomDetailPage() {
   function renderPetitionHeading() {
     return (
@@ -113,7 +119,10 @@ export default function ClassroomDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [success, setSuccess] = useState("")
+  const notice = useClassroomNotice()
+  const [success, setSuccess] = useState(() => noticeMessage(notice))
+  // Set when the create form sent the user here; cleared once the join code changes.
+  const [justCreated, setJustCreated] = useState(() => notice?.kind === "created")
   const [goalSort, setGoalSort] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState(false)
@@ -186,6 +195,7 @@ export default function ClassroomDetailPage() {
     },
     onSuccess: () => {
       setSuccess("New join code generated. Share it with your students.")
+      setJustCreated(false)
       setCopied(false)
       queryClient.invalidateQueries({ queryKey: ["classroom", id] })
       queryClient.invalidateQueries({ queryKey: ["myClassrooms"] })
@@ -419,7 +429,13 @@ export default function ClassroomDetailPage() {
         </div>
 
         {canManageClassroom && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link to={ROUTES.classroomEdit(id!)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
             {classroom?.archived ? (
               <Button
                 onClick={() => {
@@ -538,6 +554,40 @@ export default function ClassroomDetailPage() {
     )
   }
 
+  function renderCreatedNotice() {
+    if (!justCreated || !classroom?.joinCode) return null
+    return (
+      <div
+        id="classroom-created"
+        role="status"
+        className="mb-6 rounded-2xl border border-[#e8d9c3] bg-[#f7e8d2] p-5"
+      >
+        <p className="font-display text-2xl text-foreground">Your classroom is ready.</p>
+        <p className="mt-2 text-sm text-[#685649]">
+          Share this join code with your students so they can join:
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <code className="rounded-xl bg-white/70 px-3 py-2 text-sm break-all select-all">
+            {classroom.joinCode}
+          </code>
+          <Button variant="outline" size="sm" onClick={copyJoinCode}>
+            {copied ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy join code
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   function renderLeaveClassroom() {
     return (
       ownMembership && (
@@ -590,6 +640,7 @@ export default function ClassroomDetailPage() {
         {/* Header */}
         {renderClassroomHeader()}
 
+        {renderCreatedNotice()}
         {success && (
           <p role="status" className="mb-6 rounded-xl bg-secondary p-4">
             {success}
