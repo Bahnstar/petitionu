@@ -55,7 +55,7 @@ function CharacterCount({ id, value, max }: { id: string; value: string; max: nu
     <p
       id={id}
       className={cn(
-        "text-right text-xs tabular-nums",
+        "shrink-0 text-right text-xs whitespace-nowrap tabular-nums",
         over ? "font-medium text-destructive" : "text-muted-foreground",
       )}
     >

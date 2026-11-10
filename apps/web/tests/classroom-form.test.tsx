@@ -50,13 +50,39 @@ const classroom = (
 
 interface Call {
   readonly tag: string
-  readonly payload: Record<string, unknown>
+  readonly payload: unknown
 }
 
-/** What the stubbed server answers, by procedure; any other procedure gets an empty list. */
-let answers: Record<string, unknown> = {}
+type Encoded = typeof ClassroomDto.Encoded
+
+/** What the stubbed server answers; any other procedure gets an empty list. */
+interface Answers {
+  readonly getClassroomById?: Encoded
+  readonly createClassroom?: Encoded
+  readonly updateClassroom?: Encoded
+}
+
+interface ServerError {
+  readonly _tag: string
+  readonly message: string
+  readonly fields?: ReadonlyArray<{ readonly field: string; readonly message: string }>
+}
+
+let answers: Answers = {}
 /** Procedures that fail, with the server's error. */
-let failures: Record<string, unknown> = {}
+interface Failures {
+  readonly createClassroom?: ServerError
+}
+
+let failures: Failures = {}
+
+function answer(tag: string) {
+  if (tag === "getMe") return professorUser
+  if (tag === "getClassroomById") return answers.getClassroomById
+  if (tag === "createClassroom") return answers.createClassroom
+  if (tag === "updateClassroom") return answers.updateClassroom
+  return []
+}
 /** Procedures whose answers wait for `release`. */
 let held = new Set<string>()
 let release = () => {}
@@ -73,13 +99,10 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const body = await request.json()
     calls.push({ tag: body.tag, payload: body.payload })
     if (held.has(body.tag)) await new Promise<void>((resolve) => (release = resolve))
-    const exit =
-      body.tag in failures
-        ? { _tag: "Failure", cause: [{ _tag: "Fail", error: failures[body.tag] }] }
-        : {
-            _tag: "Success",
-            value: body.tag === "getMe" ? professorUser : (answers[body.tag] ?? []),
-          }
+    const failure = body.tag === "createClassroom" ? failures.createClassroom : undefined
+    const exit = failure
+      ? { _tag: "Failure", cause: [{ _tag: "Fail", error: failure }] }
+      : { _tag: "Success", value: answer(body.tag) }
     return Response.json([{ _tag: "Exit", requestId: body.id, exit }])
   }
   return new Response("not found", { status: 404 })
