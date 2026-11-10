@@ -65,12 +65,25 @@ Registry sources: [IANA's .edu delegation](https://www.iana.org/domains/root/db/
 and [Jisc's WHOIS documentation](https://community.jisc.ac.uk/printpdf/867).
 EDUCAUSE documents [.edu eligibility and grandfathered registrations](https://net.educause.edu/faq.htm).
 
-Run the behavior checks with `npx vitest run test/school-registry.test.ts
-test/verify-school-membership.test.ts test/operator-commands.test.ts` in `apps/server`, and the repository checks with
-`bun run precommit`. The migrate entry point creates the job queue table, so a deploy's migrate
-step must finish before job workers start.
-
 Profile completion preserves an existing organization assignment and refuses to
-activate a pending organization. The [browser evidence](school-registry/README.md)
-shows the signup, confirmation, registry lookup, and logged-in profile flow as
-captured on the Elixir app, before the move to the Effect server.
+activate a pending organization.
+
+The migrate entry point creates the job queue table, so a deploy's migrate step
+must finish before job workers start.
+
+## Checks
+
+Run these in `apps/server`:
+
+- `npx vitest run test/organization-signup.test.ts`: campus assignment on
+  confirmation, magic-link sign-up and password reset, `.ac.uk` and subdomain
+  handling, and one queued job per user.
+- `npx vitest run test/school-registry.test.ts`: parsing both registries' responses and the WHOIS
+  transport (unreachable, oversized and silent registries).
+- `npx vitest run test/verify-school-membership.test.ts`: the verification job, its
+  backoff and retry limit, and the checks that cancel a stale assignment.
+- `npx vitest run test/profile.test.ts test/operator-commands.test.ts`: profile
+  completion against a pending school, and `retry-verification` and
+  `approve-organization`.
+
+Then run `bun run precommit` from the repository root.
