@@ -250,7 +250,7 @@ describe("set-role", () => {
         email: uniqueEmail("gmail.com"),
       })
       const student = yield* createUser(app)
-      const before = yield* operator.browser.rpc((api) => api.getUsers())
+      const before = yield* operator.browser.rpc((api) => api.getUsers({}))
       assert.isTrue(before.success && before.data.length === 1)
 
       const result = yield* runOperator(app.database, "set-role", operator.email, "superadmin")
@@ -259,7 +259,7 @@ describe("set-role", () => {
       assert.include(result.stdout, `Set role of ${operator.email}`)
       assert.include(result.stdout, "student -> superadmin")
       assert.strictEqual((yield* me(operator.browser)).role, "superadmin")
-      const after = yield* operator.browser.rpc((api) => api.getUsers())
+      const after = yield* operator.browser.rpc((api) => api.getUsers({}))
       assert.isTrue(after.success && after.data.some((user) => user.id === student.id))
     }),
   )

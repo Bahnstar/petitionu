@@ -110,7 +110,7 @@ describe("list limits", () => {
         (row) => row.name,
         oldest(padded),
       )
-      yield* expectRows((api) => api.getUsers(), email, oldest(member))
+      yield* expectRows((api) => api.getUsers({}), email, oldest(member))
       yield* expectRows(
         (api) => api.getPreferences(),
         (row) => row.name,

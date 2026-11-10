@@ -444,7 +444,7 @@ const rows: ReadonlyArray<Row> = [
     "getUsers (includes a campus A student)",
     expected("hidden", { sameCampus: "ok", admin: "ok", superadmin: "ok" }),
     lists(
-      (api) => api.getUsers(),
+      (api) => api.getUsers({}),
       (world) => world.users.sameCampus.id,
     ),
   ],
