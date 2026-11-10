@@ -2,7 +2,7 @@ import { ROUTES } from "@/lib/routes"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Search, ShieldCheck } from "lucide-react"
+import { Check, Loader2, Search, ShieldCheck } from "lucide-react"
 import type { Role, UserDetails, UserDto } from "@petitionu/domain"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -65,31 +65,25 @@ const byName = (a: UserDetails, b: UserDetails) =>
   (a.firstName ?? "").localeCompare(b.firstName ?? "") ||
   a.email.localeCompare(b.email)
 
-function RoleControl({
+function RoleSelect({
   caller,
   user,
-  onChanged,
+  value,
+  pending,
+  errorId,
+  message,
+  onChoose,
 }: {
   caller: Caller
   user: UserDetails
-  onChanged: (user: UserDetails) => void
+  value: Role
+  pending: boolean
+  errorId: string
+  message: string | undefined
+  onChoose: (role: Role) => void
 }) {
-  const setRole = useMutation({
-    mutationFn: async (role: Role) => {
-      const result = await api.setUserRole({ id: user.id, role })
-      if (result.success === false) throw serverError(result.errors)
-      return result.data
-    },
-    onSuccess: onChanged,
-  })
-  const errors = formErrors(setRole.error, ["role"])
-  const message = errors.fields.role ?? errors.summary ?? undefined
-  const controlId = `role-${user.id}`
-  const errorId = `${controlId}-error`
-  const name = displayName(user) || user.email
-
-  const choose = (value: string) => {
-    const role = assignableRoles(caller).find((option) => option === value)
+  const choose = (next: string) => {
+    const role = assignableRoles(caller).find((option) => option === next)
     if (!role || role === user.role) return
     const demotesSelf = user.id === caller.id && ROLE_RANK[role] < ROLE_RANK[caller.role]
     const loss =
@@ -97,43 +91,30 @@ function RoleControl({
         ? "You will lose superadmin access and see only your own campus."
         : "You will lose access to this page and to moderation."
     if (demotesSelf && !window.confirm(`Make yourself ${withArticle(role)}? ${loss}`)) return
-    setRole.mutate(role)
+    onChoose(role)
   }
 
   return (
-    <div className="flex flex-col gap-1 sm:items-end">
-      <div className="flex items-center gap-2">
-        {setRole.isPending && (
-          <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
-        )}
-        <Select
-          value={setRole.isPending ? setRole.variables : user.role}
-          onValueChange={choose}
-          disabled={setRole.isPending}
-        >
-          <SelectTrigger
-            id={controlId}
-            className="w-44"
-            aria-label={`Role for ${name}`}
-            {...fieldErrorProps(errorId, message)}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {assignableRoles(caller).map((role) => (
-              <SelectItem key={role} value={role}>
-                {ROLE_LABELS[role]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {setRole.isPending && (
-        <p role="status" className="text-xs text-muted-foreground">
-          Saving…
-        </p>
+    <div className="flex items-center gap-2">
+      {pending && (
+        <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
       )}
-      <FieldError id={errorId} message={message} />
+      <Select value={value} onValueChange={choose} disabled={pending}>
+        <SelectTrigger
+          className="w-44"
+          aria-label={`Role for ${displayName(user) || user.email}`}
+          {...fieldErrorProps(errorId, message)}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {assignableRoles(caller).map((role) => (
+            <SelectItem key={role} value={role}>
+              {ROLE_LABELS[role]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -143,13 +124,29 @@ function UserRow({
   user,
   campus,
   onChanged,
+  onFailed,
 }: {
   caller: Caller
   user: UserDetails
   campus: string | null
   onChanged: (user: UserDetails) => void
+  /** The list may be out of date: someone else may have changed this user meanwhile. */
+  onFailed: () => void
 }) {
+  const setRole = useMutation({
+    mutationFn: async (role: Role) => {
+      const result = await api.setUserRole({ id: user.id, role })
+      if (result.success === false) throw serverError(result.errors)
+      return result.data
+    },
+    onSuccess: onChanged,
+    onError: onFailed,
+  })
+  const errors = formErrors(setRole.error, ["role"])
+  const message = errors.fields.role ?? errors.summary ?? undefined
+  const errorId = `role-${user.id}-error`
   const name = displayName(user)
+
   return (
     <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div className="min-w-0 space-y-1">
@@ -160,17 +157,37 @@ function UserRow({
         <p className="text-sm break-all text-muted-foreground">{user.email}</p>
         {campus && <p className="text-xs text-muted-foreground">{campus}</p>}
       </div>
-      {canChangeRole(caller, user) ? (
-        <RoleControl caller={caller} user={user} onChanged={onChanged} />
-      ) : (
-        <div className="flex flex-col gap-1 sm:items-end">
-          <Badge variant="outline" className="gap-1">
-            <ShieldCheck aria-hidden="true" />
-            {ROLE_LABELS[user.role]}
-          </Badge>
-          <p className="text-xs text-muted-foreground">Only a superadmin can change this role.</p>
-        </div>
-      )}
+      <div className="flex flex-col gap-1 sm:items-end">
+        {canChangeRole(caller, user) ? (
+          <RoleSelect
+            caller={caller}
+            user={user}
+            value={setRole.isPending ? setRole.variables : user.role}
+            pending={setRole.isPending}
+            errorId={errorId}
+            message={message}
+            onChoose={(role) => setRole.mutate(role)}
+          />
+        ) : (
+          <>
+            <Badge variant="outline" className="gap-1">
+              <ShieldCheck aria-hidden="true" />
+              {ROLE_LABELS[user.role]}
+            </Badge>
+            <p className="text-xs text-muted-foreground">Only a superadmin can change this role.</p>
+          </>
+        )}
+        <p role="status" className="flex items-center gap-1 text-xs text-muted-foreground">
+          {setRole.isPending && "Saving…"}
+          {setRole.isSuccess && (
+            <>
+              <Check className="size-3.5" aria-hidden="true" />
+              Saved: {name || user.email} is now {withArticle(setRole.data.role)}.
+            </>
+          )}
+        </p>
+        <FieldError id={errorId} message={message} />
+      </div>
     </li>
   )
 }
@@ -182,7 +199,6 @@ export default function UsersPage() {
   const client = useQueryClient()
   const [draft, setDraft] = useState("")
   const [search, setSearch] = useState("")
-  const [notice, setNotice] = useState("")
   const isOperator = user?.role === "admin" || user?.role === "superadmin"
   const isSuperadmin = user?.role === "superadmin"
 
@@ -218,9 +234,12 @@ export default function UsersPage() {
   )
   const rows = useMemo(() => (users.data ?? []).filter(hasDetails).sort(byName), [users.data])
 
+  const refresh = () => void client.invalidateQueries({ queryKey: ["users"] })
   const changed = (updated: UserDetails) => {
-    setNotice(`${displayName(updated) || updated.email} is now ${withArticle(updated.role)}.`)
-    void client.invalidateQueries({ queryKey: ["users"] })
+    client.setQueriesData<ReadonlyArray<UserDto>>({ queryKey: ["users"] }, (cached) =>
+      cached?.map((row) => (row.id === updated.id ? updated : row)),
+    )
+    refresh()
     if (updated.id === user?.id) refetchMe()
   }
 
@@ -280,6 +299,7 @@ export default function UsersPage() {
               user={row}
               campus={campusOf(row)}
               onChanged={changed}
+              onFailed={refresh}
             />
           ))}
         </ul>
@@ -319,11 +339,6 @@ export default function UsersPage() {
           onChange={(event) => setDraft(event.target.value)}
         />
       </form>
-      {notice && (
-        <p role="status" className="rounded-xl bg-muted p-3">
-          {notice}
-        </p>
-      )}
       <section className="space-y-3" aria-label="People">
         {renderList()}
       </section>
