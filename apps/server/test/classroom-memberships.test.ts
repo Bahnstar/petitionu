@@ -554,22 +554,29 @@ describe("membership eligibility", () => {
   })
 
   /**
-   * Seeds two pending requests and an active student, then checks that what `actor` is told
-   * about each matches what the write does: approve one request, decline the other, promote
-   * the student, then remove them. A membership off the actor's roster must be not found.
+   * Seeds two pending requests and an active student for `subjects`, then checks that what
+   * `actor` is told about each matches what the write does: approve one request, decline the
+   * other, promote the student, then remove them. A membership off the actor's roster must be
+   * not found. The subjects' memberships are replaced first, so one set of subjects serves
+   * every actor: the writes change memberships, never the users.
    */
   const agrees = (
     app: TestApp,
     actor: TestUser,
     classroomId: string,
+    subjects: readonly [TestUser, TestUser, TestUser],
     expected: { readonly manages: boolean; readonly changesRoles: boolean },
     archived: boolean,
   ) =>
     Effect.gen(function* () {
-      const [a, b, c] = yield* Effect.all(Array.from({ length: 3 }, () => createStudent(app)))
-      const toApprove = yield* seedMembership(app, classroomId, a!.id, "pending")
-      const toDecline = yield* seedMembership(app, classroomId, b!.id, "pending")
-      const active = yield* seedMembership(app, classroomId, c!.id, "active")
+      const [a, b, c] = subjects
+      yield* app.sql`
+        DELETE FROM classroom_memberships
+        WHERE classroom_id = ${classroomId} AND user_id IN (${a.id}, ${b.id}, ${c.id})
+      `.pipe(Effect.orDie)
+      const toApprove = yield* seedMembership(app, classroomId, a.id, "pending")
+      const toDecline = yield* seedMembership(app, classroomId, b.id, "pending")
+      const active = yield* seedMembership(app, classroomId, c.id, "active")
 
       const writes = [
         [
@@ -617,48 +624,62 @@ describe("membership eligibility", () => {
       }
     })
 
-  it.live("roster eligibility agrees with the writes for every actor, archived or not", () =>
-    Effect.gen(function* () {
-      const { app, professor, student, classroom } = yield* setup
-      const [activeTa, pendingTa, removedTa, outsider] = yield* Effect.all(
-        Array.from({ length: 4 }, () => createStudent(app)),
-      )
-      yield* seedMembership(app, classroom.id, activeTa!.id, "active", "ta")
-      const pendingTaRow = yield* seedMembership(app, classroom.id, pendingTa!.id, "pending", "ta")
-      const removedTaRow = yield* seedMembership(app, classroom.id, removedTa!.id, "removed", "ta")
-      const studentRow = yield* seedMembership(app, classroom.id, student.id, "active")
-
-      const actors = [
-        [professor, { manages: true, changesRoles: true }],
-        [activeTa!, { manages: true, changesRoles: false }],
-        [pendingTa!, { manages: false, changesRoles: false }],
-        [removedTa!, { manages: false, changesRoles: false }],
-        [student, { manages: false, changesRoles: false }],
-        [outsider!, { manages: false, changesRoles: false }],
-      ] as const
-
-      for (const archived of [false, true]) {
+  // One case per archived state, so each has its own time budget. Every sign-up costs a
+  // password hash, so the users are created once per case, concurrently.
+  it.live.each([false, true])(
+    "roster eligibility agrees with the writes for every actor (archived: %s)",
+    (archived) =>
+      Effect.gen(function* () {
+        const { app, professor, student, classroom } = yield* setup
+        const [activeTa, pendingTa, removedTa, outsider, a, b, c] = yield* Effect.all(
+          Array.from({ length: 7 }, () => createStudent(app)),
+          { concurrency: "unbounded" },
+        )
+        yield* seedMembership(app, classroom.id, activeTa!.id, "active", "ta")
+        const pendingTaRow = yield* seedMembership(
+          app,
+          classroom.id,
+          pendingTa!.id,
+          "pending",
+          "ta",
+        )
+        const removedTaRow = yield* seedMembership(
+          app,
+          classroom.id,
+          removedTa!.id,
+          "removed",
+          "ta",
+        )
+        const studentRow = yield* seedMembership(app, classroom.id, student.id, "active")
         yield* setClassroomArchived(app, classroom.id, archived)
-        for (const [actor, expected] of actors) {
-          yield* agrees(app, actor, classroom.id, expected, archived)
-        }
-      }
 
-      // Each actor's own membership: only an active student may leave it.
-      const none = {
-        canApprove: false,
-        canRemove: false,
-        canChangeRole: false,
-      }
-      for (const [user, row, expected] of [
-        [pendingTa!, pendingTaRow, none],
-        [removedTa!, removedTaRow, none],
-        [student, studentRow, { ...none, canRemove: true }],
-      ] as const) {
-        const own = yield* rosterEntry(user, classroom.id, row)
-        assert.deepStrictEqual(eligibility(own!), expected)
-      }
-    }),
+        const actors = [
+          [professor, { manages: true, changesRoles: true }],
+          [activeTa!, { manages: true, changesRoles: false }],
+          [pendingTa!, { manages: false, changesRoles: false }],
+          [removedTa!, { manages: false, changesRoles: false }],
+          [student, { manages: false, changesRoles: false }],
+          [outsider!, { manages: false, changesRoles: false }],
+        ] as const
+        for (const [actor, expected] of actors) {
+          yield* agrees(app, actor, classroom.id, [a!, b!, c!], expected, archived)
+        }
+
+        // Each actor's own membership: only an active student may leave it.
+        const none = {
+          canApprove: false,
+          canRemove: false,
+          canChangeRole: false,
+        }
+        for (const [user, row, expected] of [
+          [pendingTa!, pendingTaRow, none],
+          [removedTa!, removedTaRow, none],
+          [student, studentRow, { ...none, canRemove: true }],
+        ] as const) {
+          const own = yield* rosterEntry(user, classroom.id, row)
+          assert.deepStrictEqual(eligibility(own!), expected)
+        }
+      }),
   )
 
   it.live("only active members change role, and a removed membership can't be removed again", () =>
