@@ -1,9 +1,21 @@
 name: CI
+# Every pull request runs CI, docs-only ones included: Herdr waits for a pull request's checks
+# before showing its task as Ready, so a pull request with no checks would wait forever.
+# `pull_request` (not `pull_request_target`) gives fork pull requests no secrets and a
+# read-only token.
 on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
   workflow_dispatch:
+# One group per branch or pull request (`github.ref` is refs/pull/N/merge for a pull request).
+# A new push cancels the older run of the same pull request or branch, but master runs are never
+# cancelled mid-way, so every commit that lands on master finishes its checks; while one runs,
+# only the newest waiting master run is kept.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 permissions:
   contents: read
 jobs:
