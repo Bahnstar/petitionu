@@ -85,10 +85,14 @@ export type MembershipDto = typeof MembershipDto.Type
 const ById = { id: Uuid }
 const ByClassroom = { classroomId: Uuid }
 
-/** Up to 255 characters once trimmed. */
-const ClassroomName = Note({ maxLength: 255, required: "is required" })
-/** Optional, up to 2000 characters once trimmed. */
-const ClassroomDescription = OptionalNote(2000)
+/** The most characters a classroom's name may have once trimmed. */
+export const classroomNameMaxLength = 255
+/** The most characters a classroom's description may have once trimmed. */
+export const classroomDescriptionMaxLength = 2000
+
+const ClassroomName = Note({ maxLength: classroomNameMaxLength, required: "is required" })
+/** Optional. */
+const ClassroomDescription = OptionalNote(classroomDescriptionMaxLength)
 
 const ClassroomInput = {
   name: ClassroomName,
