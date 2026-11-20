@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { HomePage } from "./pages/home-page"
 import PetitionIndexPage from "./pages/petition-index-page"
 import ModerationPage from "./pages/moderation-page"
+import UsersPage from "./pages/users-page"
 import SupportPage from "./pages/support-page"
 import PrivacyPage from "./pages/privacy-page"
 import CommunityRulesPage from "./pages/community-rules-page"
@@ -72,6 +73,7 @@ export const App = () => {
                         element={<ClassroomDetailPage />}
                       />
                       <Route path={`${defaultPath}/moderation`} element={<ModerationPage />} />
+                      <Route path={`${defaultPath}/users`} element={<UsersPage />} />
                       <Route path={`${defaultPath}/support`} element={<SupportPage />} />
                       <Route path={`${defaultPath}/privacy`} element={<PrivacyPage />} />
                       <Route

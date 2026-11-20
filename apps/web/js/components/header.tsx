@@ -42,8 +42,10 @@ export function Header({ landing = false }: { landing?: boolean }) {
   } else if (isAuthenticated) {
     navItems.push({ label: "Classrooms", to: ROUTES.classrooms })
     navItems.push({ label: "Your profile", to: ROUTES.profile })
-    if (user?.role === "admin" || user?.role === "superadmin")
+    if (user?.role === "admin" || user?.role === "superadmin") {
       navItems.push({ label: "Moderation", to: ROUTES.moderation })
+      navItems.push({ label: "People", to: ROUTES.users })
+    }
   }
 
   const navigation = navItems.map((item) =>

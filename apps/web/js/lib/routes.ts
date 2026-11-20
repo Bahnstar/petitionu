@@ -10,6 +10,7 @@ export const ROUTES = {
   profile: `${DEFAULT_PATH}/profile`,
   support: `${DEFAULT_PATH}/support`,
   moderation: `${DEFAULT_PATH}/moderation`,
+  users: `${DEFAULT_PATH}/users`,
   privacy: `${DEFAULT_PATH}/privacy`,
   communityRules: `${DEFAULT_PATH}/community-rules`,
   dashboard: `${DEFAULT_PATH}/dashboard`,

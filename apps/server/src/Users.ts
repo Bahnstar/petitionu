@@ -108,13 +108,19 @@ export const UsersHandlers = UsersRpcs.toLayer(
         `,
       })(id)
 
-    const listUsers = (actor: Actor) =>
+    /** Whether the user's name or email contains `term`, ignoring case and LIKE wildcards. */
+    const matches = (term: string) => sql`
+      (strpos(lower(concat_ws(' ', u.first_name, u.last_name)), lower(${term})) > 0
+        OR strpos(lower(u.email::text), lower(${term})) > 0)
+    `
+
+    const listUsers = (actor: Actor, search: string) =>
       SqlSchema.findAll({
         Request: Schema.Void,
         Result: UserDetails,
         execute: () => sql`
           SELECT ${userColumns(sql)} FROM users u
-          WHERE ${visibleUsers(sql, actor, "u")}
+          WHERE ${visibleUsers(sql, actor, "u")} ${search ? sql`AND ${matches(search)}` : sql``}
           ORDER BY u.inserted_at, u.id LIMIT ${maxListRows}
         `,
       })(undefined)
@@ -156,10 +162,10 @@ export const UsersHandlers = UsersRpcs.toLayer(
           }
           return present(actor, user)
         }),
-      getUsers: () =>
+      getUsers: ({ search }) =>
         Effect.gen(function* () {
           const actor = yield* CurrentActor
-          const users = yield* listUsers(actor).pipe(Effect.orDie)
+          const users = yield* listUsers(actor, search?.trim() ?? "").pipe(Effect.orDie)
           return users.map((user) => present(actor, user))
         }),
       setUserRole: ({ id, role }) =>

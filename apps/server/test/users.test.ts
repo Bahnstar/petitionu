@@ -155,7 +155,7 @@ describe("getUsers", () => {
 
       const idsSeenBy = (browser: typeof guest) =>
         Effect.gen(function* () {
-          const result = yield* browser.rpc((api) => api.getUsers())
+          const result = yield* browser.rpc((api) => api.getUsers({}))
           if (!result.success) return assert.fail(JSON.stringify(result))
           return result.data.map((user) => user.id).toSorted()
         })
@@ -167,10 +167,47 @@ describe("getUsers", () => {
         yield* idsSeenBy(superadmin.browser),
         [student.id, admin.id, outsider.id, superadmin.id].toSorted(),
       )
-      const own = yield* student.browser.rpc((api) => api.getUsers())
+      const own = yield* student.browser.rpc((api) => api.getUsers({}))
       if (!own.success) return assert.fail(JSON.stringify(own))
       assert.deepInclude(own.data[0], { email: student.email, role: "student" })
       assert.notProperty(own.data[0], "numPetitions")
+    }),
+  )
+
+  it.live("searches names and emails within what the caller may see", () =>
+    Effect.gen(function* () {
+      const app = yield* makeTestApp()
+      const campus = yield* createOrganization(app)
+      const elsewhere = yield* createOrganization(app, { domain: "elsewhere.edu" })
+      const ada = yield* createUser(app, {
+        organizationId: campus.id,
+        firstName: "Ada",
+        lastName: "Lovelace",
+      })
+      const grace = yield* createUser(app, {
+        organizationId: campus.id,
+        firstName: "Grace",
+        lastName: "Hopper",
+      })
+      const admin = yield* createUser(app, { organizationId: campus.id, role: "admin" })
+      yield* createUser(app, {
+        organizationId: elsewhere.id,
+        firstName: "Ada",
+        lastName: "Elsewhere",
+      })
+
+      const found = (search: string) =>
+        Effect.gen(function* () {
+          const result = yield* admin.browser.rpc((api) => api.getUsers({ search }))
+          if (!result.success) return assert.fail(JSON.stringify(result))
+          return result.data.map((user) => user.id).toSorted()
+        })
+
+      assert.deepStrictEqual(yield* found("  ada LOVE "), [ada.id])
+      assert.deepStrictEqual(yield* found(grace.email.toUpperCase()), [grace.id])
+      assert.deepStrictEqual(yield* found("ada"), [ada.id])
+      assert.deepStrictEqual(yield* found("%"), [])
+      assert.lengthOf(yield* found("  "), 3)
     }),
   )
 })
